@@ -56,11 +56,11 @@ function logger_prototype:set_level(level)
     self.level = level
 end
 
-function logger_prototype:add_handler(handler_func, formatter_func, handler_config)
-    table.insert(self.handlers, {
-        handler_func = handler_func,
+function logger_prototype:add_output(output_func, formatter_func, output_config)
+    table.insert(self.outputs, {
+        output_func = output_func,
         formatter_func = formatter_func,
-        handler_config = handler_config or {}
+        output_config = output_config or {}
     })
 end
 
@@ -71,16 +71,16 @@ function logger_prototype:is_enabled_for(message_level_no)
     return message_level_no >= self.level
 end
 
-function logger_prototype:get_effective_handlers()
-    local effective_handlers = {}
+function logger_prototype:get_effective_outputs()
+    local effective_outputs = {}
     local current_logger = self
 
     while current_logger do
-        for _, handler_item in ipairs(current_logger.handlers or {}) do
-            table.insert(effective_handlers, {
-                handler_func = handler_item.handler_func,
-                formatter_func = handler_item.formatter_func,
-                handler_config = handler_item.handler_config,
+        for _, output_item in ipairs(current_logger.outputs or {}) do
+            table.insert(effective_outputs, {
+                output_func = output_item.output_func,
+                formatter_func = output_item.formatter_func,
+                output_config = output_item.output_config,
                 owner_logger_name = current_logger.name,
                 owner_logger_level = current_logger.level
             })
@@ -91,7 +91,7 @@ function logger_prototype:get_effective_handlers()
         end
         current_logger = current_logger.parent
     end
-    return effective_handlers
+    return effective_outputs
 end
 
 local M = {}
@@ -126,7 +126,7 @@ function M.get_logger(name)
 
     new_logger.name = logger_name
     new_logger.level = core_levels.definition.INFO -- Default level
-    new_logger.handlers = {}
+    new_logger.outputs = {}
     new_logger.propagate = true
     new_logger.parent = parent_logger
 

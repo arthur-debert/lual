@@ -170,93 +170,93 @@ describe("lual.core.logger_class", function()
         test_log_method("error", C_LEVELS_DEF.ERROR, "ERROR", C_LEVELS_DEF)
         test_log_method("critical", C_LEVELS_DEF.CRITICAL, "CRITICAL", C_LEVELS_DEF)
 
-        it("logger:add_handler(handler_func, formatter_func, handler_config) should add handler correctly", function()
-            local mock_handler_fn = function() end
+        it("logger:add_output(output_func, formatter_func, output_config) should add output correctly", function()
+            local mock_output_fn = function() end
             local mock_formatter_fn = function() end
             local mock_cfg = { type = "test" }
 
-            test_logger:add_handler(mock_handler_fn, mock_formatter_fn, mock_cfg)
-            assert.are.same(1, #test_logger.handlers)
-            local entry = test_logger.handlers[1]
-            assert.are.same(mock_handler_fn, entry.handler_func)
+            test_logger:add_output(mock_output_fn, mock_formatter_fn, mock_cfg)
+            assert.are.same(1, #test_logger.outputs)
+            local entry = test_logger.outputs[1]
+            assert.are.same(mock_output_fn, entry.output_func)
             assert.are.same(mock_formatter_fn, entry.formatter_func)
-            assert.are.same(mock_cfg, entry.handler_config)
+            assert.are.same(mock_cfg, entry.output_config)
 
-            test_logger:add_handler(mock_handler_fn, mock_formatter_fn, nil)
-            assert.are.same(2, #test_logger.handlers)
-            local entry_nil_config = test_logger.handlers[2]
-            assert.is_table(entry_nil_config.handler_config)
-            assert.are.same(0, #entry_nil_config.handler_config)
+            test_logger:add_output(mock_output_fn, mock_formatter_fn, nil)
+            assert.are.same(2, #test_logger.outputs)
+            local entry_nil_config = test_logger.outputs[2]
+            assert.is_table(entry_nil_config.output_config)
+            assert.are.same(0, #entry_nil_config.output_config)
         end)
 
-        describe("logger:get_effective_handlers()", function()
-            local test_cl_module_for_handlers
-            local test_clevels_module_for_handlers
+        describe("logger:get_effective_outputs()", function()
+            local test_cl_module_for_outputs
+            local test_clevels_module_for_outputs
             local logger_root, logger_p, logger_c
 
             before_each(function()
                 package.loaded["lual.core.logger_class"] = nil
                 package.loaded["lual.core.levels"] = nil
-                test_cl_module_for_handlers = require("lual.core.logger_class")
-                test_clevels_module_for_handlers = require("lual.core.levels")
-                test_cl_module_for_handlers.reset_cache()
+                test_cl_module_for_outputs = require("lual.core.logger_class")
+                test_clevels_module_for_outputs = require("lual.core.levels")
+                test_cl_module_for_outputs.reset_cache()
 
-                logger_root = test_cl_module_for_handlers.get_logger("eff_root")
-                logger_p = test_cl_module_for_handlers.get_logger("eff_root.p")
-                logger_c = test_cl_module_for_handlers.get_logger("eff_root.p.c")
+                logger_root = test_cl_module_for_outputs.get_logger("eff_root")
+                logger_p = test_cl_module_for_outputs.get_logger("eff_root.p")
+                logger_c = test_cl_module_for_outputs.get_logger("eff_root.p.c")
 
-                logger_root.handlers = {} -- Clear any default handlers on eff_root itself
-                logger_p.handlers = {}
-                logger_c.handlers = {}
+                logger_root.outputs = {} -- Clear any default outputs on eff_root itself
+                logger_p.outputs = {}
+                logger_c.outputs = {}
 
-                logger_root.level = test_clevels_module_for_handlers.definition.DEBUG
-                logger_p.level = test_clevels_module_for_handlers.definition.DEBUG
-                logger_c.level = test_clevels_module_for_handlers.definition.DEBUG
+                logger_root.level = test_clevels_module_for_outputs.definition.DEBUG
+                logger_p.level = test_clevels_module_for_outputs.definition.DEBUG
+                logger_c.level = test_clevels_module_for_outputs.definition.DEBUG
                 logger_root.propagate = true
                 logger_p.propagate = true
                 logger_c.propagate = true
 
-                -- Crucially, ensure the canonical "root" logger (parent of eff_root) also has clean handlers for this test
-                local canonical_root = test_cl_module_for_handlers.get_logger("root")
-                if canonical_root then canonical_root.handlers = {} end
+                -- Crucially, ensure the canonical "root" logger (parent of eff_root) also has clean outputs for this test
+                local canonical_root = test_cl_module_for_outputs.get_logger("root")
+                if canonical_root then canonical_root.outputs = {} end
             end)
 
             local mock_h_fn = function() end
             local mock_f_fn = function() end
 
-            it("should collect handlers from self and propagating parents (clean root)", function()
-                logger_c:add_handler(mock_h_fn, mock_f_fn, { id = "hc" })
-                logger_p:add_handler(mock_h_fn, mock_f_fn, { id = "hp" })
-                logger_root:add_handler(mock_h_fn, mock_f_fn, { id = "h_eff_root" })
+            it("should collect outputs from self and propagating parents (clean root)", function()
+                logger_c:add_output(mock_h_fn, mock_f_fn, { id = "hc" })
+                logger_p:add_output(mock_h_fn, mock_f_fn, { id = "hp" })
+                logger_root:add_output(mock_h_fn, mock_f_fn, { id = "h_eff_root" })
 
-                local c_handlers = logger_c:get_effective_handlers()
-                assert.are.same(3, #c_handlers)
-                assert.are.same("eff_root.p.c", c_handlers[1].owner_logger_name)
-                assert.are.same("eff_root.p", c_handlers[2].owner_logger_name)
-                assert.are.same("eff_root", c_handlers[3].owner_logger_name)
+                local c_outputs = logger_c:get_effective_outputs()
+                assert.are.same(3, #c_outputs)
+                assert.are.same("eff_root.p.c", c_outputs[1].owner_logger_name)
+                assert.are.same("eff_root.p", c_outputs[2].owner_logger_name)
+                assert.are.same("eff_root", c_outputs[3].owner_logger_name)
             end)
 
             it("should stop collecting if propagate is false on child", function()
-                logger_c:add_handler(mock_h_fn, mock_f_fn, { id = "hc" })
-                logger_p:add_handler(mock_h_fn, mock_f_fn, { id = "hp" })
-                logger_root:add_handler(mock_h_fn, mock_f_fn, { id = "h_eff_root" })
+                logger_c:add_output(mock_h_fn, mock_f_fn, { id = "hc" })
+                logger_p:add_output(mock_h_fn, mock_f_fn, { id = "hp" })
+                logger_root:add_output(mock_h_fn, mock_f_fn, { id = "h_eff_root" })
 
                 logger_c.propagate = false
-                local c_handlers = logger_c:get_effective_handlers()
-                assert.are.same(1, #c_handlers)
-                assert.are.same("eff_root.p.c", c_handlers[1].owner_logger_name)
+                local c_outputs = logger_c:get_effective_outputs()
+                assert.are.same(1, #c_outputs)
+                assert.are.same("eff_root.p.c", c_outputs[1].owner_logger_name)
             end)
 
             it("should stop collecting if propagate is false on parent", function()
-                logger_c:add_handler(mock_h_fn, mock_f_fn, { id = "hc" })
-                logger_p:add_handler(mock_h_fn, mock_f_fn, { id = "hp" })
-                logger_root:add_handler(mock_h_fn, mock_f_fn, { id = "h_eff_root" })
+                logger_c:add_output(mock_h_fn, mock_f_fn, { id = "hc" })
+                logger_p:add_output(mock_h_fn, mock_f_fn, { id = "hp" })
+                logger_root:add_output(mock_h_fn, mock_f_fn, { id = "h_eff_root" })
 
                 logger_p.propagate = false
-                local c_handlers = logger_c:get_effective_handlers()
-                assert.are.same(2, #c_handlers)
-                assert.are.same("eff_root.p.c", c_handlers[1].owner_logger_name)
-                assert.are.same("eff_root.p", c_handlers[2].owner_logger_name)
+                local c_outputs = logger_c:get_effective_outputs()
+                assert.are.same(2, #c_outputs)
+                assert.are.same("eff_root.p.c", c_outputs[1].owner_logger_name)
+                assert.are.same("eff_root.p", c_outputs[2].owner_logger_name)
             end)
         end)
     end)
