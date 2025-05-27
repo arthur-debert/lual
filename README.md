@@ -186,9 +186,6 @@ The `add_output` method for a logger instance takes:
 2.  `formatter_func`: e.g., `lualog.formatters.text`.
 3.  `output_config` (optional table).
 
-Global `lualog.add_output(logger_name, ...)` is also available but currently
-only works on exact logger names (pattern matching is a future enhancement).
-
 ### 6. Controlling Propagation
 
 ```lua
@@ -264,8 +261,8 @@ my_logger:info("This is a custom test.")
 - Dedicated `file_output` that takes a filepath in configuration and manages
   file rotation/opening/closing.
 - `color` for console output with ANSI color codes.
-- Pattern matching for global configuration functions like
-  `lualog.set_level("myapp.*", level)`.
+- Pattern matching for logger configuration (e.g., setting levels for multiple
+  loggers matching a pattern).
 - More sophisticated output types (e.g., network, syslog, rotating file).
 - Configuration from a table or file.
 

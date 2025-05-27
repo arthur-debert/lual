@@ -36,8 +36,7 @@ SEE IT IN  ACTION
         logger.debug("This is a debug message")
 
     --  lua 
-
-Lual aims to fill the gap between very minimal loggers and the full l4j ones.
+    Lual aims to fill the gap between very minimal loggers and the full l4j ones.
 
 
 EXAMPLE: HIERARCHICAL LOGGING FOR A WEB APPLICATION

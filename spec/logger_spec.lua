@@ -298,23 +298,6 @@ describe("lual.logger (Facade)", function()
 		lualog = require("lual.logger")
 	end)
 
-	describe("Global Convenience Functions (High-Level)", function()
-		it("log.info() should execute without error", function()
-			-- This is a smoke test. It doesn't check output, but ensures the call path works.
-			assert.is_true(pcall(function()
-				lualog.info("mytest", "Facade info test: %s", "message")
-			end))
-		end)
-
-		it("log.debug() should execute without error", function()
-			assert.is_true(pcall(function()
-				lualog.debug("mytest", "Facade debug test")
-			end))
-		end)
-
-		-- Add similar smoke tests for warn, error, critical if desired
-	end)
-
 	describe("log.init_default_config()", function()
 		it("should add one default output to the root logger", function()
 			local root_logger = lualog.get_logger("root")
@@ -352,26 +335,37 @@ describe("lual.logger (Facade)", function()
 		end)
 	end)
 
-	describe("log.set_level() facade", function()
-		it("should set level on a logger instance", function()
-			local test_setter_logger = lualog.get_logger("test_set_level_facade")
-			lualog.set_level("test_set_level_facade", lualog.levels.ERROR)
-			assert.are.same(lualog.levels.ERROR, test_setter_logger.level)
-			lualog.set_level("test_set_level_facade", "DEBUG")
-			assert.are.same(lualog.levels.DEBUG, test_setter_logger.level)
-		end)
-	end)
+	describe("Proper logger instance usage (non-facade)", function()
+		it("logger instance methods should work correctly", function()
+			local test_logger = lualog.get_logger("test_proper_usage")
 
-	describe("log.add_output() facade", function()
-		it("should add a output to a logger instance", function()
-			local test_addh_logger = lualog.get_logger("test_add_output_facade")
+			-- Test setting level directly on logger instance
+			test_logger:set_level(lualog.levels.ERROR)
+			assert.are.same(lualog.levels.ERROR, test_logger.level)
+			test_logger:set_level(lualog.levels.DEBUG)
+			assert.are.same(lualog.levels.DEBUG, test_logger.level)
+
+			-- Test adding output directly on logger instance
 			local mock_h = function() end
 			local mock_f = function() end
-			lualog.add_output("test_add_output_facade", mock_h, mock_f, { id = "test1" })
-			assert.are.same(1, #test_addh_logger.outputs)
-			if #test_addh_logger.outputs == 1 then
-				assert.are.same(mock_h, test_addh_logger.outputs[1].output_func)
+			test_logger:add_output(mock_h, mock_f, { id = "test1" })
+			assert.are.same(1, #test_logger.outputs)
+			if #test_logger.outputs == 1 then
+				assert.are.same(mock_h, test_logger.outputs[1].output_func)
 			end
+		end)
+
+		it("logger instance logging methods should execute without error", function()
+			local test_logger = lualog.get_logger("test_logging_methods")
+
+			-- Test that logging methods work on logger instances
+			assert.is_true(pcall(function()
+				test_logger:info("Instance info test: %s", "message")
+			end))
+
+			assert.is_true(pcall(function()
+				test_logger:debug("Instance debug test")
+			end))
 		end)
 	end)
 end)

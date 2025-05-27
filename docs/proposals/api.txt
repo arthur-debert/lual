@@ -10,7 +10,7 @@ Status
 Preparation: 
     - [x] rename : remove lual.output.file_output (should just become file) for
         outputs and formatters too
-    - [ ] remove the facades, .add_outpout should not receive names or levels
+    - [x] remove the facades, .add_output should not receive names or levels
 Implementation: 
     - [ ] Phase I alter the current implementation to generate a dict and use that, both on
         new loggers and in updates to existing loggers with the the add* , set*
@@ -36,7 +36,7 @@ Implementation:
             )
             
             -- Add file output
-            local file_output = require("lual.outputs.file_output")
+            local file_output = require("lual.outputs.file")
             logger:add_output(
                 file_output({ path = "app.log" }),
                 lualog.formatters.plain
@@ -48,9 +48,6 @@ Implementation:
                 lualog.formatters.color,
                 { stream = io.stderr }
             )
-            
-            -- Or using the facade function
-            lualog.add_output("app.database", lualog.outputs.console_output, lualog.formatters.text)
 
 
 2. Declarative:  - FUTURE REALEASE
