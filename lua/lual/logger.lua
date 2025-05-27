@@ -19,6 +19,17 @@ log.levels = core_levels.definition
 log.get_logger = engine.get_logger
 log.outputs = all_outputs       -- Assign the outputs table
 log.formatters = all_formatters -- Assign the formatters table
+log.logger = engine.logger      -- Add the declarative API
+
+-- Add LEVELS mapping for external validation and use
+log.LEVELS = {
+  debug = core_levels.definition.DEBUG,
+  info = core_levels.definition.INFO,
+  warning = core_levels.definition.WARNING,
+  error = core_levels.definition.ERROR,
+  critical = core_levels.definition.CRITICAL,
+  none = core_levels.definition.NONE
+}
 
 -- Removed _loggers_cache and the entire log.get_logger function body
 -- as well as the new_logger table definition and its methods.

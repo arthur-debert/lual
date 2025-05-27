@@ -12,11 +12,10 @@ Preparation:
         outputs and formatters too
     - [x] remove the facades, .add_output should not receive names or levels
 Implementation: 
-    - [ ] Phase I alter the current implementation to generate a dict and use that, both on
+    - [x] Phase I alter the current implementation to generate a dict and use that, both on
         new loggers and in updates to existing loggers with the the add* , set*
         functions, see SINGLE CONFIG TABLE ARCHITECTURE below
-    - [ ] Phase II add support for the declarative api, creating a logger from a table with
-        out config format (just add checking / validation)
+    - [x] Phase II add support for the declarative api, creating a logger from a table with out config format (just add checking / validation) (see DECLARATIVE API below)
     - [ ] Phase III add support for the smart api 
 
 1. Imperative: 
@@ -50,7 +49,7 @@ Implementation:
             )
 
 
-2. Declarative:  - FUTURE REALEASE
+2. Declarative:
 
     A single call to the logger object, with a config table. 
 
@@ -75,7 +74,7 @@ Implementation:
 
         local lualog = require("lualog")
         # this  is a simple case, where there is a 101 releatioship between outputs and formatters, and only one output
-        local logger = lualog.logger({output: "stream", level:"debug", formatter: "color"})
+        local logger = lualog.logger({output: "console", level:"debug", formatter: "color"})
         # for a more complex case, one could do 
         local logger = lualog.logger({
             name = "app.db",
@@ -87,9 +86,6 @@ Implementation:
         })
 
     -- lua
-
-API SUGGESTIONS:
-
 
 
 IMPLEMENTATION DESIGN:
@@ -114,3 +110,23 @@ Benefits:
 - New config options work across all APIs automatically
 - Immutable config state (safer, more predictable)
 - Clean separation of concerns
+
+
+DECLARATIVE API:
+
+After the work on the single config table architecture, we can add a declarative api. It should be straight forward, but it has two things to consider:
+
+1. The user ins't required to use a full config table, a partial one can be used. 
+
+    This means that we need to merge the config table with the default config table, with the user's config taking precedence.
+
+2. Validation: 
+
+    We should validate , at least a few things: 
+
+    - Extraneous keys: While it would not cause an error, if the user sends keys that are not in the config table, it should raise an error so the user can fix it. Otherwise the user will expect some configuration to work when it doesn't 
+
+   - Wrong values/types: 
+       levels must be from a predefined set of values
+       outputers, formatters must be functions, names must be strings, propagate must be a boolean. 
+       it would be great to validate that output and formatters have the right signature, but that is a bit more complex, so we can let errors blow up at runtime.
