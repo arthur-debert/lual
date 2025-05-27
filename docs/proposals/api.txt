@@ -1,6 +1,23 @@
 API 
 
-lual allows log configuration in various ways. 
+This document overseas the construction of the final api. 
+
+Status
+
+
+
+
+Preparation: 
+    - [ ] rename : remove lual.output.file_output (should just become file) for
+        outputs and formatters too
+    - [ ] remove the facades, .add_outpout should not receive names or levels
+Implementation: 
+    - [ ] Phase I alter the current implementation to generate a dict and use that, both on
+        new loggers and in updates to existing loggers with the the add* , set*
+        functions
+    - [ ] Phase II add support for the declarative api, creating a logger from a table with
+        out config format (just add checking / validation)
+    - [ ] Phase III add support for the smart api 
 
 1. Imperative: 
 
@@ -13,8 +30,8 @@ lual allows log configuration in various ways.
             logger:set_level("debug")
 
             logger:add_output(
-                lualog.outputs.console_output,
-                lualog.formatters.plain_formatter,
+                lualog.outputs.console,
+                lualog.formatters.plain,
                 { stream = io.stdout }  -- optional config
             )
             
@@ -22,13 +39,13 @@ lual allows log configuration in various ways.
             local file_output = require("lual.outputs.file_output")
             logger:add_output(
                 file_output({ path = "app.log" }),
-                lualog.formatters.plain_formatter
+                lualog.formatters.plain
             )
             
             -- Add colored console output
             logger:add_output(
-                lualog.outputs.console_output,
-                lualog.formatters.color_formatter,
+                lualog.outputs.console,
+                lualog.formatters.color,
                 { stream = io.stderr }
             )
             
@@ -44,7 +61,7 @@ lual allows log configuration in various ways.
 
                 local  logger = require("lualog").logger({
                     name = "app.database",
-                    level = "debug",
+                     level = "debug",
                     outputs = {
                         {type = "console", formatter = "color"},
                         {type = "file", path = "app.log", formatter = "plain"}
@@ -53,15 +70,15 @@ lual allows log configuration in various ways.
 
             -- lua
 
-3. Api:  FUTURE RELEASE
+3. Smart Api:  FUTURE RELEASE
 
 
     -- the initial get logger can customize the logger.
         It also offers a flexible and terse api for setting these up: 
 
         local lualog = require("lualog")
-        # this  is a simple case, where there is a 101 releatioship between outputs and formatters, and only one ouput
-        local logger = lualog.logger({output: "streaam", level:"debug", formatter: "color"})
+        # this  is a simple case, where there is a 101 releatioship between outputs and formatters, and only one output
+        local logger = lualog.logger({output: "stream", level:"debug", formatter: "color"})
         # for a more complex case, one could do 
         local logger = lualog.logger({
             name = "app.db",
@@ -73,3 +90,30 @@ lual allows log configuration in various ways.
         })
 
     -- lua
+
+API SUGGESTIONS:
+
+
+
+IMPLEMENTATION DESIGN:
+
+Single Config Table Architecture:
+
+All loggers are internally created from a canonical config table. This provides:
+- Single source of truth for logger configuration
+- Consistency between imperative and declarative APIs  
+- Easier testing and maintenance
+
+Core approach:
+1. Define canonical config schema
+2. All logger creation goes through create_logger_from_config(config)
+3. Imperative methods become config transformations:
+   - Get current config -> clone -> modify -> recreate logger
+4. Declarative APIs normalize input to canonical config
+5. Performance cost negligible (config changes are rare)
+
+Benefits:
+- No configuration logic duplication
+- New config options work across all APIs automatically
+- Immutable config state (safer, more predictable)
+- Clean separation of concerns
