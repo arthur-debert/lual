@@ -51,7 +51,7 @@ describe("ingest.dispatch_log_event", function()
   end
 
   local function mock_formatter_func(base_record)
-    table.insert(formatter_calls, base_record)
+    table.insert(formatter_calls, { params = base_record })
     return string.format("Formatted: %s", base_record.message)
   end
 
@@ -68,7 +68,7 @@ describe("ingest.dispatch_log_event", function()
   end
 
   local function mock_handler_func(record, config)
-    table.insert(handler_calls, { record = record, config = config })
+    table.insert(handler_calls, { params = record, config = config })
   end
 
   local function mock_erroring_handler_func(record, config)
@@ -84,7 +84,7 @@ describe("ingest.dispatch_log_event", function()
   end
 
   local function mock_handler_func_ok(record, config)
-    table.insert(handler_calls_ok, { record = record, config = config })
+    table.insert(handler_calls_ok, { params = record, config = config }) -- Adjusted for consistency, though not strictly required by subtask
   end
 
   local function get_handler_calls_ok()
@@ -163,7 +163,19 @@ describe("ingest.dispatch_log_event", function()
       source_logger_name = "main_logger"
     }
 
+    print("Event Level No: " .. tostring(event_details.message_level_no))
+    print("Event Source Logger: " .. tostring(event_details.source_logger_name))
+    local logger = _G.log.get_logger_internal("main_logger")
+    print("Logger Name: " .. tostring(logger.name))
+    print("Logger Level: " .. tostring(logger.level))
+    print("Logger Handlers Count: " .. tostring(#logger.handlers))
+    if #logger.handlers > 0 then print("Formatter func is mock_formatter_func: " .. tostring(logger.handlers[1].formatter_func == mock_formatter_func)) end
+    if #logger.handlers > 0 then print("Handler func is mock_handler_func: " .. tostring(logger.handlers[1].handler_func == mock_handler_func)) end
+
     _G.log.dispatch_log_event(event_details)
+
+    print("#formatter_calls after dispatch: " .. tostring(#get_formatter_calls()))
+    print("#handler_calls after dispatch: " .. tostring(#get_handler_calls()))
 
     local formatter_calls_list = get_formatter_calls()
     assert.are.same(1, #formatter_calls_list)
@@ -181,21 +193,22 @@ describe("ingest.dispatch_log_event", function()
     local handler_calls_list = get_handler_calls()
     assert.are.same(1, #handler_calls_list)
     if #handler_calls_list > 0 then
-      local hc = handler_calls_list[1]
-      assert.are.same("INFO", hc.params.level_name)
-      assert.are.same("main_logger", hc.params.logger_name)
+      local hc_params = handler_calls_list[1].params
+      local hc_config = handler_calls_list[1].config
+      assert.are.same("INFO", hc_params.level_name)
+      assert.are.same("main_logger", hc_params.logger_name)
       -- Expected message is based on mock_formatter_func's behavior
       -- The mock_formatter_func creates a message like "Formatted: %s" where %s is base_record.message
       -- The base_record.message is string.format(event_details.message_fmt, unpack(event_details.args))
       local expected_formatted_message = string.format("Formatted: %s", string.format(event_details.message_fmt, unpack(event_details.args)))
-      assert.are.same(expected_formatted_message, hc.params.message)
-      assert.are.same(1678886400, hc.params.timestamp)
-      assert.are.same("app.lua", hc.params.filename)
-      assert.are.same(42, hc.params.lineno)
-      assert.are.same("Event: %s occurred", hc.params.raw_message_fmt)
-      assert.are.same("login", hc.params.raw_args[1])
-      assert.are.same("main_logger", hc.params.source_logger_name)
-      assert.are.same("mock_output", hc.config.dest)
+      assert.are.same(expected_formatted_message, hc_params.message)
+      assert.are.same(1678886400, hc_params.timestamp)
+      assert.are.same("app.lua", hc_params.filename)
+      assert.are.same(42, hc_params.lineno)
+      assert.are.same("Event: %s occurred", hc_params.raw_message_fmt)
+      assert.are.same("login", hc_params.raw_args[1])
+      assert.are.same("main_logger", hc_params.source_logger_name)
+      assert.are.same("mock_output", hc_config.dest)
     end
 
     assert.are.same(0, #get_stderr_messages())
@@ -462,14 +475,26 @@ describe("ingest.dispatch_log_event", function()
 
     local hc_list = get_handler_calls()
     assert.are.same(1, #hc_list)
+
     if #hc_list > 0 then
-      local hc_params = hc_list[1].record
-      assert.is_true(string.find(hc_params.message, "FORMATTER ERROR", 1, true) ~= nil)
-      assert.is_true(string.find(hc_params.message, event_details.message_level_name, 1, true) ~= nil)
-      assert.is_true(string.find(hc_params.message, event_details.filename, 1, true) ~= nil)
-      assert.is_true(string.find(hc_params.message, tostring(event_details.lineno), 1, true) ~= nil)
-      assert.is_true(string.find(hc_params.message, "original message arg1", 1, true) ~= nil) -- Fallback includes raw formatted message
-      assert.is_true(string.find(hc_params.message, event_details.source_logger_name, 1, true) ~= nil)
+      local hc_params_data = hc_list[1].params
+      local raw_message_to_check = string.format(event_details.message_fmt, unpack(event_details.args or {}))
+
+      local texts_to_find = {
+        "FORMATTER ERROR",
+        event_details.message_level_name,
+        event_details.filename,
+        tostring(event_details.lineno),
+        raw_message_to_check,
+        event_details.source_logger_name
+      }
+
+      for i, text_to_find in ipairs(texts_to_find) do
+        local find_attempt_val = string.find(hc_params_data.message, text_to_find, 1, true)
+        local expression_result = (find_attempt_val ~= nil)
+        assert.are.same(true, expression_result)
+      end
+      
       assert.are.same("h_after_fmt_err", hc_list[1].config.id)
     end
 
@@ -541,7 +566,7 @@ describe("ingest.dispatch_log_event", function()
     if #hc_ok_list > 0 then
       assert.are.same("ok_handler", hc_ok_list[1].config.id)
       local expected_message = string.format("Formatted: %s", string.format(event_details.message_fmt, unpack(event_details.args)))
-      assert.are.same(expected_message, hc_ok_list[1].record.message)
+      assert.are.same(expected_message, hc_ok_list[1].params.message)
     end
 
     local stderr_list = get_stderr_messages()
@@ -587,10 +612,10 @@ describe("ingest.dispatch_log_event", function()
     local hc_ok_list = get_handler_calls_ok()
     assert.are.same(1, #hc_ok_list) -- Parent's OK handler should be called
     if #hc_ok_list > 0 then
-      assert.are.same("parent_logger_prop", hc_ok_list[1].record.logger_name)
+      assert.are.same("parent_logger_prop", hc_ok_list[1].params.logger_name)
       assert.are.same("parent_ok_h", hc_ok_list[1].config.id)
       local expected_message = string.format("Formatted: %s", string.format(event_details.message_fmt, unpack(event_details.args)))
-      assert.are.same(expected_message, hc_ok_list[1].record.message)
+      assert.are.same(expected_message, hc_ok_list[1].params.message)
     end
 
     local stderr_list = get_stderr_messages()
@@ -626,35 +651,35 @@ describe("ingest.dispatch_log_event", function()
     local formatter_calls_list = get_formatter_calls()
     assert.are.same(1, #formatter_calls_list)
     if #formatter_calls_list > 0 then
-      local formatter_input = formatter_calls_list[1].params
-      assert.are.equal(event_details.message_level_name, formatter_input.level_name)
-      assert.are.equal(event_details.message_level_no, formatter_input.level_no)
-      assert.are.equal("passthrough_logger", formatter_input.logger_name) -- Logger processing it
-      assert.are.equal(event_details.message_fmt, formatter_input.message_fmt)
-      assert.are.same(event_details.args, formatter_input.args)
-      assert.are.equal(event_details.timestamp, formatter_input.timestamp)
-      assert.are.equal(event_details.filename, formatter_input.filename)
-      assert.are.equal(event_details.lineno, formatter_input.lineno)
-      -- source_logger_name is not directly part of formatter_input.params, it's part of the base_record
-      assert.are.equal(event_details.source_logger_name, formatter_calls_list[1].source_logger_name)
+      local formatter_params = formatter_calls_list[1].params
+      assert.are.equal(event_details.message_level_name, formatter_params.level_name)
+      assert.are.equal(event_details.message_level_no, formatter_params.level_no)
+      assert.are.equal("passthrough_logger", formatter_params.logger_name) -- Logger processing it
+      assert.are.equal(event_details.message_fmt, formatter_params.message_fmt)
+      assert.are.same(event_details.args, formatter_params.args)
+      assert.are.equal(event_details.timestamp, formatter_params.timestamp)
+      assert.are.equal(event_details.filename, formatter_params.filename)
+      assert.are.equal(event_details.lineno, formatter_params.lineno)
+      -- source_logger_name is part of the base_record which is now formatter_calls_list[1].params
+      assert.are.equal(event_details.source_logger_name, formatter_params.source_logger_name) -- This line was already correct in the read_files output for turn 13.
     end
 
     local handler_calls_list = get_handler_calls()
     assert.are.same(1, #handler_calls_list)
     if #handler_calls_list > 0 then
-      local handler_input_record = handler_calls_list[1].record -- The record is passed as 'record' field
-      assert.are.equal(event_details.message_level_name, handler_input_record.level_name)
-      assert.are.equal(event_details.message_level_no, handler_input_record.level_no)
-      assert.are.equal("passthrough_logger", handler_input_record.logger_name)
-      assert.is_string(handler_input_record.message) -- Actual content checked by mock_formatter_func behavior
+      local handler_input_params = handler_calls_list[1].params
+      assert.are.equal(event_details.message_level_name, handler_input_params.level_name)
+      assert.are.equal(event_details.message_level_no, handler_input_params.level_no)
+      assert.are.equal("passthrough_logger", handler_input_params.logger_name)
+      assert.is_string(handler_input_params.message) -- Actual content checked by mock_formatter_func behavior
       local expected_formatted_message = string.format("Formatted: %s", string.format(event_details.message_fmt, unpack(event_details.args)))
-      assert.are.equal(expected_formatted_message, handler_input_record.message)
-      assert.are.equal(event_details.timestamp, handler_input_record.timestamp)
-      assert.are.equal(event_details.filename, handler_input_record.filename)
-      assert.are.equal(event_details.lineno, handler_input_record.lineno)
-      assert.are.equal(event_details.message_fmt, handler_input_record.raw_message_fmt)
-      assert.are.same(event_details.args, handler_input_record.raw_args)
-      assert.are.equal(event_details.source_logger_name, handler_input_record.source_logger_name)
+      assert.are.equal(expected_formatted_message, handler_input_params.message)
+      assert.are.equal(event_details.timestamp, handler_input_params.timestamp)
+      assert.are.equal(event_details.filename, handler_input_params.filename)
+      assert.are.equal(event_details.lineno, handler_input_params.lineno)
+      assert.are.equal(event_details.message_fmt, handler_input_params.raw_message_fmt)
+      assert.are.same(event_details.args, handler_input_params.raw_args)
+      assert.are.equal(event_details.source_logger_name, handler_input_params.source_logger_name)
       assert.are.same("passthrough_h", handler_calls_list[1].config.id)
     end
 
