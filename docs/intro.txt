@@ -16,6 +16,9 @@ It supports Lua5.1+ and LuaJIT, has a decent test coverage and hopefully will
 make your lifer fuller (of letters, at least).
 
 
+
+INSTALLATION
+
     -- Lual is available as a LuaRocks module, so you can install it with:
 
         luarocks install lual
@@ -23,8 +26,7 @@ make your lifer fuller (of letters, at least).
     -- shell
 
 
-
-
+SEE IT IN  ACTION
 
     --  A very minimal example: 
 
@@ -38,4 +40,4 @@ make your lifer fuller (of letters, at least).
 Lual aims to fill the gap between very minimal loggers and the full l4j ones. 
 
 
-Let me know how it works for your. 
+Let me know how it works for your.

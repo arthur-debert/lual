@@ -1,4 +1,4 @@
-package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua"
+package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 local unpack = unpack or table.unpack
 local lualog = require("lual.logger")
 local ingest = require("lual.ingest")
@@ -276,6 +276,94 @@ describe("lualog Logger Object", function()
         assert.are.same("eff_root.p.c", c_handlers[1].owner_logger_name)
         assert.are.same("eff_root.p", c_handlers[2].owner_logger_name)
       end)
+    end)
+  end)
+end)
+
+describe("lual.logger (Facade)", function()
+  before_each(function()
+    -- Ensure a clean state for lualog and its components for each facade test
+    package.loaded["lual.logger"] = nil
+    package.loaded["lual.core.logger_class"] = nil
+    package.loaded["lual.core.levels"] = nil
+    package.loaded["lual.handlers.init"] = nil
+    package.loaded["lual.formatters.init"] = nil
+    package.loaded["lual.ingest"] = nil
+
+    -- Re-require lualog to get a fresh instance with fresh dependencies
+    lualog = require("lual.logger")
+  end)
+
+  describe("Global Convenience Functions (High-Level)", function()
+    it("log.info() should execute without error", function()
+      -- This is a smoke test. It doesn't check output, but ensures the call path works.
+      assert.is_true(pcall(function() lualog.info("mytest", "Facade info test: %s", "message") end))
+    end)
+
+    it("log.debug() should execute without error", function()
+      assert.is_true(pcall(function() lualog.debug("mytest", "Facade debug test") end))
+    end)
+
+    -- Add similar smoke tests for warn, error, critical if desired
+  end)
+
+  describe("log.init_default_config()", function()
+    it("should add one default handler to the root logger", function()
+      local root_logger = lualog.get_logger("root")
+      assert.is_not_nil(root_logger)
+      assert.are.same(1, #root_logger.handlers, "Root logger should have 1 handler after init.")
+      if #root_logger.handlers == 1 then
+        local handler_entry = root_logger.handlers[1]
+        assert.is_function(handler_entry.handler_func)
+        assert.is_function(handler_entry.formatter_func)
+      end
+    end)
+
+    it("calling init_default_config multiple times should still result in one default handler", function()
+      lualog.init_default_config() -- Call again
+      lualog.init_default_config() -- Call yet again
+
+      local root_logger = lualog.get_logger("root")
+      assert.are.same(1, #root_logger.handlers, "Root logger should still have 1 handler after multiple inits.")
+    end)
+  end)
+
+  describe("log.reset_config()", function()
+    it("should clear logger cache and re-initialize default config", function()
+      local logger1 = lualog.get_logger("testcache.reset")
+      logger1:set_level(lualog.levels.DEBUG)
+
+      lualog.reset_config()
+
+      local logger2 = lualog.get_logger("testcache.reset")
+      assert.are_not_same(logger1, logger2, "Logger instance should be new after reset.")
+      assert.are.same(lualog.levels.INFO, logger2.level, "Logger level should be default INFO after reset.")
+
+      local root_logger = lualog.get_logger("root")
+      assert.are.same(1, #root_logger.handlers, "Root logger should have 1 default handler after reset.")
+    end)
+  end)
+
+  describe("log.set_level() facade", function()
+    it("should set level on a logger instance", function()
+      local test_setter_logger = lualog.get_logger("test_set_level_facade")
+      lualog.set_level("test_set_level_facade", lualog.levels.ERROR)
+      assert.are.same(lualog.levels.ERROR, test_setter_logger.level)
+      lualog.set_level("test_set_level_facade", "DEBUG")
+      assert.are.same(lualog.levels.DEBUG, test_setter_logger.level)
+    end)
+  end)
+
+  describe("log.add_handler() facade", function()
+    it("should add a handler to a logger instance", function()
+      local test_addh_logger = lualog.get_logger("test_add_handler_facade")
+      local mock_h = function() end
+      local mock_f = function() end
+      lualog.add_handler("test_add_handler_facade", mock_h, mock_f, { id = "test1" })
+      assert.are.same(1, #test_addh_logger.handlers)
+      if #test_addh_logger.handlers == 1 then
+        assert.are.same(mock_h, test_addh_logger.handlers[1].handler_func)
+      end
     end)
   end)
 end)
