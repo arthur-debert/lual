@@ -26,19 +26,7 @@ describe("lual.core.caller_info", function()
 
             local filename, lineno = wrapper_function() -- This line should be captured
 
-            -- Debug: Print actual values to understand what's happening in CI
-            print("DEBUG: wrapper call returned filename='" .. tostring(filename) .. "', lineno=" .. tostring(lineno))
 
-            -- Let's also check what debug.getinfo returns at different levels
-            for level = 1, 5 do
-                local info = debug.getinfo(level, "Sl")
-                if info then
-                    print("DEBUG: level " ..
-                        level .. " -> " .. tostring(info.short_src) .. ":" .. tostring(info.currentline))
-                else
-                    print("DEBUG: level " .. level .. " -> nil")
-                end
-            end
 
             -- Use assert.are.equal to get clear failure messages showing both expected and actual values
             assert.are.equal("string", type(filename)) -- This will show the actual type if it fails

@@ -1,0 +1,49 @@
+#!/bin/bash
+#
+# gh-workflow-latest-id
+#
+# This script returns the ID of the latest GitHub workflow run.
+# It uses the GitHub CLI (gh) to fetch the latest workflow run and extracts just the ID.
+#
+# Usage: gh-workflow-latest-id
+#
+# Dependencies:
+# - GitHub CLI (gh): https://cli.github.com/
+# - jq: https://stedolan.github.io/jq/
+
+set -e
+
+# Check if gh command is available
+if ! command -v gh &> /dev/null; then
+    echo "Error: GitHub CLI (gh) is not installed or not in PATH" >&2
+    echo "Please install it from https://cli.github.com/" >&2
+    exit 1
+fi
+
+# Check if jq command is available
+if ! command -v jq &> /dev/null; then
+    echo "Error: jq is not installed or not in PATH" >&2
+    echo "Please install it using your package manager" >&2
+    exit 1
+fi
+
+# Get the latest workflow run ID
+result=$(gh run list -L 1 --json databaseId 2>/dev/null)
+
+# Check if the command succeeded and returned valid data
+if [ $? -ne 0 ] || [ -z "$result" ]; then
+    echo "Error: Failed to fetch workflow runs or no workflow runs found" >&2
+    echo "Make sure you're in a GitHub repository directory" >&2
+    exit 1
+fi
+
+# Extract and output just the ID
+workflow_id=$(echo "$result" | jq -r '.[0].databaseId // empty')
+
+if [ -z "$workflow_id" ]; then
+    echo "Error: Could not extract workflow ID from response" >&2
+    exit 1
+fi
+
+echo "$workflow_id"
+

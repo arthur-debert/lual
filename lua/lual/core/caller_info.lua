@@ -28,11 +28,7 @@ local function is_lual_internal_file(filename)
         basename == "ingest.lua" or
         string.match(basename, "^lual%.") ~= nil -- Files starting with "lual." (like lual.logger)
 
-    -- Debug output for CI troubleshooting
-    if os.getenv("CI") or os.getenv("GITHUB_ACTIONS") then
-        print("DEBUG: is_lual_internal_file('" ..
-            tostring(filename) .. "') -> basename='" .. tostring(basename) .. "', is_internal=" .. tostring(is_internal))
-    end
+
 
     return is_internal
 end
@@ -51,49 +47,43 @@ function caller_info.get_caller_info(start_level, use_dot_notation)
         local info = debug.getinfo(level, "Sl")
         if not info then
             -- Reached end of stack
-            if os.getenv("CI") or os.getenv("GITHUB_ACTIONS") then
-                print("DEBUG: get_caller_info reached end of stack at level " .. level)
-            end
             return nil, nil
         end
 
         local filename = info.short_src
-        if os.getenv("CI") or os.getenv("GITHUB_ACTIONS") then
-            print("DEBUG: get_caller_info level " .. level .. " -> filename='" .. tostring(filename) .. "'")
-        end
 
-        if not is_lual_internal_file(filename) then
-            -- Found a non-lual file, this is our caller
-            if os.getenv("CI") or os.getenv("GITHUB_ACTIONS") then
-                print("DEBUG: get_caller_info found non-lual file at level " .. level .. ": " .. tostring(filename))
-            end
+        -- Skip special debug entries like "(tail call)", "[C]", etc.
+        -- But allow nil filenames to be processed (they might be valid edge cases)
+        if filename == "(tail call)" or filename == "[C]" then
+            -- Continue to next iteration
+        else
+            if not is_lual_internal_file(filename) then
+                -- Found a non-lual file, this is our caller
 
-            if filename and string.sub(filename, 1, 1) == "@" then
-                filename = string.sub(filename, 2)
-            end
-
-            -- Convert to dot notation if requested
-            if use_dot_notation and filename then
-                -- Remove file extension
-                filename = string.gsub(filename, "%.lua$", "")
-                -- Convert path separators to dots
-                filename = string.gsub(filename, "[/\\]", ".")
-                -- Remove leading dots
-                filename = string.gsub(filename, "^%.+", "")
-                -- If empty after processing, return nil to indicate failure
-                if filename == "" then
-                    filename = nil
+                if filename and string.sub(filename, 1, 1) == "@" then
+                    filename = string.sub(filename, 2)
                 end
-            end
 
-            return filename, info.currentline
+                -- Convert to dot notation if requested
+                if use_dot_notation and filename then
+                    -- Remove file extension
+                    filename = string.gsub(filename, "%.lua$", "")
+                    -- Convert path separators to dots
+                    filename = string.gsub(filename, "[/\\]", ".")
+                    -- Remove leading dots
+                    filename = string.gsub(filename, "^%.+", "")
+                    -- If empty after processing, return nil to indicate failure
+                    if filename == "" then
+                        filename = nil
+                    end
+                end
+
+                return filename, info.currentline
+            end
         end
     end
 
     -- If we get here, we couldn't find a non-lual file (shouldn't happen in normal usage)
-    if os.getenv("CI") or os.getenv("GITHUB_ACTIONS") then
-        print("DEBUG: get_caller_info exhausted all levels without finding non-lual file")
-    end
     return nil, nil
 end
 
