@@ -48,7 +48,7 @@ A powerful feature of lual is the ability to use hierarchical loggers with diffe
     -- Set up the root logger with a console output to stdout
     local root_logger = lualog.get_logger()
     root_logger:set_level(lualog.levels.WARNING) -- Only WARNING and above by default
-    root_logger:add_output(lualog.outputs.console_output, lualog.formatters.text)
+    root_logger:add_output(lualog.lib.console, lualog.lib.text)
 
     -- Logger for database operations - more verbose for debugging DB issues
     local db_logger = lualog.get_logger("app.db")
@@ -102,8 +102,8 @@ Lual makes it easy to extend the library with custom formatters and outputs to f
 
     -- Add standard console output
     app_logger:add_output(
-        lualog.outputs.console_output,
-        lualog.formatters.text
+        lualog.lib.console,
+        lualog.lib.text
     )
 
     -- Add notification alerts for critical errors

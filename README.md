@@ -17,15 +17,15 @@ for detailed configuration and control on a per-logger basis.
   `myapp.module.submodule`), allowing for targeted configuration.
 - **Log Levels:** Standard severity levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`,
   `CRITICAL`, plus `NONE` to disable logging for a logger.
-- **Console Output:** `lualog.outputs.console_output` writes log messages to
-  `io.stdout` (default), `io.stderr`, or any custom stream object that provides
-  `write()` and `flush()` methods.
-- **File Output:** `lualog.outputs.file_output` writes log messages to files
-  with configurable paths and rotation options.
-- **Text Formatter:** `lualog.formatters.text` formats messages by default as:
-  `YYYY-MM-DD HH:MM:SS LEVEL [LoggerName] Message` (Timestamp is in UTC).
-- **Color Formatter:** `lualog.formatters.color` formats messages with ANSI
-  color codes for enhanced terminal readability.
+- **Console Output:** `lualog.lib.console` writes log messages to `io.stdout`
+  (default), `io.stderr`, or any custom stream object that provides `write()`
+  and `flush()` methods.
+- **File Output:** `lualog.lib.file` writes log messages to files with
+  configurable paths and rotation options.
+- **Text Formatter:** `lualog.lib.text` formats messages by default as:
+  `YYYY-MM-DD HH:MM:S LEVEL [LoggerName] Message` (Timestamp is in UTC).
+- **Color Formatter:** `lualog.lib.color` formats messages with ANSI color codes
+  for enhanced terminal readability.
 - **Per-Logger Configuration:** Log levels and outputs (with their formatters)
   can be configured for each logger instance using methods like `:set_level()`
   and `:add_output()`.
@@ -38,9 +38,10 @@ for detailed configuration and control on a per-logger basis.
 - **Error Handling:** Errors within outputs or formatters are caught and
   reported to `io.stderr`, preventing the logging system from crashing the
   application.
-- **Default Setup:** On require, a root logger is configured with a console
-  output (outputting to `io.stdout`) and the text formatter, set at `INFO`
-  level.
+- **Default Setup:** On require, a root logger is configured with:
+  - Level: `lualog.levels.INFO`.
+  - One output: `lualog.lib.console` writing to `io.stdout`.
+  - Formatter for this output: `lualog.lib.text`.
 
 ## Installation
 
@@ -102,8 +103,8 @@ When `lual` is first required (`local lualog = require("lual.logger")`):
 - The `lualog.init_default_config()` function is automatically called.
 - This sets up the **root logger** with:
   - Level: `lualog.levels.INFO`.
-  - One output: `lualog.outputs.console_output` writing to `io.stdout`.
-  - Formatter for this output: `lualog.formatters.text`.
+  - One output: `lualog.lib.console` writing to `io.stdout`.
+  - Formatter for this output: `lualog.lib.text`.
 
 Any logger you create (e.g., `lualog.get_logger("my.app")`):
 
@@ -159,15 +160,15 @@ data_processor_logger:set_level(lualog.levels.INFO) -- Process INFO and above
 
 -- Output 1: Log specifically from data_processor_logger to stderr
 data_processor_logger:add_output(
-  lualog.outputs.console_output,
-  lualog.formatters.text,
+  lualog.lib.console,
+  lualog.lib.text,
   { stream = io.stderr }               -- Output-specific config
 )
 
 -- Output 2: Log to a file (using file_output)
 data_processor_logger:add_output(
-  lualog.outputs.file_output({ path = "data_processor.log" }), -- Use file_output factory
-  lualog.formatters.text,
+  lualog.lib.file({ path = "data_processor.log" }), -- Use file_output factory
+  lualog.lib.text,
   {}                                      -- No additional config needed
 )
 
@@ -180,8 +181,8 @@ data_processor_logger:info("Processing started.")
 
 The `add_output` method for a logger instance takes:
 
-1.  `output_func`: e.g., `lualog.outputs.console_output`.
-2.  `formatter_func`: e.g., `lualog.formatters.text`.
+1.  `output_func`: e.g., `lualog.lib.console`.
+2.  `formatter_func`: e.g., `lualog.lib.text`.
 3.  `output_config` (optional table).
 
 ### 6. Controlling Propagation
@@ -198,7 +199,7 @@ local child_logger = lualog.get_logger("app.service.worker")
 child_logger:set_level(lualog.levels.DEBUG)
 
 -- Add a specific output for child_logger messages to stderr
-child_logger:add_output(lualog.outputs.console_output, lualog.formatters.text, {stream = io.stderr})
+child_logger:add_output(lualog.lib.console, lualog.lib.text, {stream = io.stderr})
 
 child_logger:info("Message from child (to its stderr AND propagates to parent then root for stdout).")
 

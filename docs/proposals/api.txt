@@ -12,21 +12,21 @@ lual gives various ways to construct your logger:
             logger:set_level("debug")
 
             logger:add_output(
-                lualog.outputs.console_output,
-                lualog.formatters.text,
+                lualog.lib.console,
+                lualog.lib.text,
                 { stream = io.stdout }  -- optional config
             )
             
             -- Add file output
             logger:add_output(
-                lualog.outputs.file_output({ path = "app.log" }),
-                lualog.formatters.text
+                lualog.lib.file({ path = "app.log" }),
+                lualog.lib.text
             )
             
             -- Add colored console output
             logger:add_output(
-                lualog.outputs.console_output,
-                lualog.formatters.color,
+                lualog.lib.console,
+                lualog.lib.color,
                 { stream = io.stderr }
             )
 

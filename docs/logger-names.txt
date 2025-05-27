@@ -95,8 +95,8 @@ and so on up to the root.
     -- App logger also writes to a file
     local app_logger = lual.get_logger("app")
     app_logger:add_output(
-        file_output({ path = "app.log" }),
-        lual.formatters.text
+        lualog.lib.file({ path = "app.log" }),
+        lualog.lib.text
     )
     
     -- Database logger has no outputs of its own
@@ -117,8 +117,8 @@ You can disable propagation to stop messages from flowing upward:
     
     local sensitive_logger = lual.get_logger("app.security.audit")
     sensitive_logger:add_output(
-        require("lual.outputs.file_output")({ path = "audit.log" }),
-        lual.formatters.text
+        lualog.lib.file({ path = "audit.log" }),
+        lualog.lib.text
     )
     
     -- Prevent audit logs from appearing in general app logs
@@ -157,7 +157,6 @@ pass the level check at each step to continue propagating:
 EXAMPLE: WEB APPLICATION HIERARCHY
 
     local lual = require("lual")
-    local file_output = require("lual.outputs.file_output")
     
     -- Root: console output for all messages
     local root = lual.get_logger("root")  -- Explicit root
@@ -166,15 +165,15 @@ EXAMPLE: WEB APPLICATION HIERARCHY
     -- App-wide file logging
     local app = lual.get_logger("webapp")
     app:add_output(
-        file_output({ path = "webapp.log" }),
-        lual.formatters.text
+        lualog.lib.file({ path = "webapp.log" }),
+        lualog.lib.text
     )
     
     -- HTTP requests: separate file, info level
     local http = lual.get_logger("webapp.http")
     http:add_output(
-        file_output({ path = "requests.log" }),
-        lual.formatters.text
+        lualog.lib.file({ path = "requests.log" }),
+        lualog.lib.text
     )
     
     -- Database: debug level, shared with app file
@@ -184,8 +183,8 @@ EXAMPLE: WEB APPLICATION HIERARCHY
     -- Security: separate file, no propagation
     local security = lual.get_logger("webapp.security")
     security:add_output(
-        file_output({ path = "security.log" }),
-        lual.formatters.text
+        lualog.lib.file({ path = "security.log" }),
+        lualog.lib.text
     )
     security.propagate = false
     
