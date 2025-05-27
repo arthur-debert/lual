@@ -138,7 +138,7 @@ function M.get_logger(name)
 end
 
 -- Forward declaration for ingest's call to get_logger
-get_logger = M.get_logger
+get_logger = M.get_logger --  ignore lowercase-global
 
 function M.reset_cache()
     _loggers_cache = {}
