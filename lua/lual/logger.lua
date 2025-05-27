@@ -29,7 +29,8 @@ log.lib = {
 
   -- Formatter shortcuts
   text = all_formatters.text,
-  color = all_formatters.color
+  color = all_formatters.color,
+  json = all_formatters.json
 }
 
 -- Add LEVELS mapping for external validation and use

@@ -153,7 +153,7 @@ describe("Shortcut Declarative API", function()
                     output = "console",
                     formatter = "unknown"
                 })
-            end, "Invalid shortcut config: Unknown formatter type: unknown. Valid types are: color, text")
+            end, "Invalid shortcut config: Unknown formatter type: unknown. Valid types are: color, json, text")
         end)
 
         it("should reject file output without path", function()
