@@ -21,6 +21,17 @@ log.outputs = all_outputs       -- Assign the outputs table
 log.formatters = all_formatters -- Assign the formatters table
 log.logger = engine.logger      -- Add the declarative API
 
+-- Add convenient shortcuts for outputs and formatters
+log.lib = {
+  -- Output shortcuts
+  console = all_outputs.console_output,
+  file = all_outputs.file_output,
+
+  -- Formatter shortcuts
+  text = all_formatters.text,
+  color = all_formatters.color
+}
+
 -- Add LEVELS mapping for external validation and use
 log.LEVELS = {
   debug = core_levels.definition.DEBUG,

@@ -12,22 +12,21 @@ lual gives various ways to construct your logger:
             logger:set_level("debug")
 
             logger:add_output(
-                lualog.outputs.console,
-                lualog.formatters.plain,
+                lualog.lib.console,
+                lualog.lib.text,
                 { stream = io.stdout }  -- optional config
             )
             
             -- Add file output
-            local file_output = require("lual.outputs.file")
             logger:add_output(
-                file_output({ path = "app.log" }),
-                lualog.formatters.plain
+                lualog.lib.file({ path = "app.log" }),
+                lualog.lib.text
             )
             
             -- Add colored console output
             logger:add_output(
-                lualog.outputs.console,
-                lualog.formatters.color,
+                lualog.lib.console,
+                lualog.lib.color,
                 { stream = io.stderr }
             )
 
@@ -43,7 +42,7 @@ lual gives various ways to construct your logger:
                      level = "debug",
                     outputs = {
                         {type = "console", formatter = "color"},
-                        {type = "file", path = "app.log", formatter = "plain"}
+                        {type = "file", path = "app.log", formatter = "text"}
                     }
                 })
 

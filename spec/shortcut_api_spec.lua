@@ -324,7 +324,7 @@ describe("Shortcut Declarative API", function()
             logger:set_level(lualog.levels.DEBUG)
             assert.are.same(lualog.levels.DEBUG, logger.level)
 
-            logger:add_output(lualog.outputs.console_output, lualog.formatters.text, {})
+            logger:add_output(lualog.lib.console, lualog.lib.text, {})
             assert.are.same(2, #logger.outputs)
 
             logger:set_propagate(false)
