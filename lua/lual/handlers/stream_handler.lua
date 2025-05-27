@@ -1,9 +1,7 @@
-local stream_handler = {}
-
 --- Handler that writes log messages to a stream (e.g., io.stdout, io.stderr).
 -- @param record (table) A table containing log record details
 -- @param config (table, optional) Handler-specific configuration.
-function stream_handler.handle(record, config)
+local function stream_handler(record, config)
     local stream = io.stdout
     if config and config.stream then
         stream = config.stream
