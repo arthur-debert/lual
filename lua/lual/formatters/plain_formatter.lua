@@ -8,7 +8,7 @@ function plain_formatter.format(record)
     local timestamp_str = os.date("!%Y-%m-%d %H:%M:%S", record.timestamp)
     local msg_args = record.args or {}
     if type(msg_args) ~= "table" or msg_args.n == nil then msg_args = {} end
-    local message = string.format(record.message_fmt, unpack(msg_args))
+    local message = string.format(record.message_fmt, table.unpack(msg_args)) -- Explicitly use table.unpack
     return string.format("%s %s [%s] %s",
         timestamp_str,
         record.level_name or "UNKNOWN_LEVEL",
