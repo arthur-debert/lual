@@ -1,7 +1,7 @@
 --- Output that writes log messages to a stream (e.g., io.stdout, io.stderr).
 -- @param record (table) A table containing log record details
 -- @param config (table, optional) Output-specific configuration.
-local function stream_output(record, config)
+local function console_output(record, config)
     local stream = io.stdout
     if config and config.stream then
         stream = config.stream
@@ -10,7 +10,7 @@ local function stream_output(record, config)
     local success, err = pcall(function()
         stream:write(record.message)
         stream:write("\n") -- Add a newline after the message for better readability
-        stream:flush() -- Ensure the message is written immediately
+        stream:flush()     -- Ensure the message is written immediately
     end)
 
     if not success then
@@ -19,4 +19,4 @@ local function stream_output(record, config)
     end
 end
 
-return stream_output
+return console_output

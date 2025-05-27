@@ -121,7 +121,7 @@ describe("lual formatters and outputs", function()
 		end)
 	end)
 
-	describe("lualog.outputs.stream_output", function()
+	describe("lualog.outputs.console_output", function()
 		local mock_stream
 		local original_stdout
 		local mock_stderr_stream
@@ -167,7 +167,7 @@ describe("lual formatters and outputs", function()
 
 		it("should write to default stream (io.stdout) if no stream specified in config", function()
 			local record = { message = "Hello default stdout" }
-			lualog.outputs.stream_output(record, {}) -- Empty config
+			lualog.outputs.console_output(record, {}) -- Empty config
 			assert.are.same("Hello default stdout\n", mock_stream.written_data)
 			assert.is_true(mock_stream.flushed)
 		end)
@@ -186,7 +186,7 @@ describe("lual formatters and outputs", function()
 				end,
 			}
 			local record = { message = "Hello custom stream" }
-			lualog.outputs.stream_output(record, { stream = custom_mock_stream })
+			lualog.outputs.console_output(record, { stream = custom_mock_stream })
 
 			assert.are.same("Hello custom stream\n", custom_mock_stream.written_data)
 			assert.is_true(custom_mock_stream.flushed)
@@ -205,7 +205,7 @@ describe("lual formatters and outputs", function()
 			local record = { message = "Message that will fail to write" }
 
 			-- Call the output with the erroring stream
-			lualog.outputs.stream_output(record, { stream = erroring_mock_stream })
+			lualog.outputs.console_output(record, { stream = erroring_mock_stream })
 
 			-- Check that an error message was written to our mock_stderr_stream
 			assert.is_not_nil(string.find(mock_stderr_stream.written_data, "Error writing to stream:", 1, true))
