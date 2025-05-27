@@ -22,10 +22,11 @@ local function is_lual_internal_file(filename)
     basename = string.match(basename, "([^/\\]+)$") or basename
 
     -- Check if it's a lual internal file
-    return string.find(basename, "lual", 1, true) ~= nil or
-        basename == "caller_info.lua" or
+    -- Only filter files that are actually part of the lual library structure
+    return basename == "caller_info.lua" or
         basename == "logger_class.lua" or
-        basename == "ingest.lua"
+        basename == "ingest.lua" or
+        string.match(basename, "^lual%.") ~= nil -- Files starting with "lual." (like lual.logger)
 end
 
 --- Extracts caller information from the debug stack.
