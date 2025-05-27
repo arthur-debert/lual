@@ -1,0 +1,66 @@
+name: Run Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Create apt cache directory
+        run: |
+          sudo mkdir -p /tmp/apt-cache
+          sudo chmod 777 /tmp/apt-cache
+
+      - name: Cache OS dependencies
+        id: cache-os-deps
+        uses: actions/cache@v3
+        with:
+          path: /tmp/apt-cache
+          key: ${{ runner.os }}-apt-cache-${{ hashFiles('.github/apt-packages.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-cache-
+
+      - name: Install OS dependencies
+        run: |
+          # Configure apt to use our cache directory
+          echo "Dir::Cache::Archives /tmp/apt-cache;" | sudo tee -a /etc/apt/apt.conf.d/01cache
+          sudo apt-get update
+          xargs -a .github/apt-packages.txt sudo apt-get install -y --no-install-recommends
+
+      - name: Cache Lua dependencies
+        id: cache-lua-deps
+        uses: actions/cache@v3
+        with:
+          path: ~/.luarocks # Corrected path for where --local installs
+          key: ${{ runner.os }}-luarocks-${{ hashFiles('fsynth-0.1.0-1.rockspec') }}
+          restore-keys: |
+            ${{ runner.os }}-luarocks-
+
+      - name: print me
+        run: |
+          pwd ; ls -lah
+      - name: Install Lua dependencies
+        if: steps.cache-lua-deps.outputs.cache-hit != 'true'
+        run: |
+          luarocks install --local --only-deps lual.log-0.1.0-1.rockspec
+      # on maocs, bustes comes with luarocks, but not on ubuntu:
+      # Busted should now be installed via apt from .github/apt-packages.txt
+      - name: Run tests
+        env:
+          LUAROCKS_LOCAL: true
+        run: |
+          echo "Sourcing .envrc..."
+          source .envrc
+          echo "PATH after sourcing .envrc: $PATH"
+          echo "LUA_PATH after sourcing .envrc: $LUA_PATH"
+          echo "LUA_CPATH after sourcing .envrc: $LUA_CPATH"
+          echo "Which busted: $(which busted)"
+          echo "Attempting to run busted..."
+          busted
