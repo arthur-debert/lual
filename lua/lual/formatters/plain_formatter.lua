@@ -1,10 +1,9 @@
-local plain_formatter = {}
-local unpack = unpack or table.unpack
+-- No need to define unpack since we're explicitly using table.unpack
 
 --- Formatter that returns a plain text representation of the log record.
 -- @param record (table) A table containing log record details
 -- @return (string) The formatted log message string.
-function plain_formatter.format(record)
+local function plain_formatter(record)
     local timestamp_str = os.date("!%Y-%m-%d %H:%M:%S", record.timestamp)
     local msg_args = record.args or {}
     if type(msg_args) ~= "table" or msg_args.n == nil then msg_args = {} end
