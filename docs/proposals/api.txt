@@ -1,23 +1,6 @@
 API 
 
-This document overseas the construction of the final api. 
-
-Status
-
-
-
-
-Preparation: 
-    - [x] rename : remove lual.output.file_output (should just become file) for
-        outputs and formatters too
-    - [x] remove the facades, .add_output should not receive names or levels
-Implementation: 
-    - [x] Phase I alter the current implementation to generate a dict and use that, both on
-        new loggers and in updates to existing loggers with the the add* , set*
-        functions, see SINGLE CONFIG TABLE ARCHITECTURE below
-    - [x] Phase II add support for the declarative api, creating a logger from a table with out config format (just add checking / validation) (see DECLARATIVE API below)
-    - [x] Phase III add support for the shortcut declarative api (see SHORTCUT DECLARATIVE API below)
-
+lual gives various ways to construct your logger:
 1. Imperative: 
 
     a series of functional calls to the logger object, each setting part of the config. 
