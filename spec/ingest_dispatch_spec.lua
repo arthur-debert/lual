@@ -692,6 +692,7 @@ describe("ingest.dispatch_log_event", function()
 		}
 		ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
 
+		local fc_list = get_formatter_calls()
 		assert.are.same(2, #fc_list) -- Child's formatter, then Parent's formatter
 		if #fc_list == 2 then
 			assert.are.same("child_logger_prop_error", fc_list[1].params.logger_name)
