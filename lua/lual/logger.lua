@@ -26,6 +26,7 @@ log.lib = {
   -- Output shortcuts
   console = all_outputs.console_output,
   file = all_outputs.file_output,
+  syslog = all_outputs.syslog_output,
 
   -- Formatter shortcuts
   text = all_formatters.text,
