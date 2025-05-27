@@ -1,6 +1,8 @@
 -- Color formatter for lual.log inspired by the rich Python library
 -- Provides colored terminal output using ANSI color codes
 
+local unpack = unpack or table.unpack -- Ensure unpack is available
+
 -- Define a table with ANSI color codes
 local colors = {
     -- Foreground colors
@@ -58,8 +60,19 @@ local function color_formatter(record, config)
     local level_colors = config.level_colors or default_level_colors
     local timestamp_str = os.date("!%Y-%m-%d %H:%M:%S", record.timestamp)
     local msg_args = record.args or {}
-    if type(msg_args) ~= "table" or msg_args.n == nil then msg_args = {} end
-    local message = string.format(record.message_fmt, table.unpack(msg_args))
+    -- Make sure msg_args is a table for string.format to use
+    if type(msg_args) ~= "table" then msg_args = {} end
+    -- Use pcall to safely format the message
+    local message
+    local status, result = pcall(function()
+        return string.format(record.message_fmt, unpack(msg_args))
+    end)
+    if status then
+        message = result
+    else
+        -- If formatting fails, just use the message format as-is
+        message = record.message_fmt
+    end
     -- Get the appropriate color for this level
     local level_name = record.level_name or "UNKNOWN_LEVEL"
     local level_color = level_colors[level_name] or level_colors.default

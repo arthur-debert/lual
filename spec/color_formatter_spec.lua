@@ -23,19 +23,23 @@ describe("lual.formatters.color_formatter", function()
       message_fmt = "User %s logged in from %s",
       args = { "jane.doe", "10.0.0.1" }
     }
+local timestamp_str = os.date("!%Y-%m-%d %H:%M:%S", record.timestamp)
+local expected_message = string.format(record.message_fmt, unpack(record.args))
+local formatted = color_formatter(record)
 
-    local timestamp_str = os.date("!%Y-%m-%d %H:%M:%S", record.timestamp)
-    local expected_message = string.format(record.message_fmt, unpack(record.args))
-    local formatted = color_formatter(record)
-    
-    assert.truthy(formatted:find(colors.dim .. timestamp_str .. colors.reset, 1, true),
-      "Timestamp should be dimmed")
-    assert.truthy(formatted:find(colors.green .. record.level_name .. colors.reset, 1, true),
-      "INFO level should be green")
-    assert.truthy(formatted:find(colors.cyan .. record.logger_name .. colors.reset, 1, true),
-      "Logger name should be cyan")
-    assert.truthy(formatted:find(expected_message, 1, true),
-      "Message should contain the formatted message")
+-- Print debug info
+print("Expected message:", expected_message)
+print("Formatted output:", formatted)
+
+assert.truthy(formatted:find(colors.dim .. timestamp_str .. colors.reset, 1, true),
+  "Timestamp should be dimmed")
+assert.truthy(formatted:find(colors.green .. record.level_name .. colors.reset, 1, true),
+  "INFO level should be green")
+assert.truthy(formatted:find(colors.cyan .. record.logger_name .. colors.reset, 1, true),
+  "Logger name should be cyan")
+-- Use string.find with better error reporting
+  assert.truthy(formatted:find(expected_message, 1, true),
+    "Message should contain the formatted message")
   end)
 
   it("should handle nil arguments gracefully", function()
