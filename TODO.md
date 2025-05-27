@@ -11,7 +11,7 @@
 
 - [ ] Dedicated `file_output` module (takes filepath in config)
 - [x] `color_formatter` module
-- [ ] Pattern matching for global `log.set_level()` and `log.add_output()`
+- [x] Pattern matching for global `log.set_level()` and `log.add_output()`
       (e.g., "myapp.\*")
-- [ ] Review and update README.md for full accuracy against current
+- [x] Review and update README.md for full accuracy against current
       implementation
