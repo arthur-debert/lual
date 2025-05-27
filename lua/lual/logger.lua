@@ -12,11 +12,13 @@ local log = {}
 
 local core_levels = require("lual.core.levels")
 local logger_class = require("lual.core.logger_class")
-local all_handlers = require("lual.handlers.init") -- Require the new handlers init
+local all_handlers = require("lual.handlers.init")     -- Require the new handlers init
+local all_formatters = require("lual.formatters.init") -- Require the new formatters init
 
 log.levels = core_levels.definition
 log.get_logger = logger_class.get_logger
-log.handlers = all_handlers -- Assign the handlers table
+log.handlers = all_handlers     -- Assign the handlers table
+log.formatters = all_formatters -- Assign the formatters table
 
 -- Removed _loggers_cache and the entire log.get_logger function body
 -- as well as the new_logger table definition and its methods.
@@ -133,43 +135,10 @@ end
 -- All function log.handlers.stream_handler(...) etc. are removed.
 
 -- =============================================================================
--- 5. Formatter Definitions (Function Signatures)
+-- 5. Formatter Definitions (Function Signatures) - REMOVED
 -- =============================================================================
-
-log.formatters = {}
-
---- Formatter that returns a plain text representation of the log record.
--- @param record (table) A table containing log record details (similar to handler's input,
---                      but `message` here is the raw message before `...` args are applied):
---                      {
---                        level_name = "INFO",
---                        level_no = 20,
---                        logger_name = "my.module",
---                        message_fmt = "User %s logged in from %s", -- The message string with format specifiers
---                        args = {"john.doe", "192.168.1.100"}, -- The arguments for string.format
---                        timestamp = 1678886400,
---                        -- Potentially other fields like filename, lineno if captured
---                      }
--- @return (string) The formatted log message string.
-function log.formatters.plain_formatter(record)
-  local timestamp_str = os.date("!%Y-%m-%d %H:%M:%S", record.timestamp)
-  local msg_args = record.args or {}
-  if type(msg_args) ~= "table" or msg_args.n == nil then msg_args = {} end
-  local message = string.format(record.message_fmt, unpack(msg_args))
-  return string.format("%s %s [%s] %s",
-    timestamp_str,
-    record.level_name or "UNKNOWN_LEVEL",
-    record.logger_name or "UNKNOWN_LOGGER",
-    message
-  )
-end
-
---- Formatter that returns a colorized text representation of the log record (using ANSI escape codes).
--- @param record (table) The log record (see plain_formatter for structure).
--- @return (string) The colorized formatted log message string.
-function log.formatters.color_formatter(record)
-  -- Example output: Similar to plain_formatter but with ANSI colors for level, logger name, etc.
-end
+-- log.formatters = {} -- This line is removed
+-- All function log.formatters.plain_formatter(...) etc. are removed.
 
 -- =============================================================================
 -- Initialization (Example: Set up a default root logger)
