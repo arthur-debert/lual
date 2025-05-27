@@ -11,6 +11,9 @@ describe("Declarative API", function()
         package.loaded["lual.core.engine"] = nil
         lualog = require("lual.logger")
         engine = require("lual.core.engine")
+
+        -- Reset the logger cache
+        engine.reset_cache()
     end)
 
     describe("lualog.logger() - Basic functionality", function()
@@ -230,7 +233,7 @@ describe("Declarative API", function()
                     name = "test",
                     level = true
                 })
-            end, "Invalid declarative config: Config.level must be a string or number")
+            end, "Invalid declarative config: Level must be a string or number")
         end)
 
         it("should reject invalid name types", function()

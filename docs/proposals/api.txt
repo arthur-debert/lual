@@ -16,7 +16,7 @@ Implementation:
         new loggers and in updates to existing loggers with the the add* , set*
         functions, see SINGLE CONFIG TABLE ARCHITECTURE below
     - [x] Phase II add support for the declarative api, creating a logger from a table with out config format (just add checking / validation) (see DECLARATIVE API below)
-    - [ ] Phase III add support for the smart api 
+    - [x] Phase III add support for the shortcut declarative api (see SHORTCUT DECLARATIVE API below)
 
 1. Imperative: 
 
@@ -66,26 +66,21 @@ Implementation:
 
             -- lua
 
-3. Smart Api:  FUTURE RELEASE
+3. Shortcut Declarative
 
+For the very common case where where there is one output and one formatter, we can allow this other form of the declarative api:
 
     -- the initial get logger can customize the logger.
-        It also offers a flexible and terse api for setting these up: 
 
         local lualog = require("lualog")
         # this  is a simple case, where there is a 101 releatioship between outputs and formatters, and only one output
         local logger = lualog.logger({output: "console", level:"debug", formatter: "color"})
-        # for a more complex case, one could do 
-        local logger = lualog.logger({
-            name = "app.db",
-            level = "debug",
-            outputs = {
-                {type = "console", formatter = "color"},
-                {type = "file", path = "app.log", formatter = "plain"}
-            }
-        })
-
     -- lua
+
+In this case, the code should verify if the table has such format. The general form is : 
+ .   * as long as output and format are either a single item or a table of one item 
+     * we transform to the general form (the formatter is part of the output, which is a table)
+So we do a to_canonical_config transformation, then run the regular validation and api.
 
 
 IMPLEMENTATION DESIGN:
