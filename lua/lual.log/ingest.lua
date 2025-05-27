@@ -1,7 +1,7 @@
--- (Assuming log.levels, logger object structure, get_logger_internal exist)
+local ingest = {}
 
 -- Compatibility for Lua 5.2+ which moved unpack to table.unpack
-local unpack = unpack or table.unpack
+local unpack = unpack or table.unpack -- Ensure unpack is available
 
 --- Safely calls the formatter function.
 -- @param formatter_func The formatter function.
@@ -12,20 +12,20 @@ local function call_formatter(formatter_func, base_record_for_formatter)
     if not ok then
         io.stderr:write(string.format(
             "Logging system error: Formatter for logger '%s' failed: %s\n",
-            base_record_for_formatter.logger_name, tostring(result)
+            tostring(base_record_for_formatter.logger_name), tostring(result) -- Added tostring for safety
         ))
         -- Create a detailed fallback message
         local raw_msg_fallback
         xpcall(function() raw_msg_fallback = string.format(base_record_for_formatter.message_fmt, unpack(base_record_for_formatter.args or {})) end,
-               function() raw_msg_fallback = base_record_for_formatter.message_fmt .. " (formatting args failed)" end)
+               function(err) raw_msg_fallback = base_record_for_formatter.message_fmt .. " (formatting args failed: " .. tostring(err) .. ")" end)
 
         return string.format(
-            "%s %s [%s] %s:%d - %s (FORMATTER ERROR: %s)",
-            os.date("%Y-%m-%d %H:%M:%S", base_record_for_formatter.timestamp),
-            base_record_for_formatter.level_name,
-            base_record_for_formatter.logger_name,
+            "%s %s [%s] %s:%s - %s (FORMATTER ERROR: %s)", -- Changed %d to %s for lineno
+            os.date("!%Y-%m-%d %H:%M:%S", base_record_for_formatter.timestamp or os.time()), -- UTC timestamp, fallback for timestamp
+            base_record_for_formatter.level_name or "UNKNOWN_LVL",
+            base_record_for_formatter.logger_name or "UNKNOWN_LGR",
             base_record_for_formatter.filename or "unknown_file",
-            base_record_for_formatter.lineno or 0,
+            tostring(base_record_for_formatter.lineno or 0), -- tostring for lineno
             raw_msg_fallback,
             tostring(result)
         )
@@ -42,94 +42,89 @@ local function call_handler(handler_func, record_for_handler, handler_config)
     if not ok then
         io.stderr:write(string.format(
             "Logging system error: Handler for logger '%s' failed: %s\n",
-            record_for_handler.logger_name, tostring(err)
+            tostring(record_for_handler.logger_name), tostring(err) -- Added tostring for safety
         ))
     end
 end
 
---- Processes all handlers for a single logger.
--- @param current_logger The logger object whose handlers are to be processed.
--- @param event_details The original, immutable details of the log event.
-local function process_handlers_for_logger(current_logger, event_details)
-    local base_record_for_formatter = {
-        level_name    = event_details.message_level_name,
-        level_no      = event_details.message_level_no,
-        logger_name   = current_logger.name,
-        message_fmt   = event_details.message_fmt,
-        args          = event_details.args,
-        timestamp     = event_details.timestamp,
-        filename      = event_details.filename,
-        lineno        = event_details.lineno,
-        source_logger_name = event_details.source_logger_name -- Include this for tests
-    }
+--- Main dispatch function that processes a log event.
+-- It retrieves all effective handlers from the source logger and processes them.
+-- @param log_record (table) The log event details. Expected fields:
+--        source_logger_name (string), level_no (number), level_name (string),
+--        message_fmt (string), args (table, packed), timestamp (number),
+--        filename (string), lineno (number or string).
+-- @param get_logger_func (function) Function to retrieve a logger instance by name.
+-- @param log_levels (table) Table mapping level names to numbers (e.g., log_levels.INFO). Not directly used here but good for context if needed.
+function ingest.dispatch_log_event(log_record, get_logger_func, log_levels)
+    if not log_record or not log_record.source_logger_name then
+        io.stderr:write("Logging system error: dispatch_log_event called with invalid log_record or missing source_logger_name.\n")
+        if log_record and log_record.message_fmt then -- Add more context if possible
+             io.stderr:write("Log record contents: message_fmt=" .. tostring(log_record.message_fmt) .. "\n")
+        end
+        return
+    end
 
-    for _, handler_entry in ipairs(current_logger.handlers or {}) do
-        local formatted_message = call_formatter(handler_entry.formatter_func, base_record_for_formatter)
+    local source_logger = get_logger_func(log_record.source_logger_name)
 
-        local record_for_handler = {
-            level_name       = event_details.message_level_name,
-            level_no         = event_details.message_level_no,
-            logger_name      = current_logger.name,
-            message          = formatted_message,
-            timestamp        = event_details.timestamp,
-            filename         = event_details.filename,
-            lineno           = event_details.lineno,
-            raw_message_fmt  = event_details.message_fmt,
-            raw_args         = event_details.args,
-            source_logger_name = event_details.source_logger_name
+    if not source_logger then
+        io.stderr:write(string.format(
+            "Logging system error: Source logger '%s' not found for message: %s\n",
+            tostring(log_record.source_logger_name),
+            tostring(log_record.message_fmt)
+        ))
+        return
+    end
+
+    -- The source_logger:get_effective_handlers() method is responsible for collecting
+    -- all relevant handlers according to propagation rules and individual logger levels.
+    -- It should return a list of handler entries, where each entry includes
+    -- the handler_func, formatter_func, handler_config, owner_logger_name, and owner_logger_level.
+    local effective_handlers = source_logger:get_effective_handlers()
+
+    for _, handler_entry in ipairs(effective_handlers) do
+        --[[ Expected handler_entry structure from get_effective_handlers:
+        {
+          handler_func = h.handler_func,
+          formatter_func = h.formatter_func,
+          handler_config = h.handler_config,
+          owner_logger_name = logger_that_owns_this_handler.name,
+          owner_logger_level = logger_that_owns_this_handler.level
         }
-        call_handler(handler_entry.handler_func, record_for_handler, handler_entry.handler_config)
+        --]]
+
+        -- Process only if the log record's level is sufficient for THIS handler's owning logger's level.
+        if log_record.level_no >= handler_entry.owner_logger_level then
+            -- Construct base record for the formatter, specific to this handler's owning logger context
+            local base_record_for_formatter = {
+                level_name    = log_record.level_name,
+                level_no      = log_record.level_no,
+                logger_name   = handler_entry.owner_logger_name, -- Use the handler's owner logger name
+                message_fmt   = log_record.message_fmt,
+                args          = log_record.args, -- args are already packed by logger:log
+                timestamp     = log_record.timestamp,
+                filename      = log_record.filename,
+                lineno        = log_record.lineno,
+                source_logger_name = log_record.source_logger_name -- Original emitter
+            }
+
+            local formatted_message = call_formatter(handler_entry.formatter_func, base_record_for_formatter)
+
+            -- Construct record for the handler itself
+            local record_for_handler = {
+                level_name       = log_record.level_name,
+                level_no         = log_record.level_no,
+                logger_name      = handler_entry.owner_logger_name, -- Use the handler's owner logger name
+                message          = formatted_message, -- The fully formatted message string
+                timestamp        = log_record.timestamp,
+                filename         = log_record.filename,
+                lineno           = log_record.lineno,
+                raw_message_fmt  = log_record.message_fmt, -- Original format string
+                raw_args         = log_record.args,        -- Original variadic arguments
+                source_logger_name = log_record.source_logger_name -- Original emitter
+            }
+            call_handler(handler_entry.handler_func, record_for_handler, handler_entry.handler_config)
+        end
     end
 end
 
---- Checks if a logger's level is appropriate for the message.
--- @param logger The logger object.
--- @param message_level_no The numeric level of the message.
--- @return boolean True if the logger should process, false otherwise.
-local function should_logger_process(logger, message_level_no)
-    return message_level_no >= logger.level
-end
-
---- Main dispatch function that handles propagation.
--- This is the primary entry point into the internal processing logic after a log call.
--- @param event_details The original, immutable details of the log event.
-function log.dispatch_log_event(event_details) -- Exposed via the log module for internal use
-    local current_logger = log.get_logger_internal(event_details.source_logger_name) -- Or however root is found if source_logger_name is nil/root
-
-    while current_logger do
-        if should_logger_process(current_logger, event_details.message_level_no) then
-            process_handlers_for_logger(current_logger, event_details)
-        end
-
-        if current_logger.propagate and current_logger.parent then
-            current_logger = current_logger.parent
-        else
-            break -- Stop propagation
-        end
-    end
-end
-
--- Example of how a logger method (e.g., logger:info) would initiate this:
--- function logger_prototype:info(message_fmt, ...)
---     -- Early exit if this specific logger won't even consider the message
---     if log.levels.INFO < self.level and not self.propagate then -- simplified check, actual check is complex due to propagation
---          -- A more accurate pre-check would be if NO logger in the chain would handle it.
---          -- For now, the main check is inside dispatch_log_event via should_logger_process
---     end
---
---     local timestamp = os.time()
---     local caller_info = debug.getinfo(AppropriateStackLevel, "Sl") -- e.g., 2 or 3
---
---     local event_details = {
---         message_level_no   = log.levels.INFO,
---         message_level_name = "INFO",
---         message_fmt        = message_fmt,
---         args               = {...},
---         timestamp          = timestamp,
---         filename           = caller_info.short_src, -- Or .source
---         lineno             = caller_info.currentline,
---         source_logger_name = self.name
---     }
---
---     log.dispatch_log_event(event_details)
--- end
+return ingest

@@ -1,151 +1,223 @@
-lual log: A New Lua Logging Library (Project [Placeholder Name])
+# lual.log - A Flexible Logging Library for Lua
 
-Vision & Introduction
+## Introduction
 
-The Lua landscape for logging libraries presents an opportunity for a robust,
-developer-friendly solution. Inspired by the power and flexibility of Python's
-standard logging module, this project aims to create a new logging library for
-Lua that is both powerful and intuitive.
+`lual.log` is a Lua logging library inspired by the flexibility and power of Python's standard logging module. It aims to provide a robust and developer-friendly solution for application logging, offering hierarchical loggers, multiple log levels, configurable handlers, and custom message formatting.
 
-Our vision is to develop a library that captures the essential features of a
-modern logging system—configurability, different output handlers, customizable
-formatting, and fine-grained level control—while adhering to Lua's idiomatic
-style. We aim for a "slightly smaller" footprint than Python's comprehensive
-module but one that effectively covers "most of the things" a developer needs
-for effective application logging.
+This v1 implementation focuses on the core logger object functionality, allowing for detailed configuration and control on a per-logger basis.
 
-This document serves as a kickstarting guide for the development team, outlining
-the core ideas, features, and principles that will guide our work.
+## Features (v1)
 
-Core Features
+*   **Hierarchical Loggers:** Loggers are named using dot-separated paths (e.g., `myapp.module.submodule`), allowing for targeted configuration.
+*   **Log Levels:** Standard severity levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`, plus `NONE` to disable logging for a logger.
+*   **Stream Handler:** `lualog.handlers.stream_handler` writes log messages to `io.stdout` (default), `io.stderr`, or any custom stream object that provides `write()` and `flush()` methods.
+*   **Plain Text Formatter:** `lualog.formatters.plain_formatter` formats messages by default as:
+    `YYYY-MM-DD HH:MM:SS LEVEL [LoggerName] Message` (Timestamp is in UTC).
+*   **Per-Logger Configuration:** Log levels and handlers (with their formatters) can be configured for each logger instance.
+*   **Message Propagation:** Log messages processed by a logger are passed to its parent's handlers by default. Propagation can be disabled per logger.
+*   **Contextual Information:** Log records automatically include a UTC timestamp, logger name, and the source filename/line number where the log message was emitted.
+*   **Error Handling:** Errors within handlers or formatters are caught and reported to `io.stderr`, preventing the logging system from crashing the application.
 
-The library will be built around the following core features, designed from
-first principles:
+## Installation
 
-1.  Central Logging Engine:
+Currently, `lual.log` is a library distributed as Lua source files. To use it in your project:
 
-    - Manages log messages, logger instances, and their hierarchy.
-    - Filters messages based on logger names and severity levels.
-    - Dispatches messages to the appropriate handlers.
+1.  Copy the `lua/lual.log` directory (containing `luallog.lua` and `ingest.lua`) into your project's Lua library path (e.g., into a `lib/` directory or directly into your `LUA_PATH`).
+2.  Require the main module in your code: `local lualog = require("lual.log.luallog")`.
 
-2.  Loggers with Hierarchical Naming:
+(Future versions may support installation via LuaRocks.)
 
-    - Loggers are named using dot-separated paths (e.g.,
-      `myapp.module.submodule`).
-    - Configuration (like log levels) can be applied to specific loggers or
-      partial paths (e.g., `myapp.module.*`).
+## Getting Started
 
-3.  Log Levels:
+### 1. Getting a Logger
 
-    - Standard severity levels (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL).
-    - Ability to set log levels per logger or logger name pattern, controlling
-      output verbosity.
+Loggers are the primary way to interact with the logging system. You obtain logger instances using `lualog.get_logger(name)`:
 
-4.  Handlers:
+```lua
+local lualog = require("lual.log.luallog")
 
-    - Responsible for dispatching log records to various destinations.
-    - Initial simple handlers:
-      - `StreamHandler`: Outputs to `io.stdout` (default) or `io.stderr`.
-      - `FileHandler`: Outputs to a specified file.
-    - Designed to be extensible with custom handlers.
+-- Get a logger for a specific module
+local my_logger = lualog.get_logger("my.app.module")
 
-5.  Formatters:
+-- Get the root logger (useful for application-wide logging or as a fallback)
+local root_logger = lualog.get_logger() 
+-- or
+local root_logger_explicit = lualog.get_logger("root")
 
-    - Control the layout of log records.
-    - Initial simple formatters:
-      - `PlainTextFormatter`: Outputs a clean, human-readable text format.
-      - `ColorFormatter`: Outputs text with ANSI color codes for enhanced
-        readability in terminals.
-    - Designed to be extensible with custom formatters.
+-- Loggers are cached, so subsequent calls with the same name return the same instance
+local same_logger = lualog.get_logger("my.app.module")
+assert(my_logger == same_logger) -- This is true
+```
+Loggers form a hierarchy. For example, the logger `my.app.module` is a child of `my.app`, which is a child of `my`, which is a child of `root`.
 
-6.  Message Propagation:
+### 2. Logging Messages
 
-    - Log messages will propagate upwards through the logger hierarchy by
-      default (e.g., a message to `myapp.module` also goes to `myapp` and the
-      root logger's handlers).
-    - Propagation can be disabled on a per-logger basis.
+Once you have a logger instance, you can log messages using its level-specific methods:
 
-7.  Contextual Information:
+```lua
+my_logger:debug("Detailed diagnostic information for developers.")
+my_logger:info("General information about application progress, e.g., user logged in.")
+my_logger:warn("Indication of a potential issue or an unexpected event.")
+my_logger:error("An error occurred that prevented a specific operation from completing.")
+my_logger:critical("A severe error that might lead to application termination.")
 
-    - Timestamping: Log records will automatically include a timestamp generated
-      at the time of the event.
-    - Caller Information: The library will capture the source filename and line
-      number where the log message was emitted, aiding in debugging.
+-- You can use string formatting (Lua's string.format style)
+my_logger:info("User %s processed %d records.", "john.doe", 42)
+```
 
-8.  Robust Error Handling:
-    - Errors occurring within handlers or formatters (e.g., file write error)
-      will be caught and reported to `io.stderr`, preventing the logging system
-      itself from crashing the application.
+### 3. Default Behavior
 
-Design & Code Principles
+By default, a freshly created logger instance:
+*   Has its log level set to `lualog.levels.INFO`.
+*   Has no handlers directly attached to it.
+*   Will propagate messages to its parent logger's handlers.
 
-To ensure a high-quality, maintainable, and easy-to-use library, we will adhere
-to the following principles:
+The root logger also starts with no handlers by default in v1. To see any output, you must add a handler to the logger itself or one of its ancestors (like the root logger).
 
-1.  Lua-Idiomatic Design:
+*(Note: A future `lualog.init_default_config()` function might set up a default handler on the root logger, but in v1, this setup is manual if desired for immediate output without specific logger configuration.)*
 
-    - Leverage Lua's strengths, such as first-class functions and flexible
-      table-based structures.
-    - Prefer functional approaches for components like handlers and formatters
-      where appropriate, potentially reducing the need for complex object
-      hierarchies if simple functions with defined signatures suffice.
+**Example: Manually setting up a default console output for all messages (INFO and above) via the root logger:**
+```lua
+local lualog = require("lual.log.luallog")
+local root_logger = lualog.get_logger()
 
-2.  Modularity and Composability:
+-- Set the root logger's level (e.g., to INFO)
+root_logger:set_level(lualog.levels.INFO)
 
-    - Design components (engine, loggers, handlers, formatters) with clear
-      responsibilities.
-    - Break down complex logic into smaller, well-defined functions. This
-      enhances readability and allows components to be combined flexibly.
+-- Add a stream handler to the root logger to print to io.stdout
+root_logger:add_handler(
+  lualog.handlers.stream_handler,      -- The handler function
+  lualog.formatters.plain_formatter,   -- The formatter function
+  { stream = io.stdout }               -- Handler-specific config (optional, defaults to io.stdout)
+)
 
-3.  Testability:
+local app_logger = lualog.get_logger("my.app")
+app_logger:info("This will be printed to stdout via the root logger's handler.")
+app_logger:debug("This will NOT be printed (app_logger is INFO by default, root is INFO).")
+```
 
-    - Prioritize writing code that is easy to test. Smaller functions and clear
-      interfaces are key to this.
-    - Aim for high unit test coverage to ensure reliability and catch
-      regressions.
+### 4. Changing Log Level
 
-4.  Clarity and Simplicity:
+You can control which messages are processed by a logger by setting its level. Messages below this severity will be ignored by the logger and its direct handlers.
 
-    - The API should be intuitive and easy for developers to learn and use.
-    - While powerful, the internal workings should strive for simplicity where
-      possible without sacrificing essential functionality.
+```lua
+local lualog = require("lual.log.luallog")
+local noisy_logger = lualog.get_logger("my.component.noisy")
 
-5.  Performance Awareness:
+-- By default, noisy_logger is at INFO level. Add a handler to see its output.
+noisy_logger:add_handler(lualog.handlers.stream_handler, lualog.formatters.plain_formatter)
 
-    - Logging can be performance-sensitive. While features like caller info
-      capture are valuable, we should be mindful of potential overhead and
-      consider optimizations or configurability for performance-critical
-      sections if necessary.
+noisy_logger:debug("This debug message is initially ignored.") -- Logger is INFO by default
 
-6.  Extensibility:
-    - Users should be able to easily create and integrate their own custom
-      handlers and formatters. This will likely involve clear function
-      signatures and registration mechanisms.
+-- Change the logger's level to DEBUG
+noisy_logger:set_level(lualog.levels.DEBUG)
+noisy_logger:debug("This debug message will now be processed!") 
+```
 
-High-Level API Sneak Peek
+### 5. Adding Handlers
 
-The following illustrates a potential way users might interact with the library
-(names and exact signatures are subject to refinement):
+Handlers determine what happens to a log record (e.g., print to console, write to file). Each logger can have multiple handlers.
 
--- sample usage local log = require("your_logger_module_name") -- To be defined
+```lua
+local lualog = require("lual.log.luallog")
+local data_processor_logger = lualog.get_logger("data.processor")
+data_processor_logger:set_level(lualog.levels.INFO) -- Process INFO and above
 
-      -- Basic Configuration (Example)
-      log.set_level("myapp.network.*", log.levels.DEBUG) -- Set DEBUG for all network modules
-      log.add_handler("*", log.handlers.stream_handler, log.formatters.color_formatter)
-      log.add_handler("myapp.critical_ops", log.handlers.file_handler, log.formatters.plain_formatter, {
-          filepath = "/var/log/myapp_critical.log"
-      })
+-- Handler 1: Log to console (stdout)
+data_processor_logger:add_handler(
+  lualog.handlers.stream_handler,
+  lualog.formatters.plain_formatter
+  -- Config {stream = io.stdout} is default for stream_handler
+)
 
-      -- Getting a logger instance
-      local network_logger = log.get_logger("myapp.network.protocol")
-      local ui_logger = log.get_logger("myapp.ui.events")
+-- Handler 2: Log to a file
+local file_stream = io.open("data_processor.log", "a")
+if file_stream then
+  data_processor_logger:add_handler(
+    lualog.handlers.stream_handler,      -- Use stream_handler for files too
+    lualog.formatters.plain_formatter,
+    { stream = file_stream }             -- Specify the file stream
+  )
+else
+  data_processor_logger:error("Could not open data_processor.log for logging.")
+end
 
-      -- Logging messages
-      network_logger:debug("Packet received from %s", "10.0.0.1")
-      ui_logger:info("User clicked button: %s", "submit_form")
+data_processor_logger:info("Processing started.") 
+-- This message goes to stdout AND data_processor.log
+```
+The `add_handler` method takes:
+1.  `handler_func`: A function that processes the log record (e.g., `lualog.handlers.stream_handler`).
+2.  `formatter_func`: A function that formats the log record before it's passed to the handler (e.g., `lualog.formatters.plain_formatter`).
+3.  `handler_config` (optional table): Configuration for the handler (e.g., `{stream = io.stderr}`).
 
-      -- Or using direct logging functions (potentially operating on the root logger or a named logger)
-      log.warn("global.config", "Old configuration value detected for 'timeout'.")
-      log.error("myapp.database", "Failed to connect to database: %s", db_error_message)
+### 6. Controlling Propagation
 
--- lua
+By default, after a logger processes a message with its own handlers, the message is passed to its parent logger's handlers. You can disable this:
+
+```lua
+local lualog = require("lual.log.luallog")
+
+local parent_logger = lualog.get_logger("app.service")
+parent_logger:set_level(lualog.levels.INFO)
+parent_logger:add_handler(lualog.handlers.stream_handler, lualog.formatters.plain_formatter)
+
+local child_logger = lualog.get_logger("app.service.worker")
+child_logger:set_level(lualog.levels.DEBUG)
+child_logger:add_handler(lualog.handlers.stream_handler, lualog.formatters.plain_formatter, {stream = io.stderr})
+
+-- By default, child_logger.propagate is true
+child_logger:info("Message from child (to stderr AND propagates to parent for stdout).")
+
+-- Disable propagation for child_logger
+child_logger.propagate = false
+child_logger:warn("Another message from child (to stderr ONLY, does NOT propagate).")
+```
+
+## Extending `lual.log`
+
+You can create custom handlers and formatters:
+
+*   **Custom Handler:** A function with the signature `my_handler(record, config)`
+    *   `record`: A table containing the log details (already formatted message, level info, timestamp, etc.).
+    *   `config`: The `handler_config` table passed when adding the handler.
+*   **Custom Formatter:** A function with the signature `my_formatter(record)`
+    *   `record`: A table with raw log details (message format string, arguments, level info, timestamp, etc.).
+    *   Should return a single string: the formatted log message.
+
+```lua
+-- Example: Simple custom formatter that adds a prefix
+local function prefix_formatter(record)
+  local original_message = string.format(record.message_fmt, unpack(record.args or {}))
+  return string.format("[MyPrefix] %s: %s", record.level_name, original_message)
+end
+
+-- Example: Simple custom handler that prints to console with a bang
+local function bang_handler(record, config)
+  print("BANG!!! " .. record.message) -- record.message is already formatted
+end
+
+local my_logger = lualog.get_logger("custom.test")
+my_logger:set_level(lualog.levels.INFO)
+my_logger:add_handler(bang_handler, prefix_formatter)
+
+my_logger:info("This is a custom test.") 
+-- Output via bang_handler after being formatted by prefix_formatter:
+-- BANG!!! [MyPrefix] INFO: This is a custom test.
+```
+
+## Running Tests
+
+The library uses Busted for testing. To run the tests:
+1.  Ensure Busted is installed (e.g., `luarocks install busted`).
+2.  Navigate to the root directory of the `lual.log` project.
+3.  Run the command: `busted`
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit issues or pull requests.
+(Further details on contribution guidelines can be added here).
+
+## License
+
+`lual.log` is released under the MIT License. (Verify and update if different).
+```
