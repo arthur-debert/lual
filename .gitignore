@@ -4,3 +4,4 @@ luacov.report.out
 luacov.stats.out
 local
 .DS_Store
+examples

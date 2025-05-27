@@ -134,26 +134,7 @@ describe("lualog Logger Object", function()
 
 					local all_calls = ingest.dispatch_log_event.calls
 					assert.are.same(1, #all_calls)
-					-- print("SPY CALL RECORD: " .. utils.stringify(all_calls[1])) -- DEBUG PRINT
-					print("---- START SPY CALL RECORD INSPECTION ----")
-					if type(all_calls[1]) == "table" then
-						for k, v_inspect in pairs(all_calls[1]) do -- Changed v to v_inspect to avoid conflict
-							print("  KEY:", tostring(k), "TYPE:", type(v_inspect))
-							if k == "args" then
-								if type(v_inspect) == "table" then
-									print("    ARGS COUNT:", #v_inspect)
-									for i_arg, arg_val in ipairs(v_inspect) do
-										print("      ARG[" .. i_arg .. "] TYPE:", type(arg_val))
-									end
-								else
-									print("    args is not a table, type is:", type(v_inspect))
-								end
-							end
-						end
-					else
-						print("  all_calls[1] is not a table, type is:", type(all_calls[1]))
-					end
-					print("---- END SPY CALL RECORD INSPECTION ----")
+					
 					local record = all_calls[1].vals[1] -- New way based on luassert spy structure for module functions
 
 					assert.are.same(level_enum, record.level_no)
