@@ -5,29 +5,29 @@ local unpack = unpack or table.unpack
 
 local _loggers_cache = {}
 
-local logger_prototype = {}
+local logger = {}
 
-function logger_prototype:debug(message_fmt, ...)
+function logger:debug(message_fmt, ...)
     self:log(core_levels.definition.DEBUG, message_fmt, ...)
 end
 
-function logger_prototype:info(message_fmt, ...)
+function logger:info(message_fmt, ...)
     self:log(core_levels.definition.INFO, message_fmt, ...)
 end
 
-function logger_prototype:warn(message_fmt, ...)
+function logger:warn(message_fmt, ...)
     self:log(core_levels.definition.WARNING, message_fmt, ...)
 end
 
-function logger_prototype:error(message_fmt, ...)
+function logger:error(message_fmt, ...)
     self:log(core_levels.definition.ERROR, message_fmt, ...)
 end
 
-function logger_prototype:critical(message_fmt, ...)
+function logger:critical(message_fmt, ...)
     self:log(core_levels.definition.CRITICAL, message_fmt, ...)
 end
 
-function logger_prototype:log(level_no, message_fmt, ...)
+function logger:log(level_no, message_fmt, ...)
     if not self:is_enabled_for(level_no) then
         return
     end
@@ -49,11 +49,11 @@ function logger_prototype:log(level_no, message_fmt, ...)
     ingest.dispatch_log_event(log_record, get_logger, core_levels.definition) -- Pass get_logger and levels
 end
 
-function logger_prototype:set_level(level)
+function logger:set_level(level)
     self.level = level
 end
 
-function logger_prototype:add_output(output_func, formatter_func, output_config)
+function logger:add_output(output_func, formatter_func, output_config)
     table.insert(self.outputs, {
         output_func = output_func,
         formatter_func = formatter_func,
@@ -61,14 +61,14 @@ function logger_prototype:add_output(output_func, formatter_func, output_config)
     })
 end
 
-function logger_prototype:is_enabled_for(message_level_no)
+function logger:is_enabled_for(message_level_no)
     if self.level == core_levels.definition.NONE then
         return message_level_no == core_levels.definition.NONE
     end
     return message_level_no >= self.level
 end
 
-function logger_prototype:get_effective_outputs()
+function logger:get_effective_outputs()
     local effective_outputs = {}
     local current_logger = self
 
@@ -123,7 +123,7 @@ function M.get_logger(name)
 
     -- Create new logger object based on prototype
     local new_logger = {}
-    for k, v in pairs(logger_prototype) do
+    for k, v in pairs(logger) do
         new_logger[k] = v
     end
 
