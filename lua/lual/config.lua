@@ -196,9 +196,9 @@ local function validate_shortcut_fields(config)
     end
 
     -- Validate known formatter types
-    local valid_formatters = { text = true, color = true }
+    local valid_formatters = { text = true, color = true, json = true }
     if not valid_formatters[config.formatter] then
-        return false, "Unknown formatter type: " .. config.formatter .. ". Valid types are: color, text"
+        return false, "Unknown formatter type: " .. config.formatter .. ". Valid types are: color, json, text"
     end
 
     -- Validate file-specific requirements
@@ -335,9 +335,9 @@ local function validate_single_output(output, index)
     end
 
     -- Validate known formatter types
-    local valid_formatter_types = { text = true, color = true }
+    local valid_formatter_types = { text = true, color = true, json = true }
     if not valid_formatter_types[output.formatter] then
-        return false, "Unknown formatter type: " .. output.formatter .. ". Valid types are: color, text"
+        return false, "Unknown formatter type: " .. output.formatter .. ". Valid types are: color, json, text"
     end
 
     -- Validate type-specific fields
@@ -496,6 +496,8 @@ local function declarative_to_canonical_config(declarative_config)
                 formatter_func = all_formatters.text
             elseif output_config.formatter == "color" then
                 formatter_func = all_formatters.color
+            elseif output_config.formatter == "json" then
+                formatter_func = all_formatters.json
             end
 
             table.insert(canonical.outputs, {

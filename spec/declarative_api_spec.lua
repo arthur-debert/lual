@@ -199,6 +199,29 @@ describe("Declarative API", function()
             -- Check stderr console has stream
             assert.are.same(io.stderr, logger.outputs[3].output_config.stream)
         end)
+
+        it("should configure JSON formatter correctly", function()
+            local logger = lualog.logger({
+                name = "test.json",
+                outputs = {
+                    { type = "console", formatter = "json" },
+                    { type = "file",    path = "app.json", formatter = "json" }
+                }
+            })
+
+            assert.are.same(2, #logger.outputs)
+
+            -- Check that both outputs are properly configured with JSON formatter
+            for i, output in ipairs(logger.outputs) do
+                assert.is_function(output.output_func, "Output " .. i .. " missing output_func")
+                assert.is_function(output.formatter_func, "Output " .. i .. " missing formatter_func")
+                assert.are.same(lualog.lib.json, output.formatter_func, "Output " .. i .. " should use JSON formatter")
+                assert.is_table(output.output_config, "Output " .. i .. " missing output_config")
+            end
+
+            -- Check file output has path
+            assert.are.same("app.json", logger.outputs[2].output_config.path)
+        end)
     end)
 
     describe("Validation", function()
@@ -303,7 +326,7 @@ describe("Declarative API", function()
                         { type = "console", formatter = "unknown" }
                     }
                 })
-            end, "Invalid declarative config: Unknown formatter type: unknown. Valid types are: color, text")
+            end, "Invalid declarative config: Unknown formatter type: unknown. Valid types are: color, json, text")
         end)
 
         it("should reject file output without path", function()
