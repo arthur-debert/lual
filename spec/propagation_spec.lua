@@ -12,7 +12,7 @@ describe("Logger Propagation", function()
     before_each(function()
         -- Reset the logger system for each test
         package.loaded["lual.logger"] = nil
-        package.loaded["lual.core.logger_class"] = nil
+        package.loaded["lual.core.engine"] = nil
         package.loaded["lual.ingest"] = nil
         lual = require("lual.logger")
 
@@ -22,6 +22,7 @@ describe("Logger Propagation", function()
 
         -- Clear any default outputs that might be set up
         local root_logger = lual.get_logger("root")
+        -- Clear outputs directly for test setup (this is acceptable for tests)
         root_logger.outputs = {}
     end)
 
@@ -133,7 +134,7 @@ describe("Logger Propagation", function()
             security_logger:add_output(create_mock_output("security_output"), create_mock_formatter("security_formatter"))
 
             -- Disable propagation on security logger
-            security_logger.propagate = false
+            security_logger:set_propagate(false)
 
             security_logger:error("Security violation detected")
 
@@ -156,7 +157,7 @@ describe("Logger Propagation", function()
             conn_logger:add_output(create_mock_output("conn_output"), create_mock_formatter("conn_formatter"))
 
             -- Disable propagation at database level
-            db_logger.propagate = false
+            db_logger:set_propagate(false)
 
             conn_logger:info("Connection pool status") -- Use INFO instead of DEBUG to ensure it passes level filters
 
@@ -322,7 +323,7 @@ describe("Logger Propagation", function()
             app_logger:add_output(create_mock_output("app_output"), create_mock_formatter("app_formatter"))
 
             -- Disable propagation on root (shouldn't matter since it has no parent)
-            root_logger.propagate = false
+            root_logger:set_propagate(false)
 
             app_logger:warn("Application warning")
 

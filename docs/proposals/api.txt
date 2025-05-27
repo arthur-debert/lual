@@ -1,0 +1,110 @@
+API 
+
+lual gives various ways to construct your logger:
+1. Imperative: 
+
+    a series of functional calls to the logger object, each setting part of the config. 
+
+        -- example
+
+            local lual = require("lual")
+            local logger = lualog.get_logger("app.database")
+            logger:set_level("debug")
+
+            logger:add_output(
+                lualog.outputs.console,
+                lualog.formatters.plain,
+                { stream = io.stdout }  -- optional config
+            )
+            
+            -- Add file output
+            local file_output = require("lual.outputs.file")
+            logger:add_output(
+                file_output({ path = "app.log" }),
+                lualog.formatters.plain
+            )
+            
+            -- Add colored console output
+            logger:add_output(
+                lualog.outputs.console,
+                lualog.formatters.color,
+                { stream = io.stderr }
+            )
+
+
+2. Declarative:
+
+    A single call to the logger object, with a config table. 
+
+            -- example: 
+
+                local  logger = require("lualog").logger({
+                    name = "app.database",
+                     level = "debug",
+                    outputs = {
+                        {type = "console", formatter = "color"},
+                        {type = "file", path = "app.log", formatter = "plain"}
+                    }
+                })
+
+            -- lua
+
+3. Shortcut Declarative
+
+For the very common case where where there is one output and one formatter, we can allow this other form of the declarative api:
+
+    -- the initial get logger can customize the logger.
+
+        local lualog = require("lualog")
+        # this  is a simple case, where there is a 101 releatioship between outputs and formatters, and only one output
+        local logger = lualog.logger({output: "console", level:"debug", formatter: "color"})
+    -- lua
+
+In this case, the code should verify if the table has such format. The general form is : 
+ .   * as long as output and format are either a single item or a table of one item 
+     * we transform to the general form (the formatter is part of the output, which is a table)
+So we do a to_canonical_config transformation, then run the regular validation and api.
+
+
+IMPLEMENTATION DESIGN:
+
+Single Config Table Architecture:
+
+All loggers are internally created from a canonical config table. This provides:
+- Single source of truth for logger configuration
+- Consistency between imperative and declarative APIs  
+- Easier testing and maintenance
+
+Core approach:
+1. Define canonical config schema
+2. All logger creation goes through create_logger_from_config(config)
+3. Imperative methods become config transformations:
+   - Get current config -> clone -> modify -> recreate logger
+4. Declarative APIs normalize input to canonical config
+5. Performance cost negligible (config changes are rare)
+
+Benefits:
+- No configuration logic duplication
+- New config options work across all APIs automatically
+- Immutable config state (safer, more predictable)
+- Clean separation of concerns
+
+
+DECLARATIVE API:
+
+After the work on the single config table architecture, we can add a declarative api. It should be straight forward, but it has two things to consider:
+
+1. The user ins't required to use a full config table, a partial one can be used. 
+
+    This means that we need to merge the config table with the default config table, with the user's config taking precedence.
+
+2. Validation: 
+
+    We should validate , at least a few things: 
+
+    - Extraneous keys: While it would not cause an error, if the user sends keys that are not in the config table, it should raise an error so the user can fix it. Otherwise the user will expect some configuration to work when it doesn't 
+
+   - Wrong values/types: 
+       levels must be from a predefined set of values
+       outputers, formatters must be functions, names must be strings, propagate must be a boolean. 
+       it would be great to validate that output and formatters have the right signature, but that is a bit more complex, so we can let errors blow up at runtime.

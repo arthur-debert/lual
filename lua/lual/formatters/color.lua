@@ -55,7 +55,7 @@ end
 -- @param record (table) A table containing log record details
 -- @param config (table) Configuration options for the formatter
 -- @return (string) The formatted log message string with ANSI color codes.
-local function color_formatter(record, config)
+local function color(record, config)
     config = config or {}
     local level_colors = config.level_colors or default_level_colors
     local timestamp_str = os.date("!%Y-%m-%d %H:%M:%S", record.timestamp)
@@ -86,4 +86,4 @@ local function color_formatter(record, config)
     )
 end
 
-return color_formatter
+return color

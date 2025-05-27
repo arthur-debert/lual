@@ -50,7 +50,7 @@ EXAMPLE: APPLICATION LOGGING WITH ROTATION
     app_logger:set_level(lual.levels.INFO)
     app_logger:add_output(
         file_output({ path = "/var/log/myapp.log" }),
-        lual.formatters.plain_formatter
+        lual.formatters.text
     )
 
     -- Each application restart will rotate logs automatically

@@ -24,7 +24,7 @@ local function is_lual_internal_file(filename)
     -- Check if it's a lual internal file
     -- Only filter files that are actually part of the lual library structure
     local is_internal = basename == "caller_info.lua" or
-        basename == "logger_class.lua" or
+        basename == "engine.lua" or
         basename == "ingest.lua" or
         string.match(basename, "^lual%.") ~= nil -- Files starting with "lual." (like lual.logger)
 

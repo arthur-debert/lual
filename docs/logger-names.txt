@@ -96,7 +96,7 @@ and so on up to the root.
     local app_logger = lual.get_logger("app")
     app_logger:add_output(
         file_output({ path = "app.log" }),
-        lual.formatters.plain_formatter
+        lual.formatters.text
     )
     
     -- Database logger has no outputs of its own
@@ -118,7 +118,7 @@ You can disable propagation to stop messages from flowing upward:
     local sensitive_logger = lual.get_logger("app.security.audit")
     sensitive_logger:add_output(
         require("lual.outputs.file_output")({ path = "audit.log" }),
-        lual.formatters.plain_formatter
+        lual.formatters.text
     )
     
     -- Prevent audit logs from appearing in general app logs
@@ -167,14 +167,14 @@ EXAMPLE: WEB APPLICATION HIERARCHY
     local app = lual.get_logger("webapp")
     app:add_output(
         file_output({ path = "webapp.log" }),
-        lual.formatters.plain_formatter
+        lual.formatters.text
     )
     
     -- HTTP requests: separate file, info level
     local http = lual.get_logger("webapp.http")
     http:add_output(
         file_output({ path = "requests.log" }),
-        lual.formatters.plain_formatter
+        lual.formatters.text
     )
     
     -- Database: debug level, shared with app file
@@ -185,7 +185,7 @@ EXAMPLE: WEB APPLICATION HIERARCHY
     local security = lual.get_logger("webapp.security")
     security:add_output(
         file_output({ path = "security.log" }),
-        lual.formatters.plain_formatter
+        lual.formatters.text
     )
     security.propagate = false
     

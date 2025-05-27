@@ -231,15 +231,16 @@ describe("lualog Logger Object", function()
 				logger_c = fresh_lualog_for_outputs.get_logger("eff_root.p.c")
 
 				-- Reset levels and outputs for these specific loggers
-				logger_root.level = fresh_lualog_for_outputs.levels.DEBUG
-				logger_p.level = fresh_lualog_for_outputs.levels.DEBUG
-				logger_c.level = fresh_lualog_for_outputs.levels.DEBUG
+				logger_root:set_level(fresh_lualog_for_outputs.levels.DEBUG)
+				logger_p:set_level(fresh_lualog_for_outputs.levels.DEBUG)
+				logger_c:set_level(fresh_lualog_for_outputs.levels.DEBUG)
+				-- Clear outputs directly for test setup (this is acceptable for tests)
 				logger_root.outputs = {}
 				logger_p.outputs = {}
 				logger_c.outputs = {}
-				logger_root.propagate = true
-				logger_p.propagate = true
-				logger_c.propagate = true
+				logger_root:set_propagate(true)
+				logger_p:set_propagate(true)
+				logger_c:set_propagate(true)
 			end)
 
 			local mock_h_fn = function() end
@@ -259,22 +260,60 @@ describe("lualog Logger Object", function()
 			end)
 
 			it("should stop collecting if propagate is false on child", function()
+				-- Reset the logger system to get a clean root logger
+				fresh_lualog_for_outputs.reset_config()
+
+				-- Re-get the loggers after reset
+				logger_root = fresh_lualog_for_outputs.get_logger("eff_root")
+				logger_p = fresh_lualog_for_outputs.get_logger("eff_root.p")
+				logger_c = fresh_lualog_for_outputs.get_logger("eff_root.p.c")
+
+				-- Reset levels and outputs for these specific loggers
+				logger_root:set_level(fresh_lualog_for_outputs.levels.DEBUG)
+				logger_p:set_level(fresh_lualog_for_outputs.levels.DEBUG)
+				logger_c:set_level(fresh_lualog_for_outputs.levels.DEBUG)
+				logger_root.outputs = {}
+				logger_p.outputs = {}
+				logger_c.outputs = {}
+				logger_root:set_propagate(true)
+				logger_p:set_propagate(true)
+				logger_c:set_propagate(true)
+
 				logger_c:add_output(mock_h_fn, mock_f_fn, { id = "hc" })
 				logger_p:add_output(mock_h_fn, mock_f_fn, { id = "hp" })
 				logger_root:add_output(mock_h_fn, mock_f_fn, { id = "h_root" })
 
-				logger_c.propagate = false
+				logger_c:set_propagate(false)
 				local c_outputs = logger_c:get_effective_outputs()
 				assert.are.same(1, #c_outputs)
 				assert.are.same("eff_root.p.c", c_outputs[1].owner_logger_name)
 			end)
 
 			it("should stop collecting if propagate is false on parent", function()
+				-- Reset the logger system to get a clean root logger
+				fresh_lualog_for_outputs.reset_config()
+
+				-- Re-get the loggers after reset
+				logger_root = fresh_lualog_for_outputs.get_logger("eff_root")
+				logger_p = fresh_lualog_for_outputs.get_logger("eff_root.p")
+				logger_c = fresh_lualog_for_outputs.get_logger("eff_root.p.c")
+
+				-- Reset levels and outputs for these specific loggers
+				logger_root:set_level(fresh_lualog_for_outputs.levels.DEBUG)
+				logger_p:set_level(fresh_lualog_for_outputs.levels.DEBUG)
+				logger_c:set_level(fresh_lualog_for_outputs.levels.DEBUG)
+				logger_root.outputs = {}
+				logger_p.outputs = {}
+				logger_c.outputs = {}
+				logger_root:set_propagate(true)
+				logger_p:set_propagate(true)
+				logger_c:set_propagate(true)
+
 				logger_c:add_output(mock_h_fn, mock_f_fn, { id = "hc" })
 				logger_p:add_output(mock_h_fn, mock_f_fn, { id = "hp" })
 				logger_root:add_output(mock_h_fn, mock_f_fn, { id = "h_root" })
 
-				logger_p.propagate = false -- c propagates to p, but p doesn't propagate to root
+				logger_p:set_propagate(false) -- c propagates to p, but p doesn't propagate to root
 				local c_outputs = logger_c:get_effective_outputs()
 				assert.are.same(2, #c_outputs)
 				assert.are.same("eff_root.p.c", c_outputs[1].owner_logger_name)
@@ -288,7 +327,7 @@ describe("lual.logger (Facade)", function()
 	before_each(function()
 		-- Ensure a clean state for lualog and its components for each facade test
 		package.loaded["lual.logger"] = nil
-		package.loaded["lual.core.logger_class"] = nil
+		package.loaded["lual.core.engine"] = nil
 		package.loaded["lual.core.levels"] = nil
 		package.loaded["lual.outputs.init"] = nil
 		package.loaded["lual.formatters.init"] = nil
@@ -296,23 +335,6 @@ describe("lual.logger (Facade)", function()
 
 		-- Re-require lualog to get a fresh instance with fresh dependencies
 		lualog = require("lual.logger")
-	end)
-
-	describe("Global Convenience Functions (High-Level)", function()
-		it("log.info() should execute without error", function()
-			-- This is a smoke test. It doesn't check output, but ensures the call path works.
-			assert.is_true(pcall(function()
-				lualog.info("mytest", "Facade info test: %s", "message")
-			end))
-		end)
-
-		it("log.debug() should execute without error", function()
-			assert.is_true(pcall(function()
-				lualog.debug("mytest", "Facade debug test")
-			end))
-		end)
-
-		-- Add similar smoke tests for warn, error, critical if desired
 	end)
 
 	describe("log.init_default_config()", function()
@@ -352,26 +374,37 @@ describe("lual.logger (Facade)", function()
 		end)
 	end)
 
-	describe("log.set_level() facade", function()
-		it("should set level on a logger instance", function()
-			local test_setter_logger = lualog.get_logger("test_set_level_facade")
-			lualog.set_level("test_set_level_facade", lualog.levels.ERROR)
-			assert.are.same(lualog.levels.ERROR, test_setter_logger.level)
-			lualog.set_level("test_set_level_facade", "DEBUG")
-			assert.are.same(lualog.levels.DEBUG, test_setter_logger.level)
-		end)
-	end)
+	describe("Proper logger instance usage (non-facade)", function()
+		it("logger instance methods should work correctly", function()
+			local test_logger = lualog.get_logger("test_proper_usage")
 
-	describe("log.add_output() facade", function()
-		it("should add a output to a logger instance", function()
-			local test_addh_logger = lualog.get_logger("test_add_output_facade")
+			-- Test setting level directly on logger instance
+			test_logger:set_level(lualog.levels.ERROR)
+			assert.are.same(lualog.levels.ERROR, test_logger.level)
+			test_logger:set_level(lualog.levels.DEBUG)
+			assert.are.same(lualog.levels.DEBUG, test_logger.level)
+
+			-- Test adding output directly on logger instance
 			local mock_h = function() end
 			local mock_f = function() end
-			lualog.add_output("test_add_output_facade", mock_h, mock_f, { id = "test1" })
-			assert.are.same(1, #test_addh_logger.outputs)
-			if #test_addh_logger.outputs == 1 then
-				assert.are.same(mock_h, test_addh_logger.outputs[1].output_func)
+			test_logger:add_output(mock_h, mock_f, { id = "test1" })
+			assert.are.same(1, #test_logger.outputs)
+			if #test_logger.outputs == 1 then
+				assert.are.same(mock_h, test_logger.outputs[1].output_func)
 			end
+		end)
+
+		it("logger instance logging methods should execute without error", function()
+			local test_logger = lualog.get_logger("test_logging_methods")
+
+			-- Test that logging methods work on logger instances
+			assert.is_true(pcall(function()
+				test_logger:info("Instance info test: %s", "message")
+			end))
+
+			assert.is_true(pcall(function()
+				test_logger:debug("Instance debug test")
+			end))
 		end)
 	end)
 end)

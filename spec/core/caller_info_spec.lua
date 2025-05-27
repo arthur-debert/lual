@@ -119,7 +119,7 @@ describe("lual.core.caller_info", function()
 
             -- Verify it doesn't return lual internal files
             assert.is_false(string.find(filename, "caller_info.lua", 1, true) ~= nil)
-            assert.is_false(string.find(filename, "logger_class.lua", 1, true) ~= nil)
+            assert.is_false(string.find(filename, "engine.lua", 1, true) ~= nil)
         end)
 
         it("should handle edge case with empty filename", function()
