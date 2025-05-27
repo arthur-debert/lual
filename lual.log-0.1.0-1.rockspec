@@ -28,8 +28,7 @@ build = {
    type = "builtin",
    modules = {
       ["lual"] = "lua/melt/init.lua",
-      ["lual.utils"] = "lua/melt/utils.lua",
-      ["lual.readers"] = "lua/melt/readers.lua"
+
    },
    copy_directories = {"docs"}
 }

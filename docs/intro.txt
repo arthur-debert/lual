@@ -3,12 +3,12 @@ Lual: A lua logger paying homage to python's stdlib logger.
 Lual is a focused but powerful and flexible logging library for lua. 
 Modeled after Python's standard library logger, it provides a simple interface
 for logging messages at different severity levels, with named loggers , rich
-dispatching and customizable handlers and formatters.
+dispatching and customizable outputs and formatters.
 
 It borrows from Python but also leverages Lua's strengths, hence the entire
 design is done over functions and tables. 
 
-It comes with a  spartan collection of handlers (console ; file ) and
+It comes with a  spartan collection of outputs (console ; file ) and
 formatters (plaintext; colored ; json) but one can register custom functions
 for these roles with ease.
 
@@ -46,10 +46,10 @@ A powerful feature of lual is the ability to use hierarchical loggers with diffe
 
     local lualog = require("lual.logger")
 
-    -- Set up the root logger with a stream handler to stdout
+    -- Set up the root logger with a stream output to stdout
     local root_logger = lualog.get_logger()
     root_logger:set_level(lualog.levels.WARNING) -- Only WARNING and above by default
-    root_logger:add_handler(lualog.handlers.stream_handler, lualog.formatters.plain_formatter)
+    root_logger:add_output(lualog.outputs.stream_output, lualog.formatters.plain_formatter)
 
     -- Logger for database operations - more verbose for debugging DB issues
     local db_logger = lualog.get_logger("app.db")
@@ -72,7 +72,7 @@ A powerful feature of lual is the ability to use hierarchical loggers with diffe
 
 EXAMPLE: CUSTOM FORMATTER AND HANDLER
 
-Lual makes it easy to extend the library with custom formatters and handlers to fit your specific needs:
+Lual makes it easy to extend the library with custom formatters and outputs to fit your specific needs:
 
     local lualog = require("lual.logger")
 
@@ -88,8 +88,8 @@ Lual makes it easy to extend the library with custom formatters and handlers to 
             message)
     end
 
-    -- Create a custom handler that sends critical errors to a notification system
-    local function notification_handler(record, config)
+    -- Create a custom output that sends critical errors to a notification system
+    local function notification_output(record, config)
         if record.level_no >= lualog.levels.ERROR then
             local channel = config.channel or "alerts"
             print(string.format("ALERT to %s channel: %s", channel, record.message))
@@ -97,19 +97,19 @@ Lual makes it easy to extend the library with custom formatters and handlers to 
         end
     end
 
-    -- Set up a logger with both handlers
+    -- Set up a logger with both outputs
     local app_logger = lualog.get_logger("critical_app")
     app_logger:set_level(lualog.levels.DEBUG)
 
     -- Add standard console output
-    app_logger:add_handler(
-        lualog.handlers.stream_handler,
+    app_logger:add_output(
+        lualog.outputs.stream_output,
         lualog.formatters.plain_formatter
     )
 
     -- Add notification alerts for critical errors
-    app_logger:add_handler(
-        notification_handler,
+    app_logger:add_output(
+        notification_output,
         precise_time_formatter,
         { channel = "production-alerts" }
     )

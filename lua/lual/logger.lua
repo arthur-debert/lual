@@ -12,12 +12,12 @@ local log = {}
 
 local core_levels = require("lual.core.levels")
 local logger_class = require("lual.core.logger_class")
-local all_handlers = require("lual.handlers.init")     -- Require the new handlers init
+local all_outputs = require("lual.outputs.init")     -- Require the new outputs init
 local all_formatters = require("lual.formatters.init") -- Require the new formatters init
 
 log.levels = core_levels.definition
 log.get_logger = logger_class.get_logger
-log.handlers = all_handlers     -- Assign the handlers table
+log.outputs = all_outputs     -- Assign the outputs table
 log.formatters = all_formatters -- Assign the formatters table
 
 -- Removed _loggers_cache and the entire log.get_logger function body
@@ -101,24 +101,24 @@ function log.set_level(logger_name_pattern, level)
   end
 end
 
---- Adds a handler and its associated formatter to a logger or pattern.
+--- Adds a output and its associated formatter to a logger or pattern.
 -- @param logger_name_pattern (string) The logger name or pattern.
--- @param handler_func (function) The handler function.
--- @param formatter_func (function) The formatter function for this handler.
--- @param handler_config (table, optional) Configuration specific to the handler (e.g., filepath for file handler).
-function log.add_handler(logger_name_pattern, handler_func, formatter_func, handler_config)
+-- @param output_func (function) The output function.
+-- @param formatter_func (function) The formatter function for this output.
+-- @param output_config (table, optional) Configuration specific to the output (e.g., filepath for file output).
+function log.add_output(logger_name_pattern, output_func, formatter_func, output_config)
   local target_logger = log.get_logger(logger_name_pattern)
-  if target_logger and target_logger.add_handler then
-    target_logger:add_handler(handler_func, formatter_func, handler_config)
+  if target_logger and target_logger.add_output then
+    target_logger:add_output(output_func, formatter_func, output_config)
   end
 end
 
---- Removes all handlers for a given logger or pattern.
+--- Removes all outputs for a given logger or pattern.
 -- @param logger_name_pattern (string) The logger name or pattern.
-function log.remove_handlers(logger_name_pattern)
+function log.remove_outputs(logger_name_pattern)
   local target_logger = log.get_logger(logger_name_pattern)
   if target_logger then
-    target_logger.handlers = {}
+    target_logger.outputs = {}
   end
 end
 
@@ -129,10 +129,10 @@ function log.reset_config()
 end
 
 -- =============================================================================
--- 4. Handler Definitions (Function Signatures) - REMOVED
+-- 4. Output Definitions (Function Signatures) - REMOVED
 -- =============================================================================
--- log.handlers = {} -- This line is removed
--- All function log.handlers.stream_handler(...) etc. are removed.
+-- log.outputs = {} -- This line is removed
+-- All function log.outputs.stream_output(...) etc. are removed.
 
 -- =============================================================================
 -- 5. Formatter Definitions (Function Signatures) - REMOVED
@@ -146,13 +146,13 @@ end
 function log.init_default_config()
   local root_logger = log.get_logger("root")
   if root_logger then
-    root_logger.handlers = {} -- Clear existing default handlers
+    root_logger.outputs = {} -- Clear existing default outputs
     if root_logger.set_level then
       root_logger:set_level(log.levels.INFO)
     end
-    if root_logger.add_handler and log.handlers and log.handlers.stream_handler and log.formatters and log.formatters.plain_formatter then
-      root_logger:add_handler(
-        log.handlers.stream_handler,
+    if root_logger.add_output and log.outputs and log.outputs.stream_output and log.formatters and log.formatters.plain_formatter then
+      root_logger:add_output(
+        log.outputs.stream_output,
         log.formatters.plain_formatter,
         { stream = io.stdout }
       )

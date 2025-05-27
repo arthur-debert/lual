@@ -194,45 +194,45 @@ describe("lualog Logger Object", function()
     test_log_method("error", lualog.levels.ERROR, "ERROR")
     test_log_method("critical", lualog.levels.CRITICAL, "CRITICAL")
 
-    it("logger:add_handler(handler_func, formatter_func, handler_config) should add handler correctly", function()
-      local mock_handler_fn = function() end
+    it("logger:add_output(output_func, formatter_func, output_config) should add output correctly", function()
+      local mock_output_fn = function() end
       local mock_formatter_fn = function() end
       local mock_cfg = { type = "test" }
 
-      test_logger:add_handler(mock_handler_fn, mock_formatter_fn, mock_cfg)
-      assert.are.same(1, #test_logger.handlers)
-      local entry = test_logger.handlers[1]
-      assert.are.same(mock_handler_fn, entry.handler_func)
+      test_logger:add_output(mock_output_fn, mock_formatter_fn, mock_cfg)
+      assert.are.same(1, #test_logger.outputs)
+      local entry = test_logger.outputs[1]
+      assert.are.same(mock_output_fn, entry.output_func)
       assert.are.same(mock_formatter_fn, entry.formatter_func)
-      assert.are.same(mock_cfg, entry.handler_config)
+      assert.are.same(mock_cfg, entry.output_config)
 
       -- Test with nil config
-      test_logger:add_handler(mock_handler_fn, mock_formatter_fn, nil)
-      assert.are.same(2, #test_logger.handlers)
-      local entry_nil_config = test_logger.handlers[2]
-      assert.is_table(entry_nil_config.handler_config) -- Should default to {}
-      assert.are.same(0, #entry_nil_config.handler_config)
+      test_logger:add_output(mock_output_fn, mock_formatter_fn, nil)
+      assert.are.same(2, #test_logger.outputs)
+      local entry_nil_config = test_logger.outputs[2]
+      assert.is_table(entry_nil_config.output_config) -- Should default to {}
+      assert.are.same(0, #entry_nil_config.output_config)
     end)
 
-    describe("logger:get_effective_handlers()", function()
-      local fresh_lualog_for_handlers
+    describe("logger:get_effective_outputs()", function()
+      local fresh_lualog_for_outputs
       local logger_root, logger_p, logger_c
 
       before_each(function()
         package.loaded["lual.logger"] = nil
-        fresh_lualog_for_handlers = require("lual.logger")
+        fresh_lualog_for_outputs = require("lual.logger")
         -- Use unique names for this test block to ensure clean hierarchy
-        logger_root = fresh_lualog_for_handlers.get_logger("eff_root")
-        logger_p = fresh_lualog_for_handlers.get_logger("eff_root.p")
-        logger_c = fresh_lualog_for_handlers.get_logger("eff_root.p.c")
+        logger_root = fresh_lualog_for_outputs.get_logger("eff_root")
+        logger_p = fresh_lualog_for_outputs.get_logger("eff_root.p")
+        logger_c = fresh_lualog_for_outputs.get_logger("eff_root.p.c")
 
-        -- Reset levels and handlers for these specific loggers
-        logger_root.level = fresh_lualog_for_handlers.levels.DEBUG
-        logger_p.level = fresh_lualog_for_handlers.levels.DEBUG
-        logger_c.level = fresh_lualog_for_handlers.levels.DEBUG
-        logger_root.handlers = {}
-        logger_p.handlers = {}
-        logger_c.handlers = {}
+        -- Reset levels and outputs for these specific loggers
+        logger_root.level = fresh_lualog_for_outputs.levels.DEBUG
+        logger_p.level = fresh_lualog_for_outputs.levels.DEBUG
+        logger_c.level = fresh_lualog_for_outputs.levels.DEBUG
+        logger_root.outputs = {}
+        logger_p.outputs = {}
+        logger_c.outputs = {}
         logger_root.propagate = true
         logger_p.propagate = true
         logger_c.propagate = true
@@ -241,40 +241,40 @@ describe("lualog Logger Object", function()
       local mock_h_fn = function() end
       local mock_f_fn = function() end
 
-      it("should collect handlers from self and propagating parents", function()
-        logger_c:add_handler(mock_h_fn, mock_f_fn, { id = "hc" })
-        logger_p:add_handler(mock_h_fn, mock_f_fn, { id = "hp" })
-        logger_root:add_handler(mock_h_fn, mock_f_fn, { id = "h_root" })
+      it("should collect outputs from self and propagating parents", function()
+        logger_c:add_output(mock_h_fn, mock_f_fn, { id = "hc" })
+        logger_p:add_output(mock_h_fn, mock_f_fn, { id = "hp" })
+        logger_root:add_output(mock_h_fn, mock_f_fn, { id = "h_root" })
 
-        local c_handlers = logger_c:get_effective_handlers()
-        assert.are.same(4, #c_handlers) -- Expect 3 local + 1 from actual root
-        assert.are.same("eff_root.p.c", c_handlers[1].owner_logger_name)
-        assert.are.same("eff_root.p", c_handlers[2].owner_logger_name)
-        assert.are.same("eff_root", c_handlers[3].owner_logger_name)
-        assert.are.same("root", c_handlers[4].owner_logger_name) -- Check the propagated root handler
+        local c_outputs = logger_c:get_effective_outputs()
+        assert.are.same(4, #c_outputs) -- Expect 3 local + 1 from actual root
+        assert.are.same("eff_root.p.c", c_outputs[1].owner_logger_name)
+        assert.are.same("eff_root.p", c_outputs[2].owner_logger_name)
+        assert.are.same("eff_root", c_outputs[3].owner_logger_name)
+        assert.are.same("root", c_outputs[4].owner_logger_name) -- Check the propagated root output
       end)
 
       it("should stop collecting if propagate is false on child", function()
-        logger_c:add_handler(mock_h_fn, mock_f_fn, { id = "hc" })
-        logger_p:add_handler(mock_h_fn, mock_f_fn, { id = "hp" })
-        logger_root:add_handler(mock_h_fn, mock_f_fn, { id = "h_root" })
+        logger_c:add_output(mock_h_fn, mock_f_fn, { id = "hc" })
+        logger_p:add_output(mock_h_fn, mock_f_fn, { id = "hp" })
+        logger_root:add_output(mock_h_fn, mock_f_fn, { id = "h_root" })
 
         logger_c.propagate = false
-        local c_handlers = logger_c:get_effective_handlers()
-        assert.are.same(1, #c_handlers)
-        assert.are.same("eff_root.p.c", c_handlers[1].owner_logger_name)
+        local c_outputs = logger_c:get_effective_outputs()
+        assert.are.same(1, #c_outputs)
+        assert.are.same("eff_root.p.c", c_outputs[1].owner_logger_name)
       end)
 
       it("should stop collecting if propagate is false on parent", function()
-        logger_c:add_handler(mock_h_fn, mock_f_fn, { id = "hc" })
-        logger_p:add_handler(mock_h_fn, mock_f_fn, { id = "hp" })
-        logger_root:add_handler(mock_h_fn, mock_f_fn, { id = "h_root" })
+        logger_c:add_output(mock_h_fn, mock_f_fn, { id = "hc" })
+        logger_p:add_output(mock_h_fn, mock_f_fn, { id = "hp" })
+        logger_root:add_output(mock_h_fn, mock_f_fn, { id = "h_root" })
 
         logger_p.propagate = false -- c propagates to p, but p doesn't propagate to root
-        local c_handlers = logger_c:get_effective_handlers()
-        assert.are.same(2, #c_handlers)
-        assert.are.same("eff_root.p.c", c_handlers[1].owner_logger_name)
-        assert.are.same("eff_root.p", c_handlers[2].owner_logger_name)
+        local c_outputs = logger_c:get_effective_outputs()
+        assert.are.same(2, #c_outputs)
+        assert.are.same("eff_root.p.c", c_outputs[1].owner_logger_name)
+        assert.are.same("eff_root.p", c_outputs[2].owner_logger_name)
       end)
     end)
   end)
@@ -286,7 +286,7 @@ describe("lual.logger (Facade)", function()
     package.loaded["lual.logger"] = nil
     package.loaded["lual.core.logger_class"] = nil
     package.loaded["lual.core.levels"] = nil
-    package.loaded["lual.handlers.init"] = nil
+    package.loaded["lual.outputs.init"] = nil
     package.loaded["lual.formatters.init"] = nil
     package.loaded["lual.ingest"] = nil
 
@@ -308,23 +308,23 @@ describe("lual.logger (Facade)", function()
   end)
 
   describe("log.init_default_config()", function()
-    it("should add one default handler to the root logger", function()
+    it("should add one default output to the root logger", function()
       local root_logger = lualog.get_logger("root")
       assert.is_not_nil(root_logger)
-      assert.are.same(1, #root_logger.handlers, "Root logger should have 1 handler after init.")
-      if #root_logger.handlers == 1 then
-        local handler_entry = root_logger.handlers[1]
-        assert.is_function(handler_entry.handler_func)
-        assert.is_function(handler_entry.formatter_func)
+      assert.are.same(1, #root_logger.outputs, "Root logger should have 1 output after init.")
+      if #root_logger.outputs == 1 then
+        local output_entry = root_logger.outputs[1]
+        assert.is_function(output_entry.output_func)
+        assert.is_function(output_entry.formatter_func)
       end
     end)
 
-    it("calling init_default_config multiple times should still result in one default handler", function()
+    it("calling init_default_config multiple times should still result in one default output", function()
       lualog.init_default_config() -- Call again
       lualog.init_default_config() -- Call yet again
 
       local root_logger = lualog.get_logger("root")
-      assert.are.same(1, #root_logger.handlers, "Root logger should still have 1 handler after multiple inits.")
+      assert.are.same(1, #root_logger.outputs, "Root logger should still have 1 output after multiple inits.")
     end)
   end)
 
@@ -340,7 +340,7 @@ describe("lual.logger (Facade)", function()
       assert.are.same(lualog.levels.INFO, logger2.level, "Logger level should be default INFO after reset.")
 
       local root_logger = lualog.get_logger("root")
-      assert.are.same(1, #root_logger.handlers, "Root logger should have 1 default handler after reset.")
+      assert.are.same(1, #root_logger.outputs, "Root logger should have 1 default output after reset.")
     end)
   end)
 
@@ -354,15 +354,15 @@ describe("lual.logger (Facade)", function()
     end)
   end)
 
-  describe("log.add_handler() facade", function()
-    it("should add a handler to a logger instance", function()
-      local test_addh_logger = lualog.get_logger("test_add_handler_facade")
+  describe("log.add_output() facade", function()
+    it("should add a output to a logger instance", function()
+      local test_addh_logger = lualog.get_logger("test_add_output_facade")
       local mock_h = function() end
       local mock_f = function() end
-      lualog.add_handler("test_add_handler_facade", mock_h, mock_f, { id = "test1" })
-      assert.are.same(1, #test_addh_logger.handlers)
-      if #test_addh_logger.handlers == 1 then
-        assert.are.same(mock_h, test_addh_logger.handlers[1].handler_func)
+      lualog.add_output("test_add_output_facade", mock_h, mock_f, { id = "test1" })
+      assert.are.same(1, #test_addh_logger.outputs)
+      if #test_addh_logger.outputs == 1 then
+        assert.are.same(mock_h, test_addh_logger.outputs[1].output_func)
       end
     end)
   end)
