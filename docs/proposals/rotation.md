@@ -109,3 +109,6 @@ This "rotate on start" approach provides a significant improvement over no
 rotation at all, with minimal implementation complexity, making it a very
 suitable default or optional feature for a file handler aimed at broad
 usability.
+
+This is the design we're going for with backup nums 5 file. file outputs should
+receive a path , but always rotate to 5.
