@@ -1,5 +1,6 @@
 local ingest = require("lual.ingest")
 local core_levels = require("lual.core.levels")
+local caller_info = require("lual.core.caller_info")
 local unpack = unpack or table.unpack
 
 local _loggers_cache = {}
@@ -31,11 +32,7 @@ function logger_prototype:log(level_no, message_fmt, ...)
         return
     end
 
-    local info = debug.getinfo(3, "Sl") -- Check stack level carefully
-    local filename = info.short_src
-    if filename and string.sub(filename, 1, 1) == "@" then
-        filename = string.sub(filename, 2)
-    end
+    local filename, lineno = caller_info.get_caller_info() -- Automatically find first non-lual file
 
     local log_record = {
         level_no = level_no,
@@ -46,7 +43,7 @@ function logger_prototype:log(level_no, message_fmt, ...)
         logger_name = self.name,
         source_logger_name = self.name, -- Initially the same as logger_name
         filename = filename,
-        lineno = info.currentline
+        lineno = lineno
     }
 
     ingest.dispatch_log_event(log_record, get_logger, core_levels.definition) -- Pass get_logger and levels
@@ -99,7 +96,13 @@ local M = {}
 function M.get_logger(name)
     local logger_name = name
     if name == nil or name == "" then
-        logger_name = "root"
+        -- Auto-generate logger name from caller's filename
+        local filename, _ = caller_info.get_caller_info(nil, true) -- Use dot notation conversion
+        if filename then
+            logger_name = filename
+        else
+            logger_name = "root"
+        end
     end
 
     if _loggers_cache[logger_name] then
@@ -135,7 +138,7 @@ function M.get_logger(name)
 end
 
 -- Forward declaration for ingest's call to get_logger
-get_logger = M.get_logger
+get_logger = M.get_logger --  ignore lowercase-global
 
 function M.reset_cache()
     _loggers_cache = {}

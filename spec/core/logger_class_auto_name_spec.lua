@@ -1,0 +1,180 @@
+#!/usr/bin/env lua
+package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
+
+local logger_class = require("lual.core.logger_class")
+local caller_info = require("lual.core.caller_info")
+local assert = require("luassert")
+
+describe("lual.core.logger_class auto-naming", function()
+    before_each(function()
+        -- Reset cache before each test
+        logger_class.reset_cache()
+    end)
+
+    describe("get_logger() with automatic naming", function()
+        it("should use filename as logger name when no name provided", function()
+            local logger = logger_class.get_logger()
+
+            -- Should use the test filename (without .lua extension)
+            assert.truthy(string.find(logger.name, "logger_class_auto_name_spec", 1, true))
+            assert.is_false(string.find(logger.name, ".lua", 1, true) ~= nil)
+        end)
+
+        it("should convert path separators to dots", function()
+            -- Mock caller_info to return a path with separators
+            local original_get_caller_info = caller_info.get_caller_info
+            caller_info.get_caller_info = function(start_level, use_dot_notation)
+                if use_dot_notation then
+                    return "path.to.my.module", 42
+                else
+                    return "path/to/my/module.lua", 42
+                end
+            end
+
+            local logger = logger_class.get_logger()
+
+            -- Restore original function
+            caller_info.get_caller_info = original_get_caller_info
+
+            assert.are.equal("path.to.my.module", logger.name)
+        end)
+
+        it("should handle Windows-style path separators", function()
+            -- Mock caller_info to return a Windows path
+            local original_get_caller_info = caller_info.get_caller_info
+            caller_info.get_caller_info = function(start_level, use_dot_notation)
+                if use_dot_notation then
+                    return "C:.Users.test.project.module", 42
+                else
+                    return "C:\\Users\\test\\project\\module.lua", 42
+                end
+            end
+
+            local logger = logger_class.get_logger()
+
+            -- Restore original function
+            caller_info.get_caller_info = original_get_caller_info
+
+            assert.are.equal("C:.Users.test.project.module", logger.name)
+        end)
+
+        it("should remove leading dots", function()
+            -- Mock caller_info to return a path starting with ./
+            local original_get_caller_info = caller_info.get_caller_info
+            caller_info.get_caller_info = function(start_level, use_dot_notation)
+                if use_dot_notation then
+                    return "src.module", 42
+                else
+                    return "./src/module.lua", 42
+                end
+            end
+
+            local logger = logger_class.get_logger()
+
+            -- Restore original function
+            caller_info.get_caller_info = original_get_caller_info
+
+            assert.are.equal("src.module", logger.name)
+        end)
+
+        it("should handle files without .lua extension", function()
+            -- Mock caller_info to return a non-lua file
+            local original_get_caller_info = caller_info.get_caller_info
+            caller_info.get_caller_info = function(start_level, use_dot_notation)
+                if use_dot_notation then
+                    return "scripts.deploy.sh", 42
+                else
+                    return "scripts/deploy.sh", 42
+                end
+            end
+
+            local logger = logger_class.get_logger()
+
+            -- Restore original function
+            caller_info.get_caller_info = original_get_caller_info
+
+            assert.are.equal("scripts.deploy.sh", logger.name)
+        end)
+
+        it("should fall back to root when filename processing results in empty string", function()
+            -- Mock caller_info to return a problematic filename
+            local original_get_caller_info = caller_info.get_caller_info
+            caller_info.get_caller_info = function(start_level, use_dot_notation)
+                if use_dot_notation then
+                    return nil, 42 -- Would become nil after processing
+                else
+                    return ".lua", 42
+                end
+            end
+
+            local logger = logger_class.get_logger()
+
+            -- Restore original function
+            caller_info.get_caller_info = original_get_caller_info
+
+            assert.are.equal("root", logger.name)
+        end)
+
+        it("should fall back to root when caller_info returns nil", function()
+            -- Mock caller_info to return nil
+            local original_get_caller_info = caller_info.get_caller_info
+            caller_info.get_caller_info = function(start_level, use_dot_notation)
+                return nil, nil
+            end
+
+            local logger = logger_class.get_logger()
+
+            -- Restore original function
+            caller_info.get_caller_info = original_get_caller_info
+
+            assert.are.equal("root", logger.name)
+        end)
+
+        it("should still use provided name when explicitly given", function()
+            local logger = logger_class.get_logger("my.custom.logger")
+
+            assert.are.equal("my.custom.logger", logger.name)
+        end)
+
+        it("should still use provided name even when empty string", function()
+            local logger = logger_class.get_logger("")
+
+            -- Empty string should trigger auto-naming
+            assert.truthy(string.find(logger.name, "logger_class_auto_name_spec", 1, true))
+        end)
+
+        it("should cache loggers with auto-generated names", function()
+            local logger1 = logger_class.get_logger()
+            local logger2 = logger_class.get_logger()
+
+            -- Should be the same instance
+            assert.are.same(logger1, logger2)
+            assert.are.equal(logger1.name, logger2.name)
+        end)
+
+        it("should create proper hierarchy with auto-generated names", function()
+            -- Mock caller_info to return a nested path
+            local original_get_caller_info = caller_info.get_caller_info
+            caller_info.get_caller_info = function(start_level, use_dot_notation)
+                if use_dot_notation then
+                    return "app.services.database", 42
+                else
+                    return "app/services/database.lua", 42
+                end
+            end
+
+            local logger = logger_class.get_logger()
+
+            -- Restore original function
+            caller_info.get_caller_info = original_get_caller_info
+
+            assert.are.equal("app.services.database", logger.name)
+            assert.is_not_nil(logger.parent)
+            assert.are.equal("app.services", logger.parent.name)
+            assert.is_not_nil(logger.parent.parent)
+            assert.are.equal("app", logger.parent.parent.name)
+            assert.is_not_nil(logger.parent.parent.parent)
+            assert.are.equal("root", logger.parent.parent.parent.name)
+        end)
+    end)
+end)

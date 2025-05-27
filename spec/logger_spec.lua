@@ -23,20 +23,22 @@ describe("lualog Logger Object", function()
   end) --]]
 
 	describe("lualog.get_logger(name)", function()
-		it("should create a root logger correctly", function()
+		it("should create a logger with auto-generated name when no name provided", function()
 			-- Use a unique name for root to avoid cache from other tests if any test used "root" explicitly
 			-- However, get_logger() or get_logger("root") should always return the canonical root.
 			-- Forcing a reload for pristine cache is complex here. Assuming "root" is testable.
 			package.loaded["lual.logger"] = nil -- Attempt to reset cache by reloading module
 			local fresh_lualog = require("lual.logger")
 
-			local root_logger = fresh_lualog.get_logger()
-			assert.are.same("root", root_logger.name)
-			assert.is_nil(root_logger.parent)
-			assert.are.same(fresh_lualog.levels.INFO, root_logger.level) -- Default level
+			local auto_logger = fresh_lualog.get_logger()
+			-- Should use the test filename (without .lua extension)
+			assert.truthy(string.find(auto_logger.name, "logger_spec", 1, true))
+			assert.is_false(string.find(auto_logger.name, ".lua", 1, true) ~= nil)
+			assert.are.same(fresh_lualog.levels.INFO, auto_logger.level) -- Default level
 
 			local root_logger_named = fresh_lualog.get_logger("root")
-			assert.are.same(root_logger, root_logger_named)
+			assert.are.same("root", root_logger_named.name)
+			assert.is_nil(root_logger_named.parent)
 		end)
 
 		it("should create a named logger and its parents", function()

@@ -11,20 +11,22 @@ local match = require("luassert.match")
 
 describe("lual.core.logger_class", function()
 	describe("logger_class.get_logger(name)", function()
-		it("should create a root logger correctly", function()
+		it("should create a logger with auto-generated name when no name provided", function()
 			package.loaded["lual.core.logger_class"] = nil
 			package.loaded["lual.core.levels"] = nil
 			local fresh_core_levels = require("lual.core.levels")
 			local fresh_logger_class = require("lual.core.logger_class")
 			fresh_logger_class.reset_cache() -- Ensure cache is clean
 
-			local root_logger = fresh_logger_class.get_logger()
-			assert.are.same("root", root_logger.name)
-			assert.is_nil(root_logger.parent)
-			assert.are.same(fresh_core_levels.definition.INFO, root_logger.level) -- Default level
+			local auto_logger = fresh_logger_class.get_logger()
+			-- Should use the test filename (without .lua extension)
+			assert.truthy(string.find(auto_logger.name, "logger_class_spec", 1, true))
+			assert.is_false(string.find(auto_logger.name, ".lua", 1, true) ~= nil)
+			assert.are.same(fresh_core_levels.definition.INFO, auto_logger.level) -- Default level
 
 			local root_logger_named = fresh_logger_class.get_logger("root")
-			assert.are.same(root_logger, root_logger_named)
+			assert.are.same("root", root_logger_named.name)
+			assert.is_nil(root_logger_named.parent)
 		end)
 
 		it("should create a named logger and its parents", function()
@@ -146,7 +148,7 @@ describe("lual.core.logger_class", function()
 					assert.is_string(record.filename)
 					assert.truthy(
 						string.find(record.filename, "spec/core/logger_class_spec.lua", 1, true)
-							or string.find(record.filename, "logger_class_spec.lua", 1, true)
+						or string.find(record.filename, "logger_class_spec.lua", 1, true)
 					)
 					assert.is_number(record.lineno)
 
