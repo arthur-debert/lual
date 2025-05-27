@@ -17,11 +17,15 @@ for detailed configuration and control on a per-logger basis.
   `myapp.module.submodule`), allowing for targeted configuration.
 - **Log Levels:** Standard severity levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`,
   `CRITICAL`, plus `NONE` to disable logging for a logger.
-- **Stream Output:** `lualog.outputs.console_output` writes log messages to
+- **Console Output:** `lualog.outputs.console_output` writes log messages to
   `io.stdout` (default), `io.stderr`, or any custom stream object that provides
   `write()` and `flush()` methods.
-- **Plain Text Formatter:** `lualog.formatters.text` formats messages by default
-  as: `YYYY-MM-DD HH:MM:SS LEVEL [LoggerName] Message` (Timestamp is in UTC).
+- **File Output:** `lualog.outputs.file_output` writes log messages to files
+  with configurable paths and rotation options.
+- **Text Formatter:** `lualog.formatters.text` formats messages by default as:
+  `YYYY-MM-DD HH:MM:SS LEVEL [LoggerName] Message` (Timestamp is in UTC).
+- **Color Formatter:** `lualog.formatters.color` formats messages with ANSI
+  color codes for enhanced terminal readability.
 - **Per-Logger Configuration:** Log levels and outputs (with their formatters)
   can be configured for each logger instance using methods like `:set_level()`
   and `:add_output()`.
@@ -34,8 +38,8 @@ for detailed configuration and control on a per-logger basis.
 - **Error Handling:** Errors within outputs or formatters are caught and
   reported to `io.stderr`, preventing the logging system from crashing the
   application.
-- **Default Setup:** On require, a root logger is configured with a stream
-  output (outputting to `io.stdout`) and the plain formatter, set at `INFO`
+- **Default Setup:** On require, a root logger is configured with a console
+  output (outputting to `io.stdout`) and the text formatter, set at `INFO`
   level.
 
 ## Installation
@@ -160,18 +164,12 @@ data_processor_logger:add_output(
   { stream = io.stderr }               -- Output-specific config
 )
 
--- Output 2: Log to a file (using console_output)
--- Note: A dedicated file_output that manages file opening/closing based on a path in config is a planned future enhancement.
-local file_handle = io.open("data_processor.log", "a")
-if file_handle then
-  data_processor_logger:add_output(
-    lualog.outputs.console_output,      -- Use console_output for file streams too
-    lualog.formatters.text,
-    { stream = file_handle }             -- Specify the file stream
-  )
-else
-  data_processor_logger:error("Could not open data_processor.log for logging.") -- This goes to stderr and propagates to root (stdout)
-end
+-- Output 2: Log to a file (using file_output)
+data_processor_logger:add_output(
+  lualog.outputs.file_output({ path = "data_processor.log" }), -- Use file_output factory
+  lualog.formatters.text,
+  {}                                      -- No additional config needed
+)
 
 data_processor_logger:info("Processing started.")
 -- This message goes to:
@@ -258,9 +256,7 @@ my_logger:info("This is a custom test.")
 
 ## Future Enhancements (Planned / Considered)
 
-- Dedicated `file_output` that takes a filepath in configuration and manages
-  file rotation/opening/closing.
-- `color` for console output with ANSI color codes.
+- File rotation and advanced file management features for `file_output`.
 - Pattern matching for logger configuration (e.g., setting levels for multiple
   loggers matching a pattern).
 - More sophisticated output types (e.g., network, syslog, rotating file).

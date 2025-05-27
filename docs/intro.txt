@@ -9,7 +9,7 @@ It borrows from Python but also leverages Lua's strengths, hence the entire
 design is done over functions and tables. 
 
 It comes with a  spartan collection of outputs (console ; file ) and
-formatters (plaintext; colored ; json) but one can register custom functions
+formatters (text; color ; json) but one can register custom functions
 for these roles with ease.
 
 It supports Lua5.1+ and LuaJIT, has a decent test coverage and hopefully will
