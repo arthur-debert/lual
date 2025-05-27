@@ -1,5 +1,4 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
-local unpack = unpack or table.unpack
 local lualog = require("lual.logger")
 local ingest = require("lual.ingest")
 local spy = require("luassert.spy")
@@ -197,6 +196,75 @@ describe("lualog Logger Object", function()
 		test_log_method("warn", lualog.levels.WARNING, "WARNING")
 		test_log_method("error", lualog.levels.ERROR, "ERROR")
 		test_log_method("critical", lualog.levels.CRITICAL, "CRITICAL")
+
+		describe("logger:log() with context table first (Pattern 2)", function()
+			it("should correctly parse context, message_fmt, and args", function()
+				test_logger:set_level(lualog.levels.INFO) -- Ensure INFO is enabled
+
+				local context_data = { user_id = 123, session = "abc" }
+				local msg_format = "User action: %s"
+				local action_arg = "login"
+
+				test_logger:info(context_data, msg_format, action_arg)
+
+				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(), match.is_table())
+				local all_calls = ingest.dispatch_log_event.calls
+				assert.are.same(1, #all_calls)
+				local record = all_calls[1].vals[1]
+
+				assert.are.same(lualog.levels.INFO, record.level_no)
+				assert.are.same("INFO", record.level_name)
+				assert.are.same(test_logger.name, record.logger_name)
+
+				assert.are.same(context_data, record.context, "Context table should match")
+				assert.are.same(msg_format, record.message_fmt, "Message format should match")
+
+				assert.is_table(record.args)
+				assert.are.same(1, record.args.n, "Should have 1 formatting arg")
+				assert.are.same(action_arg, record.args[1], "Formatting arg should match")
+
+				ingest.dispatch_log_event:clear()
+			end)
+
+			it("should handle context table only (Pattern 2b)", function()
+				test_logger:set_level(lualog.levels.INFO)
+				local context_only_data = { event = "SystemShutdown", reason = "Maintenance" }
+
+				test_logger:info(context_only_data)
+
+				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(), match.is_table())
+				local all_calls = ingest.dispatch_log_event.calls
+				assert.are.same(1, #all_calls)
+				local record = all_calls[1].vals[1]
+
+				assert.are.same(lualog.levels.INFO, record.level_no)
+				assert.are.same(context_only_data, record.context, "Context table should match")
+				assert.is_nil(record.message_fmt, "Message format should be nil for context-only")
+				assert.is_table(record.args)
+				assert.are.same(0, record.args.n, "Args should be empty for context-only")
+
+				ingest.dispatch_log_event:clear()
+			end)
+
+			it("should handle context table and message_fmt without further args (Pattern 2a)", function()
+				test_logger:set_level(lualog.levels.INFO)
+				local context_data = { component = "API" }
+				local msg_format_no_args = "Request received"
+
+				test_logger:info(context_data, msg_format_no_args)
+				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(), match.is_table())
+				local all_calls = ingest.dispatch_log_event.calls
+				assert.are.same(1, #all_calls)
+				local record = all_calls[1].vals[1]
+
+				assert.are.same(lualog.levels.INFO, record.level_no)
+				assert.are.same(context_data, record.context)
+				assert.are.same(msg_format_no_args, record.message_fmt)
+				assert.is_table(record.args)
+				assert.are.same(0, record.args.n)
+				ingest.dispatch_log_event:clear()
+			end)
+		end)
 
 		it("logger:add_output(output_func, formatter_func, output_config) should add output correctly", function()
 			local mock_output_fn = function() end

@@ -2,56 +2,130 @@ local ingest = require("lual.ingest")
 local core_levels = require("lual.core.levels")
 local caller_info = require("lual.core.caller_info")
 local config_module = require("lual.config")
-local unpack = unpack or table.unpack
 
 local _loggers_cache = {}
+local get_logger -- Forward-declared for ingest and M.get_logger mutual recursion
+local create_logger_from_config -- Forward-declared
+local logger = {} -- Declare the logger prototype table
 
 -- =============================================================================
--- LOGGER PROTOTYPE
+-- LOGGER PROTOTYPE METHODS
 -- =============================================================================
 
-local logger = {}
-
-function logger:debug(message_fmt, ...)
-	self:log(core_levels.definition.DEBUG, message_fmt, ...)
+function logger:debug(...)
+	self:log(core_levels.definition.DEBUG, ...)
 end
 
-function logger:info(message_fmt, ...)
-	self:log(core_levels.definition.INFO, message_fmt, ...)
+function logger:info(...)
+	self:log(core_levels.definition.INFO, ...)
 end
 
-function logger:warn(message_fmt, ...)
-	self:log(core_levels.definition.WARNING, message_fmt, ...)
+function logger:warn(...)
+	self:log(core_levels.definition.WARNING, ...)
 end
 
-function logger:error(message_fmt, ...)
-	self:log(core_levels.definition.ERROR, message_fmt, ...)
+function logger:error(...)
+	self:log(core_levels.definition.ERROR, ...)
 end
 
-function logger:critical(message_fmt, ...)
-	self:log(core_levels.definition.CRITICAL, message_fmt, ...)
+function logger:critical(...)
+	self:log(core_levels.definition.CRITICAL, ...)
 end
 
-function logger:log(level_no, message_fmt, ...)
+-- =============================================================================
+-- CONFIG-BASED LOGGER CREATION
+-- =============================================================================
+
+--- Creates a logger from a canonical config table
+-- @param config (table) The canonical config
+-- @return table The logger instance
+create_logger_from_config = function(config)
+	local valid, err = config_module.validate_canonical_config(config)
+	if not valid then
+		error("Invalid logger config: " .. err)
+	end
+
+	local canonical_config = config_module.create_canonical_config(config)
+
+	-- Create new logger object based on prototype
+	local new_logger = {}
+	for k, v in pairs(logger) do -- 'logger' now refers to the local prototype
+		new_logger[k] = v
+	end
+
+	new_logger.name = canonical_config.name
+	new_logger.level = canonical_config.level
+	new_logger.outputs = canonical_config.outputs
+	new_logger.propagate = canonical_config.propagate
+	new_logger.parent = canonical_config.parent
+
+	return new_logger
+end
+
+
+-- The rest of logger methods are defined on the 'local logger' table
+
+function logger:log(level_no, ...)
 	if not self:is_enabled_for(level_no) then
 		return
 	end
 
-	local filename, lineno = caller_info.get_caller_info() -- Automatically find first non-lual file
+	local filename, lineno = caller_info.get_caller_info()
+
+	local packed_varargs = table.pack(...)
+	local msg_fmt_val
+	local args_val
+	local context_val = nil -- Initialize context as nil
+
+	if packed_varargs.n > 0 and type(packed_varargs[1]) == "table" then
+		-- This is Pattern 2: context_table, [message_format_string, ...format_args]
+		context_val = packed_varargs[1]
+		if packed_varargs.n >= 2 and type(packed_varargs[2]) == "string" then
+			msg_fmt_val = packed_varargs[2]
+			if packed_varargs.n >= 3 then
+				args_val = table.pack(select(3, ...)) -- Args from 3rd element of original '...'
+			else
+				args_val = table.pack() -- No further args for formatting
+			end
+		else
+			-- Context only (Pattern 2b), or context + non-string second arg.
+			-- message_fmt might be extracted from context_val.msg later if desired.
+			msg_fmt_val = nil -- Or extract from context_val.msg
+			args_val = table.pack() -- No args for formatting
+		end
+	else
+		-- This branch handles cases where the first arg after level_no is not a table.
+		-- It will be fully aligned with "Pattern 1" in a later step.
+		-- For now, it largely preserves the old behavior for non-context-first calls:
+		-- first arg is message_fmt, subsequent are args.
+		if packed_varargs.n > 0 then
+			msg_fmt_val = packed_varargs[1] -- This could be a string, or other types.
+			if packed_varargs.n >= 2 then
+				args_val = table.pack(select(2, ...)) -- Args from 2nd element of original '...'
+			else
+				args_val = table.pack()
+			end
+		else -- No arguments after level_no
+			msg_fmt_val = nil
+			args_val = table.pack()
+		end
+	end
 
 	local log_record = {
 		level_no = level_no,
 		level_name = core_levels.get_level_name(level_no),
-		message_fmt = message_fmt,
-		args = table.pack(...), -- Use table.pack for varargs
+		message_fmt = msg_fmt_val,
+		args = args_val,
+		context = context_val, -- Add the new context field
 		timestamp = os.time(),
 		logger_name = self.name,
 		source_logger_name = self.name, -- Initially the same as logger_name
 		filename = filename,
 		lineno = lineno,
 	}
-
-	ingest.dispatch_log_event(log_record, get_logger, core_levels.definition) -- Pass get_logger and levels
+	-- Note: 'get_logger' here will refer to the local variable defined at the top
+	-- which will be assigned M.get_logger later.
+	ingest.dispatch_log_event(log_record, get_logger, core_levels.definition)
 end
 
 function logger:set_level(level)
@@ -150,35 +224,6 @@ function logger:get_effective_outputs()
 	return effective_outputs
 end
 
--- =============================================================================
--- CONFIG-BASED LOGGER CREATION
--- =============================================================================
-
---- Creates a logger from a canonical config table
--- @param config (table) The canonical config
--- @return table The logger instance
-function create_logger_from_config(config)
-	local valid, err = config_module.validate_canonical_config(config)
-	if not valid then
-		error("Invalid logger config: " .. err)
-	end
-
-	local canonical_config = config_module.create_canonical_config(config)
-
-	-- Create new logger object based on prototype
-	local new_logger = {}
-	for k, v in pairs(logger) do
-		new_logger[k] = v
-	end
-
-	new_logger.name = canonical_config.name
-	new_logger.level = canonical_config.level
-	new_logger.outputs = canonical_config.outputs
-	new_logger.propagate = canonical_config.propagate
-	new_logger.parent = canonical_config.parent
-
-	return new_logger
-end
 
 -- =============================================================================
 -- PUBLIC API
@@ -232,7 +277,7 @@ end
 -- @param config (table) The logger configuration
 -- @return table The logger instance
 function M.create_logger_from_config(config)
-	return create_logger_from_config(config)
+	return create_logger_from_config(config) -- Calls the local create_logger_from_config
 end
 
 --- Creates a logger from a declarative config table (supports both standard and shortcut formats)
@@ -281,8 +326,9 @@ end
 -- Export config module functions for backward compatibility and testing
 M.config = config_module
 
--- Forward declaration for ingest's call to get_logger
-get_logger = M.get_logger --  ignore lowercase-global
+-- Assign M.get_logger to the local get_logger variable used by ingest and for mutual recursion.
+-- This must be done after M.get_logger is defined.
+get_logger = M.get_logger
 
 function M.reset_cache()
 	_loggers_cache = {}
