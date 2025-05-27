@@ -1,3 +1,5 @@
+local unpack = unpack or table.unpack
+
 --[[
 High-Level API Draft for a Lua Logging Library
 
@@ -8,24 +10,11 @@ No function bodies are implemented at this stage.
 -- Main Logging Module (e.g., 'log')
 local log = {}
 
-local ingest = require("lual.ingest") -- Require the ingest module
+local ingest = require("lual.ingest")           -- Require the ingest module
+local core_levels = require("lual.core.levels") -- Require the new levels module
+log.levels = core_levels.definition             -- Assign the levels definition
 
 local _loggers_cache = {}
-local _level_names_cache = {} -- Cache for level number to name mapping
-
--- Helper function to get level name from level number
-local function get_level_name(level_no)
-  if _level_names_cache[level_no] then
-    return _level_names_cache[level_no]
-  end
-  for name, number in pairs(log.levels) do
-    if number == level_no then
-      _level_names_cache[level_no] = name
-      return name
-    end
-  end
-  return "UNKNOWN_LEVEL_NO_" .. tostring(level_no)
-end
 
 -- =============================================================================
 -- 1. Logger Creation / Retrieval
@@ -93,7 +82,7 @@ function log.get_logger(name)
 
       local log_record = {
         level_no = level_no,
-        level_name = get_level_name(level_no),
+        level_name = core_levels.get_level_name(level_no),
         message_fmt = message_fmt,
         args = table.pack(...), -- Use table.pack for varargs
         timestamp = os.time(),
@@ -102,7 +91,7 @@ function log.get_logger(name)
         filename = filename,
         lineno = info.currentline
       }
-      
+
       -- Ensure _G.log.dispatch_log_event is available or handle its absence
       -- Call the refactored dispatch_log_event from the ingest module
       ingest.dispatch_log_event(log_record, log.get_logger, log.levels)
@@ -121,7 +110,7 @@ function log.get_logger(name)
     is_enabled_for = function(self, message_level_no)
       -- Ensure self.level is valid; NONE (100) means nothing is enabled unless message_level_no is also NONE
       if self.level == log.levels.NONE then
-          return message_level_no == log.levels.NONE
+        return message_level_no == log.levels.NONE
       end
       return message_level_no >= self.level
     end,
@@ -194,17 +183,6 @@ function log.critical(logger_name, message, ...) end
 -- =============================================================================
 -- 3. Configuration
 -- =============================================================================
-
--- Log Levels (Constants)
--- Moved _loggers_cache definition to the top. log.levels is defined here.
-log.levels = {
-  DEBUG = 10,
-  INFO = 20,
-  WARNING = 30,
-  ERROR = 40,
-  CRITICAL = 50,
-  NONE = 100 -- To disable logging for a specific logger
-}
 
 --- Sets the logging level for a specific logger or a pattern.
 -- @param logger_name_pattern (string) The logger name or pattern (e.g., "my.module", "engine.gas.*", "*").
