@@ -26,9 +26,26 @@ describe("lual.core.caller_info", function()
 
             local filename, lineno = wrapper_function() -- This line should be captured
 
-            assert.is_string(filename)
-            assert.is_number(lineno)
-            assert.truthy(string.find(filename, "caller_info_spec.lua", 1, true))
+            -- Debug: Print actual values to understand what's happening in CI
+            print("DEBUG: wrapper call returned filename='" .. tostring(filename) .. "', lineno=" .. tostring(lineno))
+
+            -- Let's also check what debug.getinfo returns at different levels
+            for level = 1, 5 do
+                local info = debug.getinfo(level, "Sl")
+                if info then
+                    print("DEBUG: level " ..
+                        level .. " -> " .. tostring(info.short_src) .. ":" .. tostring(info.currentline))
+                else
+                    print("DEBUG: level " .. level .. " -> nil")
+                end
+            end
+
+            -- Use assert.are.equal to get clear failure messages showing both expected and actual values
+            assert.are.equal("string", type(filename)) -- This will show the actual type if it fails
+            assert.are.equal("number", type(lineno))   -- This will show the actual type if it fails
+
+            -- This will show the exact filename value if it fails
+            assert.are.equal("spec/core/caller_info_spec.lua", filename)
 
             -- Line number should be positive
             assert.is_true(lineno > 0)

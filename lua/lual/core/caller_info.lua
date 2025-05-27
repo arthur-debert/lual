@@ -23,10 +23,18 @@ local function is_lual_internal_file(filename)
 
     -- Check if it's a lual internal file
     -- Only filter files that are actually part of the lual library structure
-    return basename == "caller_info.lua" or
+    local is_internal = basename == "caller_info.lua" or
         basename == "logger_class.lua" or
         basename == "ingest.lua" or
         string.match(basename, "^lual%.") ~= nil -- Files starting with "lual." (like lual.logger)
+
+    -- Debug output for CI troubleshooting
+    if os.getenv("CI") or os.getenv("GITHUB_ACTIONS") then
+        print("DEBUG: is_lual_internal_file('" ..
+            tostring(filename) .. "') -> basename='" .. tostring(basename) .. "', is_internal=" .. tostring(is_internal))
+    end
+
+    return is_internal
 end
 
 --- Extracts caller information from the debug stack.
@@ -43,12 +51,23 @@ function caller_info.get_caller_info(start_level, use_dot_notation)
         local info = debug.getinfo(level, "Sl")
         if not info then
             -- Reached end of stack
+            if os.getenv("CI") or os.getenv("GITHUB_ACTIONS") then
+                print("DEBUG: get_caller_info reached end of stack at level " .. level)
+            end
             return nil, nil
         end
 
         local filename = info.short_src
+        if os.getenv("CI") or os.getenv("GITHUB_ACTIONS") then
+            print("DEBUG: get_caller_info level " .. level .. " -> filename='" .. tostring(filename) .. "'")
+        end
+
         if not is_lual_internal_file(filename) then
             -- Found a non-lual file, this is our caller
+            if os.getenv("CI") or os.getenv("GITHUB_ACTIONS") then
+                print("DEBUG: get_caller_info found non-lual file at level " .. level .. ": " .. tostring(filename))
+            end
+
             if filename and string.sub(filename, 1, 1) == "@" then
                 filename = string.sub(filename, 2)
             end
@@ -72,6 +91,9 @@ function caller_info.get_caller_info(start_level, use_dot_notation)
     end
 
     -- If we get here, we couldn't find a non-lual file (shouldn't happen in normal usage)
+    if os.getenv("CI") or os.getenv("GITHUB_ACTIONS") then
+        print("DEBUG: get_caller_info exhausted all levels without finding non-lual file")
+    end
     return nil, nil
 end
 
