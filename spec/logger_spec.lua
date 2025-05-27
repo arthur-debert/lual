@@ -260,6 +260,25 @@ describe("lualog Logger Object", function()
 			end)
 
 			it("should stop collecting if propagate is false on child", function()
+				-- Reset the logger system to get a clean root logger
+				fresh_lualog_for_outputs.reset_config()
+
+				-- Re-get the loggers after reset
+				logger_root = fresh_lualog_for_outputs.get_logger("eff_root")
+				logger_p = fresh_lualog_for_outputs.get_logger("eff_root.p")
+				logger_c = fresh_lualog_for_outputs.get_logger("eff_root.p.c")
+
+				-- Reset levels and outputs for these specific loggers
+				logger_root:set_level(fresh_lualog_for_outputs.levels.DEBUG)
+				logger_p:set_level(fresh_lualog_for_outputs.levels.DEBUG)
+				logger_c:set_level(fresh_lualog_for_outputs.levels.DEBUG)
+				logger_root.outputs = {}
+				logger_p.outputs = {}
+				logger_c.outputs = {}
+				logger_root:set_propagate(true)
+				logger_p:set_propagate(true)
+				logger_c:set_propagate(true)
+
 				logger_c:add_output(mock_h_fn, mock_f_fn, { id = "hc" })
 				logger_p:add_output(mock_h_fn, mock_f_fn, { id = "hp" })
 				logger_root:add_output(mock_h_fn, mock_f_fn, { id = "h_root" })
@@ -271,6 +290,25 @@ describe("lualog Logger Object", function()
 			end)
 
 			it("should stop collecting if propagate is false on parent", function()
+				-- Reset the logger system to get a clean root logger
+				fresh_lualog_for_outputs.reset_config()
+
+				-- Re-get the loggers after reset
+				logger_root = fresh_lualog_for_outputs.get_logger("eff_root")
+				logger_p = fresh_lualog_for_outputs.get_logger("eff_root.p")
+				logger_c = fresh_lualog_for_outputs.get_logger("eff_root.p.c")
+
+				-- Reset levels and outputs for these specific loggers
+				logger_root:set_level(fresh_lualog_for_outputs.levels.DEBUG)
+				logger_p:set_level(fresh_lualog_for_outputs.levels.DEBUG)
+				logger_c:set_level(fresh_lualog_for_outputs.levels.DEBUG)
+				logger_root.outputs = {}
+				logger_p.outputs = {}
+				logger_c.outputs = {}
+				logger_root:set_propagate(true)
+				logger_p:set_propagate(true)
+				logger_c:set_propagate(true)
+
 				logger_c:add_output(mock_h_fn, mock_f_fn, { id = "hc" })
 				logger_p:add_output(mock_h_fn, mock_f_fn, { id = "hp" })
 				logger_root:add_output(mock_h_fn, mock_f_fn, { id = "h_root" })
