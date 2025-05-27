@@ -1,5 +1,5 @@
 rockspec_format = "3.0"
-package = "lual.log"
+package = "lual"
 version = "0.1.0-1"
 source = {
    url = "."
@@ -27,9 +27,9 @@ test_dependencies = {
 build = {
    type = "builtin",
    modules = {
-      ["lual.log"] = "lua/melt/init.lua",
-      ["lual.log.utils"] = "lua/melt/utils.lua",
-      ["lual.log.readers"] = "lua/melt/readers.lua"
+      ["lual"] = "lua/melt/init.lua",
+      ["lual.utils"] = "lua/melt/utils.lua",
+      ["lual.readers"] = "lua/melt/readers.lua"
    },
    copy_directories = {"docs"}
 }

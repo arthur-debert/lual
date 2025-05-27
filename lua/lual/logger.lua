@@ -8,7 +8,7 @@ No function bodies are implemented at this stage.
 -- Main Logging Module (e.g., 'log')
 local log = {}
 
-local ingest = require("lual.log.ingest") -- Require the ingest module
+local ingest = require("lual.ingest") -- Require the ingest module
 
 local _loggers_cache = {}
 local _level_names_cache = {} -- Cache for level number to name mapping

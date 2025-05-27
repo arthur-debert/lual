@@ -1,14 +1,16 @@
+package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua"
+
 -- Compatibility for Lua 5.1 if running in a context where table.unpack is not defined
 local unpack = unpack or table.unpack
 
-describe("lual.log formatters and handlers", function()
+describe("lual formatters and handlers", function()
   local lualog
 
   before_all(function()
     -- Ensure lualog is loaded once for all tests in this file
-    local status, result = pcall(require, "lual.log.luallog")
+    local status, result = pcall(require, "lual.logger")
     if not status then
-      error("Failed to load lual.log.luallog: " .. tostring(result))
+      error("Failed to load lual.logger: " .. tostring(result))
     end
     lualog = result
   end)
@@ -20,7 +22,7 @@ describe("lual.log formatters and handlers", function()
         level_name = "INFO",
         logger_name = "test.logger",
         message_fmt = "User %s logged in from %s",
-        args = {"jane.doe", "10.0.0.1"}
+        args = { "jane.doe", "10.0.0.1" }
       }
       local expected_timestamp_str = os.date("!%Y-%m-%d %H:%M:%S", record.timestamp)
       local expected_message = string.format(record.message_fmt, unpack(record.args))
@@ -42,7 +44,7 @@ describe("lual.log formatters and handlers", function()
       local expected_message = record.message_fmt -- string.format with no args just returns the format string
       local expected_output = string.format("%s %s [%s] %s",
         expected_timestamp_str, record.level_name, record.logger_name, expected_message)
-      
+
       assert.are.same(expected_output, lualog.formatters.plain_formatter(record))
 
       -- Test with args = {}
@@ -53,7 +55,7 @@ describe("lual.log formatters and handlers", function()
     it("should use fallbacks for missing optional record fields", function()
       local ts = 1678886402 -- 2023-03-15 10:00:02 UTC
       local expected_timestamp_str = os.date("!%Y-%m-%d %H:%M:%S", ts)
-      
+
       local record1 = {
         timestamp = ts,
         level_name = nil, -- Missing level_name
@@ -75,10 +77,10 @@ describe("lual.log formatters and handlers", function()
       local expected_output2 = string.format("%s %s [%s] %s",
         expected_timestamp_str, record2.level_name, "UNKNOWN_LOGGER", record2.message_fmt)
       assert.are.same(expected_output2, lualog.formatters.plain_formatter(record2))
-      
+
       local record3 = {
         timestamp = ts,
-        level_name = nil, 
+        level_name = nil,
         logger_name = nil,
         message_fmt = "Message with nil level and logger name",
         args = {}
@@ -155,7 +157,7 @@ describe("lual.log formatters and handlers", function()
       }
       local record = { message = "Hello custom stream" }
       lualog.handlers.stream_handler(record, { stream = custom_mock_stream })
-      
+
       assert.are.same("Hello custom stream\n", custom_mock_stream.written_data)
       assert.is_true(custom_mock_stream.flushed)
       assert.are.same("", mock_stream.written_data) -- Ensure default io.stdout (mocked by mock_stream) was not written to
@@ -171,14 +173,14 @@ describe("lual.log formatters and handlers", function()
         end
       }
       local record = { message = "Message that will fail to write" }
-      
+
       -- Call the handler with the erroring stream
       lualog.handlers.stream_handler(record, { stream = erroring_mock_stream })
-      
+
       -- Check that an error message was written to our mock_stderr_stream
       assert.is_not_nil(string.find(mock_stderr_stream.written_data, "Error writing to stream:", 1, true))
       assert.is_not_nil(string.find(mock_stderr_stream.written_data, "Simulated stream write error", 1, true))
-      
+
       -- Ensure default io.stdout (mocked by mock_stream) was not written to with the original message
       assert.are.same("", mock_stream.written_data)
     end)
