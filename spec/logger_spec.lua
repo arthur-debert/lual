@@ -231,15 +231,16 @@ describe("lualog Logger Object", function()
 				logger_c = fresh_lualog_for_outputs.get_logger("eff_root.p.c")
 
 				-- Reset levels and outputs for these specific loggers
-				logger_root.level = fresh_lualog_for_outputs.levels.DEBUG
-				logger_p.level = fresh_lualog_for_outputs.levels.DEBUG
-				logger_c.level = fresh_lualog_for_outputs.levels.DEBUG
+				logger_root:set_level(fresh_lualog_for_outputs.levels.DEBUG)
+				logger_p:set_level(fresh_lualog_for_outputs.levels.DEBUG)
+				logger_c:set_level(fresh_lualog_for_outputs.levels.DEBUG)
+				-- Clear outputs directly for test setup (this is acceptable for tests)
 				logger_root.outputs = {}
 				logger_p.outputs = {}
 				logger_c.outputs = {}
-				logger_root.propagate = true
-				logger_p.propagate = true
-				logger_c.propagate = true
+				logger_root:set_propagate(true)
+				logger_p:set_propagate(true)
+				logger_c:set_propagate(true)
 			end)
 
 			local mock_h_fn = function() end
@@ -263,7 +264,7 @@ describe("lualog Logger Object", function()
 				logger_p:add_output(mock_h_fn, mock_f_fn, { id = "hp" })
 				logger_root:add_output(mock_h_fn, mock_f_fn, { id = "h_root" })
 
-				logger_c.propagate = false
+				logger_c:set_propagate(false)
 				local c_outputs = logger_c:get_effective_outputs()
 				assert.are.same(1, #c_outputs)
 				assert.are.same("eff_root.p.c", c_outputs[1].owner_logger_name)
@@ -274,7 +275,7 @@ describe("lualog Logger Object", function()
 				logger_p:add_output(mock_h_fn, mock_f_fn, { id = "hp" })
 				logger_root:add_output(mock_h_fn, mock_f_fn, { id = "h_root" })
 
-				logger_p.propagate = false -- c propagates to p, but p doesn't propagate to root
+				logger_p:set_propagate(false) -- c propagates to p, but p doesn't propagate to root
 				local c_outputs = logger_c:get_effective_outputs()
 				assert.are.same(2, #c_outputs)
 				assert.are.same("eff_root.p.c", c_outputs[1].owner_logger_name)
