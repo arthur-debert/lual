@@ -6,7 +6,7 @@
 local function plain_formatter(record)
     local timestamp_str = os.date("!%Y-%m-%d %H:%M:%S", record.timestamp)
     local msg_args = record.args or {}
-    if type(msg_args) ~= "table" or msg_args.n == nil then msg_args = {} end
+    if type(msg_args) ~= "table" then msg_args = {} end -- Ensure msg_args is a table
     local message = string.format(record.message_fmt, table.unpack(msg_args)) -- Explicitly use table.unpack
     return string.format("%s %s [%s] %s",
         timestamp_str,
