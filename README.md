@@ -264,7 +264,7 @@ my_logger:info("This is a custom test.")
 
 - Dedicated `file_output` that takes a filepath in configuration and manages
   file rotation/opening/closing.
-- `color_formatter` for console output with ANSI color codes.
+- `color` for console output with ANSI color codes.
 - Pattern matching for global configuration functions like
   `lualog.set_level("myapp.*", level)`.
 - More sophisticated output types (e.g., network, syslog, rotating file).

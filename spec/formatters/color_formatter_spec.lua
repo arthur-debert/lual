@@ -1,8 +1,8 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 local unpack = unpack or table.unpack
-local color_formatter = require("lual.formatters.color_formatter")
+local color = require("lual.formatters.color")
 
-describe("lual.formatters.color_formatter", function()
+describe("lual.formatters.color", function()
 	local colors = {
 		reset = "\27[0m",
 		dim = "\27[2m",
@@ -25,7 +25,7 @@ describe("lual.formatters.color_formatter", function()
 		}
 		local timestamp_str = os.date("!%Y-%m-%d %H:%M:%S", record.timestamp)
 		local expected_message = string.format(record.message_fmt, unpack(record.args))
-		local formatted = color_formatter(record)
+		local formatted = color(record)
 
 		-- Print debug info
 		print("Expected message:", expected_message)
@@ -56,7 +56,7 @@ describe("lual.formatters.color_formatter", function()
 			args = nil,
 		}
 
-		local formatted = color_formatter(record)
+		local formatted = color(record)
 
 		assert.truthy(
 			formatted:find(colors.blue .. record.level_name .. colors.reset, 1, true),
@@ -75,7 +75,7 @@ describe("lual.formatters.color_formatter", function()
 			message_fmt = "Message with nil level",
 			args = {},
 		}
-		local formatted1 = color_formatter(record1)
+		local formatted1 = color(record1)
 
 		assert.truthy(formatted1:find("UNKNOWN_LEVEL", 1, true), "Should use UNKNOWN_LEVEL fallback")
 		assert.truthy(
@@ -90,7 +90,7 @@ describe("lual.formatters.color_formatter", function()
 			message_fmt = "Message with nil logger name",
 			args = {},
 		}
-		local formatted2 = color_formatter(record2)
+		local formatted2 = color(record2)
 
 		assert.truthy(
 			formatted2:find(colors.yellow .. "WARNING" .. colors.reset, 1, true),
@@ -112,7 +112,7 @@ describe("lual.formatters.color_formatter", function()
 			DEBUG = "cyan",
 			default = "yellow",
 		}
-		local formatted = color_formatter(record, { level_colors = custom_level_colors })
+		local formatted = color(record, { level_colors = custom_level_colors })
 		assert.truthy(
 			formatted:find(colors.bright_red .. "INFO" .. colors.reset, 1, true),
 			"INFO level should use custom bright_red color"
