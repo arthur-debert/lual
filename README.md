@@ -17,7 +17,7 @@ for detailed configuration and control on a per-logger basis.
   `myapp.module.submodule`), allowing for targeted configuration.
 - **Log Levels:** Standard severity levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`,
   `CRITICAL`, plus `NONE` to disable logging for a logger.
-- **Stream Output:** `lualog.outputs.stream_output` writes log messages to
+- **Stream Output:** `lualog.outputs.console_output` writes log messages to
   `io.stdout` (default), `io.stderr`, or any custom stream object that provides
   `write()` and `flush()` methods.
 - **Plain Text Formatter:** `lualog.formatters.plain_formatter` formats messages
@@ -99,7 +99,7 @@ When `lual` is first required (`local lualog = require("lual.logger")`):
 - The `lualog.init_default_config()` function is automatically called.
 - This sets up the **root logger** with:
   - Level: `lualog.levels.INFO`.
-  - One output: `lualog.outputs.stream_output` writing to `io.stdout`.
+  - One output: `lualog.outputs.console_output` writing to `io.stdout`.
   - Formatter for this output: `lualog.formatters.plain_formatter`.
 
 Any logger you create (e.g., `lualog.get_logger("my.app")`):
@@ -156,17 +156,17 @@ data_processor_logger:set_level(lualog.levels.INFO) -- Process INFO and above
 
 -- Output 1: Log specifically from data_processor_logger to stderr
 data_processor_logger:add_output(
-  lualog.outputs.stream_output,
+  lualog.outputs.console_output,
   lualog.formatters.plain_formatter,
   { stream = io.stderr }               -- Output-specific config
 )
 
--- Output 2: Log to a file (using stream_output)
+-- Output 2: Log to a file (using console_output)
 -- Note: A dedicated file_output that manages file opening/closing based on a path in config is a planned future enhancement.
 local file_handle = io.open("data_processor.log", "a")
 if file_handle then
   data_processor_logger:add_output(
-    lualog.outputs.stream_output,      -- Use stream_output for file streams too
+    lualog.outputs.console_output,      -- Use console_output for file streams too
     lualog.formatters.plain_formatter,
     { stream = file_handle }             -- Specify the file stream
   )
@@ -183,7 +183,7 @@ data_processor_logger:info("Processing started.")
 
 The `add_output` method for a logger instance takes:
 
-1.  `output_func`: e.g., `lualog.outputs.stream_output`.
+1.  `output_func`: e.g., `lualog.outputs.console_output`.
 2.  `formatter_func`: e.g., `lualog.formatters.plain_formatter`.
 3.  `output_config` (optional table).
 
@@ -204,7 +204,7 @@ local child_logger = lualog.get_logger("app.service.worker")
 child_logger:set_level(lualog.levels.DEBUG)
 
 -- Add a specific output for child_logger messages to stderr
-child_logger:add_output(lualog.outputs.stream_output, lualog.formatters.plain_formatter, {stream = io.stderr})
+child_logger:add_output(lualog.outputs.console_output, lualog.formatters.plain_formatter, {stream = io.stderr})
 
 child_logger:info("Message from child (to its stderr AND propagates to parent then root for stdout).")
 

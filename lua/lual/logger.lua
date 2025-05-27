@@ -12,12 +12,12 @@ local log = {}
 
 local core_levels = require("lual.core.levels")
 local logger_class = require("lual.core.logger_class")
-local all_outputs = require("lual.outputs.init")     -- Require the new outputs init
+local all_outputs = require("lual.outputs.init")       -- Require the new outputs init
 local all_formatters = require("lual.formatters.init") -- Require the new formatters init
 
 log.levels = core_levels.definition
 log.get_logger = logger_class.get_logger
-log.outputs = all_outputs     -- Assign the outputs table
+log.outputs = all_outputs       -- Assign the outputs table
 log.formatters = all_formatters -- Assign the formatters table
 
 -- Removed _loggers_cache and the entire log.get_logger function body
@@ -132,7 +132,7 @@ end
 -- 4. Output Definitions (Function Signatures) - REMOVED
 -- =============================================================================
 -- log.outputs = {} -- This line is removed
--- All function log.outputs.stream_output(...) etc. are removed.
+-- All function log.outputs.console_output(...) etc. are removed.
 
 -- =============================================================================
 -- 5. Formatter Definitions (Function Signatures) - REMOVED
@@ -150,9 +150,9 @@ function log.init_default_config()
     if root_logger.set_level then
       root_logger:set_level(log.levels.INFO)
     end
-    if root_logger.add_output and log.outputs and log.outputs.stream_output and log.formatters and log.formatters.plain_formatter then
+    if root_logger.add_output and log.outputs and log.outputs.console_output and log.formatters and log.formatters.plain_formatter then
       root_logger:add_output(
-        log.outputs.stream_output,
+        log.outputs.console_output,
         log.formatters.plain_formatter,
         { stream = io.stdout }
       )

@@ -2,7 +2,7 @@
 
 - [x] Ingest logs event loop
 - [x] Basic stream format (plain_formatter)
-- [x] Basic stream output
+- [x] Basic console output
 - [x] Levels and level filtering
 - [x] Correct log message log data capture
 - [x] Correct dispatch on logger name + level
