@@ -145,15 +145,18 @@ end
 -- =============================================================================
 function log.init_default_config()
   local root_logger = log.get_logger("root")
-  if root_logger and root_logger.set_level then
-    root_logger:set_level(log.levels.INFO)
-  end
-  if root_logger and root_logger.add_handler and log.handlers and log.handlers.stream_handler and log.formatters and log.formatters.plain_formatter then
-    root_logger:add_handler(
-      log.handlers.stream_handler,
-      log.formatters.plain_formatter,
-      { stream = io.stdout }
-    )
+  if root_logger then
+    root_logger.handlers = {} -- Clear existing default handlers
+    if root_logger.set_level then
+      root_logger:set_level(log.levels.INFO)
+    end
+    if root_logger.add_handler and log.handlers and log.handlers.stream_handler and log.formatters and log.formatters.plain_formatter then
+      root_logger:add_handler(
+        log.handlers.stream_handler,
+        log.formatters.plain_formatter,
+        { stream = io.stdout }
+      )
+    end
   end
 end
 

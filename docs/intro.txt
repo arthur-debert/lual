@@ -1,1 +1,41 @@
 Lual: A lua logger paying homage to python's stdlib logger.
+
+Lual is a focused but powerful and flexible logging library for lua. 
+Modeled after Python's standard library logger, it provides a simple interface
+for logging messages at different severity levels, with named loggers , rich
+dispatching and customizable handlers and formatters.
+
+It borrows from Python but also leverages Lua's strengths, hence the entire
+design is done over functions and tables. 
+
+It comes with a  spartan collection of handlers (console ; file ) and
+formatters (plaintext; colored ; json) but one can register custom functions
+for these roles with ease.
+
+It supports Lua5.1+ and LuaJIT, has a decent test coverage and hopefully will
+make your lifer fuller (of letters, at least).
+
+
+    -- Lual is available as a LuaRocks module, so you can install it with:
+
+        luarocks install lual
+
+    -- shell
+
+
+
+
+
+    --  A very minimal example: 
+
+        local logger = require "lual.logger"
+
+        logger.setLevel("DEBUG") -- set the global log level
+        logger.debug("This is a debug message")
+
+    --  lua 
+
+Lual aims to fill the gap between very minimal loggers and the full l4j ones. 
+
+
+Let me know how it works for your. 

@@ -6,7 +6,7 @@ local unpack = unpack or table.unpack
 describe("lual formatters and handlers", function()
   local lualog
 
-  before_all(function()
+  before_each(function()
     -- Ensure lualog is loaded once for all tests in this file
     local status, result = pcall(require, "lual.logger")
     if not status then
