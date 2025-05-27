@@ -12,7 +12,8 @@ design is done over functions and tables, look ma, no classes.
 ```lua
 local lual = require("lual")
 local logger = lual.get_logger()
-logger:info("This is a debug message")
+logger:info("This is an info message")
+logger:info("User %s logged in from IP %s", "jane.doe", "192.168.1.100") -- String formatting
 
 -- The usual stuff
 logger:set_level("debug")
@@ -37,8 +38,11 @@ local bigLogging = require("lual").logger({
 logger:add_output(lual.lib.console, lual.lib.text)
 
 -- Supports structured logging:
-logger:info("Time to leave", {destination = "home"})
-logger:info({msg = "Time to leave", destination = "home"})
+logger:info({destination = "home"}, "Time to leave") -- Context table first
+logger:info({msg = "Time to leave", destination = "home"}) -- Pure structured
+
+-- Mixed structured and string formatting:
+logger:info({user_id = 123, action = "update"}, "User %s performed action: %s", "JohnDoe", "ItemUpdate")
 ```
 
 ## Built-in Components
@@ -86,11 +90,15 @@ luarocks install lual
   for enhanced terminal readability.
 - **JSON Formatter:** `lualog.lib.json` formats messages as JSON for structured
   logging and easy parsing by log aggregation systems.
-- **Structured Logging:** Support for logging rich, structured data alongside
-  messages using tables with extra fields for better searchability and analysis.
-- **Per-Logger Configuration:** Log levels and outputs (with their formatters)
-  can be configured for each logger instance using methods like `:set_level()`
-  and `:add_output()`.
+  - **String Formatting:** Supports `printf`-style string formatting (e.g.,
+    `logger:info("Hello %s", name)`).
+  - **Structured Logging:** Supports logging rich, structured data.
+    - Pure structured: `logger:info({event = "UserLogin", userId = 123})`
+    - Mixed: `logger:info({eventId = "XYZ"}, "Processing event: %s", eventName)`
+      (context table first)
+  - **Per-Logger Configuration:** Log levels and outputs (with their formatters)
+    can be configured for each logger instance using methods like `:set_level()`
+    and `:add_output()`.
 - **Message Propagation:** Log messages processed by a logger are passed to its
   parent's outputs by default. Propagation can be disabled per logger
   (`logger.propagate = false`).
@@ -117,12 +125,15 @@ You can create custom outputs and formatters:
       emitter).
     - `raw_message_fmt`, `raw_args`: Original format string and variadic
       arguments.
+    - `context`: The context table, if provided in the log call.
   - `config`: The `output_config` table passed when adding the output.
 - **Custom Formatter:** A function with the signature `my_formatter(record)`
   - `record`: A table with raw log details. Key fields include:
     - `message_fmt`: The raw message format string (e.g., "User %s logged in").
+      Can be `nil` if context implies the message.
     - `args`: A packed table of arguments for `message_fmt` (e.g.,
       `{n=1, "john.doe"}`).
+    - `context`: The context table, if provided (e.g., `{user_id = 123}`).
     - `level_name`, `level_no`, `logger_name`, `timestamp`, `filename`,
       `lineno`, `source_logger_name`.
   - Should return a single string: the formatted log message.
