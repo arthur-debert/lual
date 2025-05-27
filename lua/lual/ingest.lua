@@ -51,14 +51,14 @@ end
 -- It retrieves all effective outputs from the source logger and processes them.
 -- @param log_record (table) The log event details. Expected fields:
 --        source_logger_name (string), level_no (number), level_name (string),
---        message_fmt (string), args (table, packed), timestamp (number),
---        filename (string), lineno (number or string).
+--        message_fmt (string), args (table, packed), context (table, optional),
+--        timestamp (number), filename (string), lineno (number or string).
 -- @param get_logger_func (function) Function to retrieve a logger instance by name.
--- @param log_levels (table) Table mapping level names to numbers (e.g., log_levels.INFO). Not directly used here but good for context if needed.
-function ingest.dispatch_log_event(log_record, get_logger_func, log_levels)
-    if not log_record or not log_record.source_logger_name then
-        io.stderr:write("Logging system error: dispatch_log_event called with invalid log_record or missing source_logger_name.\n")
-        if log_record and log_record.message_fmt then -- Add more context if possible
+-- @param _log_levels (table) Table mapping level names to numbers (e.g., log_levels.INFO). Not directly used here but good for context if needed.
+function ingest.dispatch_log_event(log_record, get_logger_func, _log_levels) -- Renamed log_levels to _log_levels
+	if not log_record or not log_record.source_logger_name then
+		io.stderr:write("Logging system error: dispatch_log_event called with invalid log_record or missing source_logger_name.\n")
+		if log_record and log_record.message_fmt then -- Add more context if possible
              io.stderr:write("Log record contents: message_fmt=" .. tostring(log_record.message_fmt) .. "\n")
         end
         return
@@ -101,13 +101,13 @@ function ingest.dispatch_log_event(log_record, get_logger_func, log_levels)
                 logger_name   = output_entry.owner_logger_name, -- Use the output's owner logger name
                 message_fmt   = log_record.message_fmt,
                 args          = log_record.args, -- args are already packed by logger:log
+                context       = log_record.context, -- Pass context to formatter
                 timestamp     = log_record.timestamp,
                 filename      = log_record.filename,
                 lineno        = log_record.lineno,
                 source_logger_name = log_record.source_logger_name -- Original emitter
-            }
-
-            local formatted_message = call_formatter(output_entry.formatter_func, base_record_for_formatter)
+               }
+               local formatted_message = call_formatter(output_entry.formatter_func, base_record_for_formatter)
 
             -- Construct record for the output itself
             local record_for_output = {
@@ -120,9 +120,10 @@ function ingest.dispatch_log_event(log_record, get_logger_func, log_levels)
                 lineno           = log_record.lineno,
                 raw_message_fmt  = log_record.message_fmt, -- Original format string
                 raw_args         = log_record.args,        -- Original variadic arguments
+                context          = log_record.context,     -- Pass context to output
                 source_logger_name = log_record.source_logger_name -- Original emitter
-            }
-            call_output(output_entry.output_func, record_for_output, output_entry.output_config)
+               }
+               call_output(output_entry.output_func, record_for_output, output_entry.output_config)
         end
     end
 end

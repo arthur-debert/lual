@@ -1,5 +1,4 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
-local unpack = unpack or table.unpack
 local lualog = require("lual.logger")
 local ingest = require("lual.ingest")
 local spy = require("luassert.spy")
@@ -168,6 +167,7 @@ describe("lualog Logger Object", function()
 					assert.are.same(2, record.args.n)
 					assert.are.same(arg1, record.args[1])
 					assert.are.same(arg2, record.args[2])
+					assert.is_nil(record.context, "Context should be nil for Pattern 1 calls")
 
 					assert.is_number(record.timestamp)
 					assert.is_string(record.filename)
@@ -197,6 +197,180 @@ describe("lualog Logger Object", function()
 		test_log_method("warn", lualog.levels.WARNING, "WARNING")
 		test_log_method("error", lualog.levels.ERROR, "ERROR")
 		test_log_method("critical", lualog.levels.CRITICAL, "CRITICAL")
+
+		describe("logger:log() with string format first (Pattern 1)", function()
+			it("should correctly parse message_fmt and args", function()
+				test_logger:set_level(lualog.levels.INFO) -- Ensure INFO is enabled
+
+				local msg_format = "User %s performed action: %s with value %d"
+				local user_arg = "john.doe"
+				local action_arg = "update"
+				local value_arg = 42
+
+				test_logger:info(msg_format, user_arg, action_arg, value_arg)
+
+				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(), match.is_table())
+				local all_calls = ingest.dispatch_log_event.calls
+				assert.are.same(1, #all_calls)
+				local record = all_calls[1].vals[1]
+
+				assert.are.same(lualog.levels.INFO, record.level_no)
+				assert.are.same("INFO", record.level_name)
+				assert.are.same(test_logger.name, record.logger_name)
+
+				assert.is_nil(record.context, "Context should be nil for Pattern 1 calls")
+				assert.are.same(msg_format, record.message_fmt, "Message format should match")
+
+				assert.is_table(record.args)
+				assert.are.same(3, record.args.n, "Should have 3 formatting args")
+				assert.are.same(user_arg, record.args[1], "First formatting arg should match")
+				assert.are.same(action_arg, record.args[2], "Second formatting arg should match")
+				assert.are.same(value_arg, record.args[3], "Third formatting arg should match")
+
+				ingest.dispatch_log_event:clear()
+			end)
+
+			it("should handle message_fmt without args", function()
+				test_logger:set_level(lualog.levels.INFO)
+				local msg_format_no_args = "Simple message without formatting"
+
+				test_logger:info(msg_format_no_args)
+
+				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(), match.is_table())
+				local all_calls = ingest.dispatch_log_event.calls
+				assert.are.same(1, #all_calls)
+				local record = all_calls[1].vals[1]
+
+				assert.are.same(lualog.levels.INFO, record.level_no)
+				assert.is_nil(record.context, "Context should be nil for Pattern 1 calls")
+				assert.are.same(msg_format_no_args, record.message_fmt)
+				assert.is_table(record.args)
+				assert.are.same(0, record.args.n, "Args should be empty when no formatting args provided")
+
+				ingest.dispatch_log_event:clear()
+			end)
+
+			it("should handle non-string first argument by converting to string", function()
+				test_logger:set_level(lualog.levels.INFO)
+				local number_arg = 12345
+				local boolean_arg = true
+
+				-- Test with number
+				test_logger:info(number_arg)
+				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(), match.is_table())
+				local all_calls = ingest.dispatch_log_event.calls
+				assert.are.same(1, #all_calls)
+				local record = all_calls[1].vals[1]
+
+				assert.is_nil(record.context, "Context should be nil for Pattern 1 calls")
+				assert.are.same(tostring(number_arg), record.message_fmt, "Number should be converted to string")
+				assert.is_table(record.args)
+				assert.are.same(0, record.args.n, "Args should be empty for single non-string argument")
+
+				ingest.dispatch_log_event:clear()
+
+				-- Test with boolean
+				test_logger:info(boolean_arg)
+				all_calls = ingest.dispatch_log_event.calls
+				assert.are.same(1, #all_calls)
+				record = all_calls[1].vals[1]
+
+				assert.is_nil(record.context, "Context should be nil for Pattern 1 calls")
+				assert.are.same(tostring(boolean_arg), record.message_fmt, "Boolean should be converted to string")
+				assert.is_table(record.args)
+				assert.are.same(0, record.args.n, "Args should be empty for single non-string argument")
+
+				ingest.dispatch_log_event:clear()
+			end)
+
+			it("should handle empty arguments (no arguments after level)", function()
+				test_logger:set_level(lualog.levels.INFO)
+
+				test_logger:info() -- No arguments
+
+				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(), match.is_table())
+				local all_calls = ingest.dispatch_log_event.calls
+				assert.are.same(1, #all_calls)
+				local record = all_calls[1].vals[1]
+
+				assert.are.same(lualog.levels.INFO, record.level_no)
+				assert.is_nil(record.context, "Context should be nil for Pattern 1 calls")
+				assert.are.same("", record.message_fmt, "Message format should default to empty string")
+				assert.is_table(record.args)
+				assert.are.same(0, record.args.n, "Args should be empty when no arguments provided")
+
+				ingest.dispatch_log_event:clear()
+			end)
+		end)
+
+		describe("logger:log() with context table first (Pattern 2)", function()
+			it("should correctly parse context, message_fmt, and args", function()
+				test_logger:set_level(lualog.levels.INFO) -- Ensure INFO is enabled
+
+				local context_data = { user_id = 123, session = "abc" }
+				local msg_format = "User action: %s"
+				local action_arg = "login"
+
+				test_logger:info(context_data, msg_format, action_arg)
+
+				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(), match.is_table())
+				local all_calls = ingest.dispatch_log_event.calls
+				assert.are.same(1, #all_calls)
+				local record = all_calls[1].vals[1]
+
+				assert.are.same(lualog.levels.INFO, record.level_no)
+				assert.are.same("INFO", record.level_name)
+				assert.are.same(test_logger.name, record.logger_name)
+
+				assert.are.same(context_data, record.context, "Context table should match")
+				assert.are.same(msg_format, record.message_fmt, "Message format should match")
+
+				assert.is_table(record.args)
+				assert.are.same(1, record.args.n, "Should have 1 formatting arg")
+				assert.are.same(action_arg, record.args[1], "Formatting arg should match")
+
+				ingest.dispatch_log_event:clear()
+			end)
+
+			it("should handle context table only (Pattern 2b)", function()
+				test_logger:set_level(lualog.levels.INFO)
+				local context_only_data = { event = "SystemShutdown", reason = "Maintenance" }
+
+				test_logger:info(context_only_data)
+
+				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(), match.is_table())
+				local all_calls = ingest.dispatch_log_event.calls
+				assert.are.same(1, #all_calls)
+				local record = all_calls[1].vals[1]
+
+				assert.are.same(lualog.levels.INFO, record.level_no)
+				assert.are.same(context_only_data, record.context, "Context table should match")
+				assert.is_nil(record.message_fmt, "Message format should be nil for context-only")
+				assert.is_table(record.args)
+				assert.are.same(0, record.args.n, "Args should be empty for context-only")
+
+				ingest.dispatch_log_event:clear()
+			end)
+
+			it("should handle context table and message_fmt without further args (Pattern 2a)", function()
+				test_logger:set_level(lualog.levels.INFO)
+				local context_data = { component = "API" }
+				local msg_format_no_args = "Request received"
+
+				test_logger:info(context_data, msg_format_no_args)
+				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(), match.is_table())
+				local all_calls = ingest.dispatch_log_event.calls
+				assert.are.same(1, #all_calls)
+				local record = all_calls[1].vals[1]
+
+				assert.are.same(lualog.levels.INFO, record.level_no)
+				assert.are.same(context_data, record.context)
+				assert.are.same(msg_format_no_args, record.message_fmt)
+				assert.is_table(record.args)
+				assert.are.same(0, record.args.n)
+				ingest.dispatch_log_event:clear()
+			end)
+		end)
 
 		it("logger:add_output(output_func, formatter_func, output_config) should add output correctly", function()
 			local mock_output_fn = function() end

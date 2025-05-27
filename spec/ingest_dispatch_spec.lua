@@ -182,6 +182,7 @@ describe("ingest.dispatch_log_event", function()
 			filename = "app.lua",
 			lineno = 42,
 			source_logger_name = "main_logger",
+			context = nil, -- Added context field
 		}
 
 		print("Event Level No: " .. tostring(event_details.level_no))
@@ -216,6 +217,7 @@ describe("ingest.dispatch_log_event", function()
 			assert.are.same(1678886400, fc.params.timestamp)
 			assert.are.same("app.lua", fc.params.filename)
 			assert.are.same(42, fc.params.lineno)
+			assert.is_nil(fc.params.context) -- Check for context
 		end
 
 		local output_calls_list = get_output_calls()
@@ -236,6 +238,7 @@ describe("ingest.dispatch_log_event", function()
 			assert.are.same(42, hc_params.lineno)
 			assert.are.same("Event: %s occurred", hc_params.raw_message_fmt)
 			assert.are.same("login", hc_params.raw_args[1])
+			assert.is_nil(hc_params.context) -- Check for context in output record
 			assert.are.same("main_logger", hc_params.source_logger_name)
 			assert.are.same("mock_output", hc_config.dest)
 		end
@@ -259,6 +262,7 @@ describe("ingest.dispatch_log_event", function()
 			filename = "filter_app.lua",
 			lineno = 10,
 			source_logger_name = "filter_logger",
+			context = nil,
 		}
 
 		ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
@@ -284,12 +288,17 @@ describe("ingest.dispatch_log_event", function()
 			filename = "filter_app.lua",
 			lineno = 20,
 			source_logger_name = "filter_logger",
+			context = nil,
 		}
 
 		ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
 
-		assert.are.same(1, #get_formatter_calls())
-		assert.are.same(1, #get_output_calls())
+		local fc_list_eq = get_formatter_calls()
+		assert.are.same(1, #fc_list_eq)
+		if #fc_list_eq > 0 then assert.is_nil(fc_list_eq[1].params.context) end
+		local hc_list_eq = get_output_calls()
+		assert.are.same(1, #hc_list_eq)
+		if #hc_list_eq > 0 then assert.is_nil(hc_list_eq[1].params.context) end
 		assert.are.same(0, #get_stderr_messages())
 	end)
 
@@ -309,6 +318,7 @@ describe("ingest.dispatch_log_event", function()
 			filename = "filter_app.lua",
 			lineno = 30,
 			source_logger_name = "filter_logger",
+			context = nil,
 		}
 
 		ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
@@ -317,12 +327,14 @@ describe("ingest.dispatch_log_event", function()
 		assert.are.same(1, #formatter_calls_list)
 		if #formatter_calls_list > 0 then
 			assert.are.same("ERROR", formatter_calls_list[1].params.level_name)
+			assert.is_nil(formatter_calls_list[1].params.context)
 		end
 
 		local output_calls_list = get_output_calls()
 		assert.are.same(1, #output_calls_list)
 		if #output_calls_list > 0 then
 			assert.are.same("ERROR", output_calls_list[1].params.level_name)
+			assert.is_nil(output_calls_list[1].params.context)
 		end
 		assert.are.same(0, #get_stderr_messages())
 	end)
@@ -353,6 +365,7 @@ describe("ingest.dispatch_log_event", function()
 			filename = "prop_app.lua",
 			lineno = 1,
 			source_logger_name = "child_logger",
+			context = nil,
 		}
 		ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
 
@@ -363,12 +376,16 @@ describe("ingest.dispatch_log_event", function()
 
 		if #fc_list == 2 then
 			assert.are.same("child_logger", fc_list[1].params.logger_name)
+			assert.is_nil(fc_list[1].params.context)
 			assert.are.same("parent_logger", fc_list[2].params.logger_name)
+			assert.is_nil(fc_list[2].params.context)
 		end
 		if #hc_list == 2 then
 			assert.are.same("child_logger", hc_list[1].params.logger_name)
+			assert.is_nil(hc_list[1].params.context)
 			assert.are.same("child_h", hc_list[1].config.id)
 			assert.are.same("parent_logger", hc_list[2].params.logger_name)
+			assert.is_nil(hc_list[2].params.context)
 			assert.are.same("parent_h", hc_list[2].config.id)
 			-- Check that the message for the parent's output was formatted by the parent's formatter.
 			-- Our mock_formatter_func prepends "Formatted: " to the original message.
@@ -399,6 +416,7 @@ describe("ingest.dispatch_log_event", function()
 			filename = "prop_app.lua",
 			lineno = 2,
 			source_logger_name = "child_logger_no_prop",
+			context = nil,
 		}
 		ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
 
@@ -406,6 +424,10 @@ describe("ingest.dispatch_log_event", function()
 		assert.are.same(1, #get_output_calls())
 		if #get_formatter_calls() == 1 then
 			assert.are.same("child_logger_no_prop", get_formatter_calls()[1].params.logger_name)
+			assert.is_nil(get_formatter_calls()[1].params.context)
+		end
+		if #get_output_calls() == 1 then
+			assert.is_nil(get_output_calls()[1].params.context)
 		end
 		assert.are.same(0, #get_stderr_messages())
 	end)
@@ -431,6 +453,7 @@ describe("ingest.dispatch_log_event", function()
 			filename = "prop_app.lua",
 			lineno = 3,
 			source_logger_name = "leaf_logger",
+			context = nil,
 		}
 		ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
 
@@ -441,15 +464,21 @@ describe("ingest.dispatch_log_event", function()
 
 		if #fc_list == 3 then
 			assert.are.same("leaf_logger", fc_list[1].params.logger_name)
+			assert.is_nil(fc_list[1].params.context)
 			assert.are.same("mid_logger", fc_list[2].params.logger_name)
+			assert.is_nil(fc_list[2].params.context)
 			assert.are.same("root_logger", fc_list[3].params.logger_name)
+			assert.is_nil(fc_list[3].params.context)
 		end
 		if #hc_list == 3 then
 			assert.are.same("leaf_logger", hc_list[1].params.logger_name)
+			assert.is_nil(hc_list[1].params.context)
 			assert.are.same("leaf_h", hc_list[1].config.id)
 			assert.are.same("mid_logger", hc_list[2].params.logger_name)
+			assert.is_nil(hc_list[2].params.context)
 			assert.are.same("mid_h", hc_list[2].config.id)
 			assert.are.same("root_logger", hc_list[3].params.logger_name)
+			assert.is_nil(hc_list[3].params.context)
 			assert.are.same("root_h", hc_list[3].config.id)
 		end
 		assert.are.same(0, #get_stderr_messages())
@@ -473,6 +502,7 @@ describe("ingest.dispatch_log_event", function()
 			filename = "prop_app.lua",
 			lineno = 4,
 			source_logger_name = "child_source_logger",
+			context = nil,
 		}
 		ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
 
@@ -483,9 +513,11 @@ describe("ingest.dispatch_log_event", function()
 
 		if #fc_list == 1 then
 			assert.are.same("child_source_logger", fc_list[1].params.logger_name)
+			assert.is_nil(fc_list[1].params.context)
 		end
 		if #hc_list == 1 then
 			assert.are.same("child_source_logger", hc_list[1].params.logger_name)
+			assert.is_nil(hc_list[1].params.context)
 		end
 		assert.are.same(0, #get_stderr_messages())
 	end)
@@ -664,18 +696,22 @@ describe("ingest.dispatch_log_event", function()
 		assert.are.same(2, #fc_list) -- Child's formatter, then Parent's formatter
 		if #fc_list == 2 then
 			assert.are.same("child_logger_prop_error", fc_list[1].params.logger_name)
+			assert.are.same(event_details.context, fc_list[1].params.context)
 			assert.are.same("parent_logger_prop", fc_list[2].params.logger_name)
+			assert.are.same(event_details.context, fc_list[2].params.context)
 		end
 
 		assert.are.same(0, #get_output_calls()) -- Child's erroring output does not record
-
 		local hc_ok_list = get_output_calls_ok()
 		assert.are.same(1, #hc_ok_list) -- Parent's OK output should be called
-		if #hc_ok_list > 0 then
+		if #hc_ok_list == 1 then
 			assert.are.same("parent_logger_prop", hc_ok_list[1].params.logger_name)
+			assert.are.same(event_details.context, hc_ok_list[1].params.context)
 			assert.are.same("parent_ok_h", hc_ok_list[1].config.id)
-			local expected_message =
-				string.format("Formatted: %s", string.format(event_details.message_fmt, unpack(event_details.args)))
+			local expected_message = string.format(
+				"Formatted: %s",
+				string.format(event_details.message_fmt, unpack(event_details.args))
+			)
 			assert.are.same(expected_message, hc_ok_list[1].params.message)
 		end
 
@@ -750,6 +786,7 @@ describe("ingest.dispatch_log_event", function()
 			assert.are.equal(event_details.lineno, output_input_params.lineno)
 			assert.are.equal(event_details.message_fmt, output_input_params.raw_message_fmt)
 			assert.are.same(event_details.args, output_input_params.raw_args)
+			assert.are.same(event_details.context, output_input_params.context) -- Check context
 			assert.are.equal(event_details.source_logger_name, output_input_params.source_logger_name)
 			assert.are.same("passthrough_h", output_calls_list[1].config.id)
 		end
