@@ -96,7 +96,13 @@ local M = {}
 function M.get_logger(name)
     local logger_name = name
     if name == nil or name == "" then
-        logger_name = "root"
+        -- Auto-generate logger name from caller's filename
+        local filename, _ = caller_info.get_caller_info(nil, true) -- Use dot notation conversion
+        if filename then
+            logger_name = filename
+        else
+            logger_name = "root"
+        end
     end
 
     if _loggers_cache[logger_name] then

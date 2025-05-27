@@ -161,4 +161,160 @@ describe("lual.core.caller_info", function()
             assert.are.equal(7, lineno)
         end)
     end)
+
+    describe("get_caller_info() with dot notation", function()
+        it("should convert filename to dot notation when use_dot_notation is true", function()
+            -- Mock debug.getinfo to return a path with separators
+            local original_getinfo = debug.getinfo
+            debug.getinfo = function(level, what)
+                if level >= 2 and what == "Sl" then
+                    return {
+                        short_src = "@path/to/my/module.lua",
+                        currentline = 42
+                    }
+                end
+                return original_getinfo(level, what)
+            end
+
+            local filename, lineno = caller_info.get_caller_info(nil, true)
+
+            -- Restore original function
+            debug.getinfo = original_getinfo
+
+            assert.are.equal("path.to.my.module", filename)
+            assert.are.equal(42, lineno)
+        end)
+
+        it("should handle Windows-style paths with dot notation", function()
+            -- Mock debug.getinfo to return a Windows path
+            local original_getinfo = debug.getinfo
+            debug.getinfo = function(level, what)
+                if level >= 2 and what == "Sl" then
+                    return {
+                        short_src = "C:\\Users\\test\\project\\module.lua",
+                        currentline = 10
+                    }
+                end
+                return original_getinfo(level, what)
+            end
+
+            local filename, lineno = caller_info.get_caller_info(nil, true)
+
+            -- Restore original function
+            debug.getinfo = original_getinfo
+
+            assert.are.equal("C:.Users.test.project.module", filename)
+            assert.are.equal(10, lineno)
+        end)
+
+        it("should remove leading dots with dot notation", function()
+            -- Mock debug.getinfo to return a path starting with ./
+            local original_getinfo = debug.getinfo
+            debug.getinfo = function(level, what)
+                if level >= 2 and what == "Sl" then
+                    return {
+                        short_src = "./src/module.lua",
+                        currentline = 15
+                    }
+                end
+                return original_getinfo(level, what)
+            end
+
+            local filename, lineno = caller_info.get_caller_info(nil, true)
+
+            -- Restore original function
+            debug.getinfo = original_getinfo
+
+            assert.are.equal("src.module", filename)
+            assert.are.equal(15, lineno)
+        end)
+
+        it("should handle files without .lua extension with dot notation", function()
+            -- Mock debug.getinfo to return a non-lua file
+            local original_getinfo = debug.getinfo
+            debug.getinfo = function(level, what)
+                if level >= 2 and what == "Sl" then
+                    return {
+                        short_src = "scripts/deploy.sh",
+                        currentline = 20
+                    }
+                end
+                return original_getinfo(level, what)
+            end
+
+            local filename, lineno = caller_info.get_caller_info(nil, true)
+
+            -- Restore original function
+            debug.getinfo = original_getinfo
+
+            assert.are.equal("scripts.deploy.sh", filename)
+            assert.are.equal(20, lineno)
+        end)
+
+        it("should return nil filename when dot notation results in empty string", function()
+            -- Mock debug.getinfo to return a problematic filename
+            local original_getinfo = debug.getinfo
+            debug.getinfo = function(level, what)
+                if level >= 2 and what == "Sl" then
+                    return {
+                        short_src = ".lua", -- Would become empty after processing
+                        currentline = 25
+                    }
+                end
+                return original_getinfo(level, what)
+            end
+
+            local filename, lineno = caller_info.get_caller_info(nil, true)
+
+            -- Restore original function
+            debug.getinfo = original_getinfo
+
+            assert.is_nil(filename)
+            assert.are.equal(25, lineno)
+        end)
+
+        it("should not convert when use_dot_notation is false", function()
+            -- Mock debug.getinfo to return a path with separators
+            local original_getinfo = debug.getinfo
+            debug.getinfo = function(level, what)
+                if level >= 2 and what == "Sl" then
+                    return {
+                        short_src = "@path/to/my/module.lua",
+                        currentline = 30
+                    }
+                end
+                return original_getinfo(level, what)
+            end
+
+            local filename, lineno = caller_info.get_caller_info(nil, false)
+
+            -- Restore original function
+            debug.getinfo = original_getinfo
+
+            assert.are.equal("path/to/my/module.lua", filename)
+            assert.are.equal(30, lineno)
+        end)
+
+        it("should default to false for use_dot_notation when not specified", function()
+            -- Mock debug.getinfo to return a path with separators
+            local original_getinfo = debug.getinfo
+            debug.getinfo = function(level, what)
+                if level >= 2 and what == "Sl" then
+                    return {
+                        short_src = "@path/to/my/module.lua",
+                        currentline = 35
+                    }
+                end
+                return original_getinfo(level, what)
+            end
+
+            local filename, lineno = caller_info.get_caller_info()
+
+            -- Restore original function
+            debug.getinfo = original_getinfo
+
+            assert.are.equal("path/to/my/module.lua", filename)
+            assert.are.equal(35, lineno)
+        end)
+    end)
 end)

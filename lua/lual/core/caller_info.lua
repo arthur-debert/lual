@@ -31,9 +31,11 @@ end
 --- Extracts caller information from the debug stack.
 -- Automatically finds the first stack level that's not part of the lual logging infrastructure.
 -- @param start_level (number) The stack level to start searching from (default: 2, to skip this function)
--- @return string, number The filename and line number, or nil values if unavailable
-function caller_info.get_caller_info(start_level)
+-- @param use_dot_notation (boolean) If true, convert filename to dot notation for logger names (default: false)
+-- @return string, number The filename (possibly converted to dot notation) and line number, or nil values if unavailable
+function caller_info.get_caller_info(start_level, use_dot_notation)
     start_level = start_level or 2 -- Start at 2 to skip this function itself
+    use_dot_notation = use_dot_notation or false
 
     -- Search up the stack to find the first non-lual file
     for level = start_level, 10 do -- Limit search to 10 levels to avoid infinite loops
@@ -49,6 +51,21 @@ function caller_info.get_caller_info(start_level)
             if filename and string.sub(filename, 1, 1) == "@" then
                 filename = string.sub(filename, 2)
             end
+
+            -- Convert to dot notation if requested
+            if use_dot_notation and filename then
+                -- Remove file extension
+                filename = string.gsub(filename, "%.lua$", "")
+                -- Convert path separators to dots
+                filename = string.gsub(filename, "[/\\]", ".")
+                -- Remove leading dots
+                filename = string.gsub(filename, "^%.+", "")
+                -- If empty after processing, return nil to indicate failure
+                if filename == "" then
+                    filename = nil
+                end
+            end
+
             return filename, info.currentline
         end
     end
