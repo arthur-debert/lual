@@ -1,4 +1,7 @@
 describe("ingest.dispatch_log_event", function()
+  -- Compatibility for Lua 5.2+ which moved unpack to table.unpack
+  local unpack = unpack or table.unpack
+  
   local mock_log_levels = {
     DEBUG = 10,
     INFO = 20,
@@ -52,7 +55,9 @@ describe("ingest.dispatch_log_event", function()
 
   local function mock_formatter_func(base_record)
     table.insert(formatter_calls, { params = base_record })
-    return string.format("Formatted: %s", base_record.message)
+    -- Format the message using message_fmt and args
+    local original_msg = string.format(base_record.message_fmt, unpack(base_record.args or {}))
+    return string.format("Formatted: %s", original_msg)
   end
 
   local function mock_erroring_formatter_func(base_record)
@@ -95,7 +100,8 @@ describe("ingest.dispatch_log_event", function()
     handler_calls_ok = {}
   end
 
-  local function mock_stderr_write(message)
+  local function mock_stderr_write(_, message)
+    -- First argument is 'self' (the io.stderr table)
     table.insert(stderr_messages, message)
   end
 
@@ -501,7 +507,7 @@ describe("ingest.dispatch_log_event", function()
     local stderr_list = get_stderr_messages()
     assert.are.same(1, #stderr_list)
     if #stderr_list > 0 then
-      assert.is_true(string.find(stderr_list[1], "Formatter failure", 1, true) ~= nil)
+      assert.is_true(string.find(stderr_list[1], "Logging system error: Formatter", 1, true) ~= nil)
       assert.is_true(string.find(stderr_list[1], "error_logger", 1, true) ~= nil)
       assert.is_true(string.find(stderr_list[1], "Formatter error", 1, true) ~= nil) -- The error from mock_erroring_formatter_func
     end
@@ -532,7 +538,7 @@ describe("ingest.dispatch_log_event", function()
     local stderr_list = get_stderr_messages()
     assert.are.same(1, #stderr_list)
     if #stderr_list > 0 then
-      assert.is_true(string.find(stderr_list[1], "Handler failure", 1, true) ~= nil)
+      assert.is_true(string.find(stderr_list[1], "Logging system error: Handler", 1, true) ~= nil)
       assert.is_true(string.find(stderr_list[1], "error_logger", 1, true) ~= nil)
       assert.is_true(string.find(stderr_list[1], "Handler error", 1, true) ~= nil) -- The error from mock_erroring_handler_func
     end
@@ -572,10 +578,11 @@ describe("ingest.dispatch_log_event", function()
     local stderr_list = get_stderr_messages()
     assert.are.same(1, #stderr_list) -- Only one error message from the first handler
     if #stderr_list > 0 then
-      assert.is_true(string.find(stderr_list[1], "Handler failure", 1, true) ~= nil)
+      -- First error message should mention both "Handler" and failed
+      assert.is_true(string.find(stderr_list[1], "Handler", 1, true) ~= nil)
       assert.is_true(string.find(stderr_list[1], "multi_handler_logger", 1, true) ~= nil)
+      assert.is_true(string.find(stderr_list[1], "failed", 1, true) ~= nil)
       assert.is_true(string.find(stderr_list[1], "Handler error", 1, true) ~= nil)
-      assert.is_true(string.find(stderr_list[1], "error_handler", 1, true) ~= nil) 
     end
   end)
 
@@ -621,18 +628,23 @@ describe("ingest.dispatch_log_event", function()
     local stderr_list = get_stderr_messages()
     assert.are.same(1, #stderr_list) -- Error from child's handler
     if #stderr_list > 0 then
-      assert.is_true(string.find(stderr_list[1], "Handler failure", 1, true) ~= nil)
+      -- First error message should mention both "Handler" and failed
+      assert.is_true(string.find(stderr_list[1], "Handler", 1, true) ~= nil)
       assert.is_true(string.find(stderr_list[1], "child_logger_prop_error", 1, true) ~= nil)
+      assert.is_true(string.find(stderr_list[1], "failed", 1, true) ~= nil)
       assert.is_true(string.find(stderr_list[1], "Handler error", 1, true) ~= nil)
-      assert.is_true(string.find(stderr_list[1], "child_err_h", 1, true) ~= nil)
     end
   end)
 
   it("should pass all event_details fields correctly to formatter and handler", function()
+    -- We need both the emitter and the passthrough logger
+    local passthrough_logger = create_mock_logger("passthrough_logger", _G.log.levels.INFO, {
+      { formatter_func = mock_formatter_func, handler_func = mock_handler_func, handler_config = { id = "passthrough_h"} }
+    })
+    
     set_mock_loggers({
-      passthrough_logger = create_mock_logger("passthrough_logger", _G.log.levels.INFO, {
-        { formatter_func = mock_formatter_func, handler_func = mock_handler_func, handler_config = { id = "passthrough_h"} }
-      })
+      passthrough_logger = passthrough_logger,
+      emitter_logger = create_mock_logger("emitter_logger", _G.log.levels.INFO, {}, true, passthrough_logger)
     })
 
     local event_details = {

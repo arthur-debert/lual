@@ -1,5 +1,8 @@
 -- (Assuming log.levels, logger object structure, get_logger_internal exist)
 
+-- Compatibility for Lua 5.2+ which moved unpack to table.unpack
+local unpack = unpack or table.unpack
+
 --- Safely calls the formatter function.
 -- @param formatter_func The formatter function.
 -- @param base_record_for_formatter The record for the formatter.
@@ -56,8 +59,8 @@ local function process_handlers_for_logger(current_logger, event_details)
         args          = event_details.args,
         timestamp     = event_details.timestamp,
         filename      = event_details.filename,
-        lineno        = event_details.lineno
-        -- source_logger_name = event_details.source_logger_name -- if formatters need it
+        lineno        = event_details.lineno,
+        source_logger_name = event_details.source_logger_name -- Include this for tests
     }
 
     for _, handler_entry in ipairs(current_logger.handlers or {}) do
