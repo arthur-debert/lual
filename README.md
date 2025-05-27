@@ -1,171 +1,151 @@
-# lual.log
+lual log: A New Lua Logging Library (Project [Placeholder Name])
 
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+Vision & Introduction
 
-A Lua library for hierarchical configuration management that elegantly merges
-configurations from multiple sources with defined precedence.
+The Lua landscape for logging libraries presents an opportunity for a robust,
+developer-friendly solution. Inspired by the power and flexibility of Python's
+standard logging module, this project aims to create a new logging library for
+Lua that is both powerful and intuitive.
 
-Your application has its defaults, as it should. It also allows users to
-configurable their preferences, while of course, environment variables should
-work too, and lest we forget: command line options.
+Our vision is to develop a library that captures the essential features of a
+modern logging system—configurability, different output handlers, customizable
+formatting, and fine-grained level control—while adhering to Lua's idiomatic
+style. We aim for a "slightly smaller" footprint than Python's comprehensive
+module but one that effectively covers "most of the things" a developer needs
+for effective application logging.
 
-Even simple apps have a legitimate need for configuration at various points.
-lual.log is a library that allows which points to accept, formats to read and
-what you master config looks like. Melt will merge these in predictable sensible
-precedence order while giving your user plenty of touch points and formats too
-choose.
+This document serves as a kickstarting guide for the development team, outlining
+the core ideas, features, and principles that will guide our work.
 
-## Get it over with
+Core Features
 
-`lual.log` provides a simple, powerful API to:
+The library will be built around the following core features, designed from
+first principles:
 
-1. Merge configuration from multiple sources into a unified view
-2. Apply clear precedence rules from less specific to more specific:
-   - Application defaults (lowest precedence)
-   - User preferences
-   - Directory/project-specific settings
-   - Environment variables
-   - Command-line options (highest precedence)
-3. Access configuration values with intuitive dot notation
-4. Auto-convert environment variables to appropriate types (string, number,
-   boolean)
-5. TOML, JSON, YAML, INI, CONFIG file formats supported out of the box
+1.  Central Logging Engine:
 
-## Installation
+    - Manages log messages, logger instances, and their hierarchy.
+    - Filters messages based on logger names and severity levels.
+    - Dispatches messages to the appropriate handlers.
 
-Install via LuaRocks:
+2.  Loggers with Hierarchical Naming:
 
-```bash
-luarocks install lual.log
-```
+    - Loggers are named using dot-separated paths (e.g.,
+      `myapp.module.submodule`).
+    - Configuration (like log levels) can be applied to specific loggers or
+      partial paths (e.g., `myapp.module.*`).
 
-For development:
+3.  Log Levels:
 
-```bash
-# Clone the repository
-git clone https://github.com/arthur-debert/lual.log.git
-cd lual.log
+    - Standard severity levels (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL).
+    - Ability to set log levels per logger or logger name pattern, controlling
+      output verbosity.
 
-# Install dependencies locally
-luarocks --tree ./.luarocks install --only-deps lual.log-0.1.0-1.rockspec
+4.  Handlers:
 
-# Set up environment (or use direnv)
-source .envrc
-```
+    - Responsible for dispatching log records to various destinations.
+    - Initial simple handlers:
+      - `StreamHandler`: Outputs to `io.stdout` (default) or `io.stderr`.
+      - `FileHandler`: Outputs to a specified file.
+    - Designed to be extensible with custom handlers.
 
-## Usage
+5.  Formatters:
 
-### Basic Example
+    - Control the layout of log records.
+    - Initial simple formatters:
+      - `PlainTextFormatter`: Outputs a clean, human-readable text format.
+      - `ColorFormatter`: Outputs text with ANSI color codes for enhanced
+        readability in terminals.
+    - Designed to be extensible with custom formatters.
 
-```lua
-local Melt = require("lual.log")
+6.  Message Propagation:
 
--- Create a new configuration
-local config = Melt.new()
+    - Log messages will propagate upwards through the logger hierarchy by
+      default (e.g., a message to `myapp.module` also goes to `myapp` and the
+      root logger's handlers).
+    - Propagation can be disabled on a per-logger basis.
 
--- Add configuration from different sources with increasing precedence
-config:add_table({
-    app_name = "MyApp",  -- Application defaults (lowest precedence)
-    timeout = 5000
-  })
-  :add_file(os.getenv("HOME").."/.config/myapp/config.toml")  -- User preferences
-   -- (TOML format)
-  :add_file(".myapp.json")  -- Directory specific settings (JSON)
-  :add_env("MYAPP_")  -- Environment variables
-  :add_cmdline_options(my_cli_args) -- CLI options (highest precedence)
-                                   -- (my_cli_args from CLI parser)
+7.  Contextual Information:
 
--- Access configuration values with a unified view
-local app_name = config:get("app_name")  -- From defaults unless overridden
-local db_host = config:get("database.host")  -- From any source based on precedence
-local log_level = config:get("log_level")  -- From highest precedence source
+    - Timestamping: Log records will automatically include a timestamp generated
+      at the time of the event.
+    - Caller Information: The library will capture the source filename and line
+      number where the log message was emitted, aiding in debugging.
 
--- Get the entire configuration as a table
-local all_config = config:get_table()
-```
+8.  Robust Error Handling:
+    - Errors occurring within handlers or formatters (e.g., file write error)
+      will be caught and reported to `io.stderr`, preventing the logging system
+      itself from crashing the application.
 
-### Alternative API
+Design & Code Principles
 
-```lua
-local Melt = require("lual.log")
+To ensure a high-quality, maintainable, and easy-to-use library, we will adhere
+to the following principles:
 
--- Define sources with explicit precedence (first has lowest precedence)
-local sources = {
-  { type = "table", source = { timeout = 5000 } },  -- Application defaults
-  { type = "file", path = os.getenv("HOME").."/.config/myapp/config.toml" },
-    -- User config (TOML format)
-  { type = "file", path = ".myapp.yaml" },  -- Project-specific config (YAML format)
-  { type = "env", prefix = "MYAPP_" },  -- Environment variables
-  { type = "cmdline", source = my_cli_args } -- CLI options (highest precedence)
-                                            -- (my_cli_args from CLI parser)
-}
+1.  Lua-Idiomatic Design:
 
--- Create configuration object with merged values
-local config = Melt.merge(sources)
+    - Leverage Lua's strengths, such as first-class functions and flexible
+      table-based structures.
+    - Prefer functional approaches for components like handlers and formatters
+      where appropriate, potentially reducing the need for complex object
+      hierarchies if simple functions with defined signatures suffice.
 
--- Access configuration values
-local timeout = config:get("timeout")  -- From highest precedence source
-```
+2.  Modularity and Composability:
 
-## Key Features
+    - Design components (engine, loggers, handlers, formatters) with clear
+      responsibilities.
+    - Break down complex logic into smaller, well-defined functions. This
+      enhances readability and allows components to be combined flexibly.
 
-- **Predictable Configuration Layering**: From default settings to environment
-  overrides
-- **Multiple Format Support**: Lua tables, TOML, JSON, YAML, INI, CONFIG files,
-  environment variables, and command-line arguments.
-- **Extensible Design**: Add more format readers as needed
-- **Hierarchical Access**: Use dot notation (e.g., `database.host`) to access
-  nested values
-- **Type Conversion**: Environment variables and command-line arguments are
-  automatically converted to appropriate types.
-- **Clear Precedence Rules**: More specific sources override less specific ones
-  (command-line options take ultimate precedence).
-- **Array Access**: Access array elements with bracket notation (e.g.,
-  `protocols[1]`)
+3.  Testability:
 
-## API Reference
+    - Prioritize writing code that is easy to test. Smaller functions and clear
+      interfaces are key to this.
+    - Aim for high unit test coverage to ensure reliability and catch
+      regressions.
 
-### Creating a Configuration
+4.  Clarity and Simplicity:
 
-- `Melt.new()`: Creates a new empty configuration object
-- `Melt.merge(sources_list)`: Creates a configuration from a list of sources
+    - The API should be intuitive and easy for developers to learn and use.
+    - While powerful, the internal workings should strive for simplicity where
+      possible without sacrificing essential functionality.
 
-### Adding Sources
+5.  Performance Awareness:
 
-- `:add_table(table)`: Add configuration from a Lua table
-- `:add_file(path, [type_hint])`: Add configuration from a file (supports TOML,
-  JSON, YAML, INI, CONFIG formats automatically detected by file extension, or
-  optionally specified via type_hint)
-- `:add_env(prefix)`: Add configuration from environment variables with prefix
-- `:add_cmdline_options(table)`: Add configuration from a pre-parsed table of
-  command-line options. Keys with hyphens (e.g., `db-host`) are converted to
-  nested structures (`db.host`), and values are type-converted.
+    - Logging can be performance-sensitive. While features like caller info
+      capture are valuable, we should be mindful of potential overhead and
+      consider optimizations or configurability for performance-critical
+      sections if necessary.
 
-### Accessing Values
+6.  Extensibility:
+    - Users should be able to easily create and integrate their own custom
+      handlers and formatters. This will likely involve clear function
+      signatures and registration mechanisms.
 
-- `:get(key)`: Get a value by key (with dot notation for nested keys)
-- `:get_table()`: Get the entire configuration as a table
+High-Level API Sneak Peek
 
-## Contributing
+The following illustrates a potential way users might interact with the library
+(names and exact signatures are subject to refinement):
 
-Contributions are welcome! From bug reports to PRs, the more the merrier.
+-- sample usage local log = require("your_logger_module_name") -- To be defined
 
-### Development Setup
+      -- Basic Configuration (Example)
+      log.set_level("myapp.network.*", log.levels.DEBUG) -- Set DEBUG for all network modules
+      log.add_handler("*", log.handlers.stream_handler, log.formatters.color_formatter)
+      log.add_handler("myapp.critical_ops", log.handlers.file_handler, log.formatters.plain_formatter, {
+          filepath = "/var/log/myapp_critical.log"
+      })
 
-The project uses:
+      -- Getting a logger instance
+      local network_logger = log.get_logger("myapp.network.protocol")
+      local ui_logger = log.get_logger("myapp.ui.events")
 
-- Lua 5.1+
-- Busted for testing
-- LuaRocks for dependency management
-- Direnv for environment management
+      -- Logging messages
+      network_logger:debug("Packet received from %s", "10.0.0.1")
+      ui_logger:info("User clicked button: %s", "submit_form")
 
-See `docs/development.txxt` for detailed development instructions.
+      -- Or using direct logging functions (potentially operating on the root logger or a named logger)
+      log.warn("global.config", "Old configuration value detected for 'timeout'.")
+      log.error("myapp.database", "Failed to connect to database: %s", db_error_message)
 
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for
-details.
-
---
-
-Made with ❤️ for the Lua community
+-- lua
