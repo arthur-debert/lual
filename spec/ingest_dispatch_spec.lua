@@ -1,7 +1,8 @@
+package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua"
 describe("ingest.dispatch_log_event", function()
   -- Compatibility for Lua 5.2+ which moved unpack to table.unpack
   local unpack = unpack or table.unpack
-  
+
   local mock_log_levels = {
     DEBUG = 10,
     INFO = 20,
@@ -17,7 +18,7 @@ describe("ingest.dispatch_log_event", function()
   local stderr_messages = {}
 
   local function create_mock_logger(name, level, handlers, propagate, parent)
-    return {
+    local logger = {
       name = name,
       level = level,
       handlers = handlers or {},
@@ -26,23 +27,32 @@ describe("ingest.dispatch_log_event", function()
       is_enabled_for = function(self, message_level)
         return message_level >= (self.level or mock_log_levels.INFO)
       end,
+      -- This mock get_effective_handlers needs to match the structure expected by the new ingest.dispatch_log_event
       get_effective_handlers = function(self)
-        local effective_handlers = {}
-        for _, h in ipairs(self.handlers) do
-          table.insert(effective_handlers, h)
-        end
+        local collected_handlers = {}
         local current = self
-        while current.parent and current.propagate ~= false do
-          current = current.parent
+        while current do
           if current.handlers then
-            for _, h in ipairs(current.handlers) do
-              table.insert(effective_handlers, h)
+            for _, h_entry in ipairs(current.handlers) do
+              -- Ensure h_entry has handler_func, formatter_func, etc.
+              table.insert(collected_handlers, {
+                handler_func = h_entry.handler_func,
+                formatter_func = h_entry.formatter_func,
+                handler_config = h_entry.handler_config,
+                owner_logger_name = current.name,  -- Add owner context
+                owner_logger_level = current.level -- Add owner context
+              })
             end
           end
+          if not current.propagate or not current.parent then
+            break
+          end
+          current = current.parent
         end
-        return effective_handlers
+        return collected_handlers
       end,
     }
+    return logger
   end
 
   local function set_mock_loggers(loggers_map)
@@ -124,14 +134,15 @@ describe("ingest.dispatch_log_event", function()
   -- Setup global log object
   _G.log = {}
   _G.log.levels = mock_log_levels
-  _G.log.get_logger_internal = mock_get_logger_internal
+  _G.log.get_logger_internal =
+      mock_get_logger_internal -- Retain for other potential internal uses or direct logger method tests.
 
-  -- Load ingest.lua
-  local load_ingest_status, load_ingest_err = loadfile("lua/lual.log/ingest.lua")
-  if not load_ingest_status then
-    error("Failed to load lua/lual.log/ingest.lua: " .. tostring(load_ingest_err))
+  -- Require the ingest module
+  local ingest_module_status, ingest = pcall(require, "lual.ingest")
+  if not ingest_module_status then
+    error("Failed to require lual.ingest: " .. tostring(ingest))
   end
-  load_ingest_status() -- This attaches dispatch_log_event to _G.log
+  -- local dispatch_log_event = ingest.dispatch_log_event -- This will be used in tests
 
   local original_stderr
 
@@ -147,8 +158,9 @@ describe("ingest.dispatch_log_event", function()
     end
   end)
 
-  it("should load ingest.lua and mocks", function()
-    assert.is_function(_G.log.dispatch_log_event)
+  it("should load ingest module and mock get_logger_internal", function()
+    assert.is_function(ingest.dispatch_log_event)
+    assert.is_function(mock_get_logger_internal)
   end)
 
   it("should call handler and formatter for a single logger", function()
@@ -159,26 +171,32 @@ describe("ingest.dispatch_log_event", function()
     })
 
     local event_details = {
-      message_level_no = _G.log.levels.INFO,
-      message_level_name = "INFO",
+      level_no = _G.log.levels.INFO,
+      level_name = "INFO",
       message_fmt = "Event: %s occurred",
-      args = {"login"},
+      args = { "login" },
       timestamp = 1678886400,
       filename = "app.lua",
       lineno = 42,
       source_logger_name = "main_logger"
     }
 
-    print("Event Level No: " .. tostring(event_details.message_level_no))
+    print("Event Level No: " .. tostring(event_details.level_no))
     print("Event Source Logger: " .. tostring(event_details.source_logger_name))
     local logger = _G.log.get_logger_internal("main_logger")
     print("Logger Name: " .. tostring(logger.name))
     print("Logger Level: " .. tostring(logger.level))
     print("Logger Handlers Count: " .. tostring(#logger.handlers))
-    if #logger.handlers > 0 then print("Formatter func is mock_formatter_func: " .. tostring(logger.handlers[1].formatter_func == mock_formatter_func)) end
-    if #logger.handlers > 0 then print("Handler func is mock_handler_func: " .. tostring(logger.handlers[1].handler_func == mock_handler_func)) end
+    if #logger.handlers > 0 then
+      print("Formatter func is mock_formatter_func: " ..
+        tostring(logger.handlers[1].formatter_func == mock_formatter_func))
+    end
+    if #logger.handlers > 0 then
+      print("Handler func is mock_handler_func: " ..
+        tostring(logger.handlers[1].handler_func == mock_handler_func))
+    end
 
-    _G.log.dispatch_log_event(event_details)
+    ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
 
     print("#formatter_calls after dispatch: " .. tostring(#get_formatter_calls()))
     print("#handler_calls after dispatch: " .. tostring(#get_handler_calls()))
@@ -206,7 +224,8 @@ describe("ingest.dispatch_log_event", function()
       -- Expected message is based on mock_formatter_func's behavior
       -- The mock_formatter_func creates a message like "Formatted: %s" where %s is base_record.message
       -- The base_record.message is string.format(event_details.message_fmt, unpack(event_details.args))
-      local expected_formatted_message = string.format("Formatted: %s", string.format(event_details.message_fmt, unpack(event_details.args)))
+      local expected_formatted_message = string.format("Formatted: %s",
+        string.format(event_details.message_fmt, unpack(event_details.args)))
       assert.are.same(expected_formatted_message, hc_params.message)
       assert.are.same(1678886400, hc_params.timestamp)
       assert.are.same("app.lua", hc_params.filename)
@@ -228,8 +247,8 @@ describe("ingest.dispatch_log_event", function()
     })
 
     local event_details = {
-      message_level_no = _G.log.levels.INFO,
-      message_level_name = "INFO",
+      level_no = _G.log.levels.INFO,
+      level_name = "INFO",
       message_fmt = "Debug info",
       args = {},
       timestamp = 1678886401,
@@ -238,7 +257,7 @@ describe("ingest.dispatch_log_event", function()
       source_logger_name = "filter_logger"
     }
 
-    _G.log.dispatch_log_event(event_details)
+    ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
 
     assert.are.same(0, #get_formatter_calls())
     assert.are.same(0, #get_handler_calls())
@@ -253,8 +272,8 @@ describe("ingest.dispatch_log_event", function()
     })
 
     local event_details = {
-      message_level_no = _G.log.levels.INFO,
-      message_level_name = "INFO",
+      level_no = _G.log.levels.INFO,
+      level_name = "INFO",
       message_fmt = "Regular info",
       args = {},
       timestamp = 1678886402,
@@ -263,7 +282,7 @@ describe("ingest.dispatch_log_event", function()
       source_logger_name = "filter_logger"
     }
 
-    _G.log.dispatch_log_event(event_details)
+    ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
 
     assert.are.same(1, #get_formatter_calls())
     assert.are.same(1, #get_handler_calls())
@@ -278,8 +297,8 @@ describe("ingest.dispatch_log_event", function()
     })
 
     local event_details = {
-      message_level_no = _G.log.levels.ERROR,
-      message_level_name = "ERROR",
+      level_no = _G.log.levels.ERROR,
+      level_name = "ERROR",
       message_fmt = "Critical failure",
       args = {},
       timestamp = 1678886403,
@@ -288,7 +307,7 @@ describe("ingest.dispatch_log_event", function()
       source_logger_name = "filter_logger"
     }
 
-    _G.log.dispatch_log_event(event_details)
+    ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
 
     local formatter_calls_list = get_formatter_calls()
     assert.are.same(1, #formatter_calls_list)
@@ -306,16 +325,16 @@ describe("ingest.dispatch_log_event", function()
 
   it("should propagate from child to parent, both processing", function()
     local parent_logger = create_mock_logger("parent_logger", _G.log.levels.DEBUG, {
-      { formatter_func = mock_formatter_func, handler_func = mock_handler_func, handler_config = {id = "parent_h"} }
+      { formatter_func = mock_formatter_func, handler_func = mock_handler_func, handler_config = { id = "parent_h" } }
     })
     local child_logger = create_mock_logger("child_logger", _G.log.levels.DEBUG, {
-      { formatter_func = mock_formatter_func, handler_func = mock_handler_func, handler_config = {id = "child_h"} }
+      { formatter_func = mock_formatter_func, handler_func = mock_handler_func, handler_config = { id = "child_h" } }
     }, true, parent_logger)
     set_mock_loggers({ parent_logger = parent_logger, child_logger = child_logger })
 
     local event_details = {
-      message_level_no = _G.log.levels.DEBUG,
-      message_level_name = "DEBUG",
+      level_no = _G.log.levels.DEBUG,
+      level_name = "DEBUG",
       message_fmt = "Test message",
       args = {},
       timestamp = 1678886404,
@@ -323,7 +342,7 @@ describe("ingest.dispatch_log_event", function()
       lineno = 1,
       source_logger_name = "child_logger"
     }
-    _G.log.dispatch_log_event(event_details)
+    ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
 
     local fc_list = get_formatter_calls()
     local hc_list = get_handler_calls()
@@ -343,7 +362,8 @@ describe("ingest.dispatch_log_event", function()
       -- Our mock_formatter_func prepends "Formatted: " to the original message.
       -- The original message for the parent logger's formatter is the *already formatted* message from the child.
       -- However, the dispatch_log_event re-formats for each logger based on the *original* event_details.
-      local expected_parent_formatted_message = string.format("Formatted: %s", string.format(event_details.message_fmt, unpack(event_details.args)))
+      local expected_parent_formatted_message = string.format("Formatted: %s",
+        string.format(event_details.message_fmt, unpack(event_details.args)))
       assert.are.same(expected_parent_formatted_message, hc_list[2].params.message)
     end
     assert.are.same(0, #get_stderr_messages())
@@ -359,8 +379,8 @@ describe("ingest.dispatch_log_event", function()
     set_mock_loggers({ parent_logger_no_prop = parent_logger_no_prop, child_logger_no_prop = child_logger_no_prop })
 
     local event_details = {
-      message_level_no = _G.log.levels.DEBUG,
-      message_level_name = "DEBUG",
+      level_no = _G.log.levels.DEBUG,
+      level_name = "DEBUG",
       message_fmt = "No propagate message",
       args = {},
       timestamp = 1678886405,
@@ -368,7 +388,7 @@ describe("ingest.dispatch_log_event", function()
       lineno = 2,
       source_logger_name = "child_logger_no_prop"
     }
-    _G.log.dispatch_log_event(event_details)
+    ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
 
     assert.are.same(1, #get_formatter_calls())
     assert.are.same(1, #get_handler_calls())
@@ -380,19 +400,19 @@ describe("ingest.dispatch_log_event", function()
 
   it("should propagate up a three-level hierarchy", function()
     local root_logger = create_mock_logger("root_logger", _G.log.levels.DEBUG, {
-      { formatter_func = mock_formatter_func, handler_func = mock_handler_func, handler_config = {id="root_h"} }
+      { formatter_func = mock_formatter_func, handler_func = mock_handler_func, handler_config = { id = "root_h" } }
     })
     local mid_logger = create_mock_logger("mid_logger", _G.log.levels.DEBUG, {
-      { formatter_func = mock_formatter_func, handler_func = mock_handler_func, handler_config = {id="mid_h"} }
+      { formatter_func = mock_formatter_func, handler_func = mock_handler_func, handler_config = { id = "mid_h" } }
     }, true, root_logger)
     local leaf_logger = create_mock_logger("leaf_logger", _G.log.levels.DEBUG, {
-      { formatter_func = mock_formatter_func, handler_func = mock_handler_func, handler_config = {id="leaf_h"} }
+      { formatter_func = mock_formatter_func, handler_func = mock_handler_func, handler_config = { id = "leaf_h" } }
     }, true, mid_logger)
     set_mock_loggers({ root_logger = root_logger, mid_logger = mid_logger, leaf_logger = leaf_logger })
 
     local event_details = {
-      message_level_no = _G.log.levels.DEBUG,
-      message_level_name = "DEBUG",
+      level_no = _G.log.levels.DEBUG,
+      level_name = "DEBUG",
       message_fmt = "Leaf message",
       args = {},
       timestamp = 1678886406,
@@ -400,7 +420,7 @@ describe("ingest.dispatch_log_event", function()
       lineno = 3,
       source_logger_name = "leaf_logger"
     }
-    _G.log.dispatch_log_event(event_details)
+    ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
 
     local fc_list = get_formatter_calls()
     local hc_list = get_handler_calls()
@@ -433,8 +453,8 @@ describe("ingest.dispatch_log_event", function()
     set_mock_loggers({ parent_filter_logger = parent_filter_logger, child_source_logger = child_source_logger })
 
     local event_details = {
-      message_level_no = _G.log.levels.INFO, -- Child processes, parent filters
-      message_level_name = "INFO",
+      level_no = _G.log.levels.INFO, -- Child processes, parent filters
+      level_name = "INFO",
       message_fmt = "Info for child, too low for parent",
       args = {},
       timestamp = 1678886407,
@@ -442,7 +462,7 @@ describe("ingest.dispatch_log_event", function()
       lineno = 4,
       source_logger_name = "child_source_logger"
     }
-    _G.log.dispatch_log_event(event_details)
+    ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
 
     local fc_list = get_formatter_calls()
     local hc_list = get_handler_calls()
@@ -461,21 +481,21 @@ describe("ingest.dispatch_log_event", function()
   it("should handle formatter error gracefully and use fallback message", function()
     set_mock_loggers({
       error_logger = create_mock_logger("error_logger", _G.log.levels.INFO, {
-        { formatter_func = mock_erroring_formatter_func, handler_func = mock_handler_func, handler_config = {id="h_after_fmt_err"} }
+        { formatter_func = mock_erroring_formatter_func, handler_func = mock_handler_func, handler_config = { id = "h_after_fmt_err" } }
       })
     })
 
     local event_details = {
-      message_level_no = _G.log.levels.INFO,
-      message_level_name = "INFO",
+      level_no = _G.log.levels.INFO,
+      level_name = "INFO",
       message_fmt = "original message %s",
-      args = {"arg1"},
+      args = { "arg1" },
       timestamp = 1678886408,
       filename = "error_app.lua",
       lineno = 50,
       source_logger_name = "error_logger"
     }
-    _G.log.dispatch_log_event(event_details)
+    ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
 
     assert.are.same(0, #get_formatter_calls()) -- Formatter errored, so no call recorded by mock_formatter_func
 
@@ -488,7 +508,7 @@ describe("ingest.dispatch_log_event", function()
 
       local texts_to_find = {
         "FORMATTER ERROR",
-        event_details.message_level_name,
+        event_details.level_name,
         event_details.filename,
         tostring(event_details.lineno),
         raw_message_to_check,
@@ -500,7 +520,7 @@ describe("ingest.dispatch_log_event", function()
         local expression_result = (find_attempt_val ~= nil)
         assert.are.same(true, expression_result)
       end
-      
+
       assert.are.same("h_after_fmt_err", hc_list[1].config.id)
     end
 
@@ -521,8 +541,8 @@ describe("ingest.dispatch_log_event", function()
     })
 
     local event_details = {
-      message_level_no = _G.log.levels.INFO,
-      message_level_name = "INFO",
+      level_no = _G.log.levels.INFO,
+      level_name = "INFO",
       message_fmt = "Message for erroring handler",
       args = {},
       timestamp = 1678886409,
@@ -530,7 +550,7 @@ describe("ingest.dispatch_log_event", function()
       lineno = 60,
       source_logger_name = "error_logger"
     }
-    _G.log.dispatch_log_event(event_details)
+    ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
 
     assert.are.same(1, #get_formatter_calls()) -- Formatter should have been called
     assert.are.same(0, #get_handler_calls())   -- Erroring handler does not record its call
@@ -547,14 +567,14 @@ describe("ingest.dispatch_log_event", function()
   it("error in one handler should not affect subsequent handlers for the same logger", function()
     set_mock_loggers({
       multi_handler_logger = create_mock_logger("multi_handler_logger", _G.log.levels.INFO, {
-        { formatter_func = mock_formatter_func, handler_func = mock_erroring_handler_func, handler_config = {id="error_handler"} },
-        { formatter_func = mock_formatter_func, handler_func = mock_handler_func_ok, handler_config = {id="ok_handler"} }
+        { formatter_func = mock_formatter_func, handler_func = mock_erroring_handler_func, handler_config = { id = "error_handler" } },
+        { formatter_func = mock_formatter_func, handler_func = mock_handler_func_ok,       handler_config = { id = "ok_handler" } }
       })
     })
 
     local event_details = {
-      message_level_no = _G.log.levels.INFO,
-      message_level_name = "INFO",
+      level_no = _G.log.levels.INFO,
+      level_name = "INFO",
       message_fmt = "Test for multi-handler with error",
       args = {},
       timestamp = 1678886410,
@@ -562,16 +582,17 @@ describe("ingest.dispatch_log_event", function()
       lineno = 70,
       source_logger_name = "multi_handler_logger"
     }
-    _G.log.dispatch_log_event(event_details)
+    ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
 
     assert.are.same(2, #get_formatter_calls()) -- Both formatters should be called
     assert.are.same(0, #get_handler_calls())   -- Erroring handler does not record
-    
+
     local hc_ok_list = get_handler_calls_ok()
     assert.are.same(1, #hc_ok_list)
     if #hc_ok_list > 0 then
       assert.are.same("ok_handler", hc_ok_list[1].config.id)
-      local expected_message = string.format("Formatted: %s", string.format(event_details.message_fmt, unpack(event_details.args)))
+      local expected_message = string.format("Formatted: %s",
+        string.format(event_details.message_fmt, unpack(event_details.args)))
       assert.are.same(expected_message, hc_ok_list[1].params.message)
     end
 
@@ -588,16 +609,16 @@ describe("ingest.dispatch_log_event", function()
 
   it("error in child's handler should not affect propagation to parent", function()
     local parent_logger_prop = create_mock_logger("parent_logger_prop", _G.log.levels.INFO, {
-      { formatter_func = mock_formatter_func, handler_func = mock_handler_func_ok, handler_config = {id="parent_ok_h"} }
+      { formatter_func = mock_formatter_func, handler_func = mock_handler_func_ok, handler_config = { id = "parent_ok_h" } }
     })
     local child_logger_prop_error = create_mock_logger("child_logger_prop_error", _G.log.levels.INFO, {
-      { formatter_func = mock_formatter_func, handler_func = mock_erroring_handler_func, handler_config = {id="child_err_h"} }
+      { formatter_func = mock_formatter_func, handler_func = mock_erroring_handler_func, handler_config = { id = "child_err_h" } }
     }, true, parent_logger_prop)
     set_mock_loggers({ parent_logger_prop = parent_logger_prop, child_logger_prop_error = child_logger_prop_error })
 
     local event_details = {
-      message_level_no = _G.log.levels.INFO,
-      message_level_name = "INFO",
+      level_no = _G.log.levels.INFO,
+      level_name = "INFO",
       message_fmt = "Test for error propagation",
       args = {},
       timestamp = 1678886411,
@@ -605,13 +626,13 @@ describe("ingest.dispatch_log_event", function()
       lineno = 80,
       source_logger_name = "child_logger_prop_error"
     }
-    _G.log.dispatch_log_event(event_details)
+    ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
 
     local fc_list = get_formatter_calls()
     assert.are.same(2, #fc_list) -- Child's formatter, then Parent's formatter
     if #fc_list == 2 then
-        assert.are.same("child_logger_prop_error", fc_list[1].params.logger_name)
-        assert.are.same("parent_logger_prop", fc_list[2].params.logger_name)
+      assert.are.same("child_logger_prop_error", fc_list[1].params.logger_name)
+      assert.are.same("parent_logger_prop", fc_list[2].params.logger_name)
     end
 
     assert.are.same(0, #get_handler_calls()) -- Child's erroring handler does not record
@@ -621,7 +642,8 @@ describe("ingest.dispatch_log_event", function()
     if #hc_ok_list > 0 then
       assert.are.same("parent_logger_prop", hc_ok_list[1].params.logger_name)
       assert.are.same("parent_ok_h", hc_ok_list[1].config.id)
-      local expected_message = string.format("Formatted: %s", string.format(event_details.message_fmt, unpack(event_details.args)))
+      local expected_message = string.format("Formatted: %s",
+        string.format(event_details.message_fmt, unpack(event_details.args)))
       assert.are.same(expected_message, hc_ok_list[1].params.message)
     end
 
@@ -639,33 +661,33 @@ describe("ingest.dispatch_log_event", function()
   it("should pass all event_details fields correctly to formatter and handler", function()
     -- We need both the emitter and the passthrough logger
     local passthrough_logger = create_mock_logger("passthrough_logger", _G.log.levels.INFO, {
-      { formatter_func = mock_formatter_func, handler_func = mock_handler_func, handler_config = { id = "passthrough_h"} }
+      { formatter_func = mock_formatter_func, handler_func = mock_handler_func, handler_config = { id = "passthrough_h" } }
     })
-    
+
     set_mock_loggers({
       passthrough_logger = passthrough_logger,
       emitter_logger = create_mock_logger("emitter_logger", _G.log.levels.INFO, {}, true, passthrough_logger)
     })
 
     local event_details = {
-      message_level_no = _G.log.levels.INFO,
-      message_level_name = "NOTIFY", -- Custom name for testing
+      level_no = _G.log.levels.INFO,
+      level_name = "NOTIFY", -- Custom name for testing
       message_fmt = "Event ID: %d, Data: %s",
-      args = {1001, "SampleData"},
+      args = { 1001, "SampleData" },
       timestamp = 1678880000, -- Unique timestamp
       filename = "modules/core.lua",
       lineno = 256,
       source_logger_name = "emitter_logger" -- Different from passthrough_logger
     }
 
-    _G.log.dispatch_log_event(event_details)
+    ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
 
     local formatter_calls_list = get_formatter_calls()
     assert.are.same(1, #formatter_calls_list)
     if #formatter_calls_list > 0 then
       local formatter_params = formatter_calls_list[1].params
-      assert.are.equal(event_details.message_level_name, formatter_params.level_name)
-      assert.are.equal(event_details.message_level_no, formatter_params.level_no)
+      assert.are.equal(event_details.level_name, formatter_params.level_name)
+      assert.are.equal(event_details.level_no, formatter_params.level_no)
       assert.are.equal("passthrough_logger", formatter_params.logger_name) -- Logger processing it
       assert.are.equal(event_details.message_fmt, formatter_params.message_fmt)
       assert.are.same(event_details.args, formatter_params.args)
@@ -680,11 +702,12 @@ describe("ingest.dispatch_log_event", function()
     assert.are.same(1, #handler_calls_list)
     if #handler_calls_list > 0 then
       local handler_input_params = handler_calls_list[1].params
-      assert.are.equal(event_details.message_level_name, handler_input_params.level_name)
-      assert.are.equal(event_details.message_level_no, handler_input_params.level_no)
+      assert.are.equal(event_details.level_name, handler_input_params.level_name)
+      assert.are.equal(event_details.level_no, handler_input_params.level_no)
       assert.are.equal("passthrough_logger", handler_input_params.logger_name)
       assert.is_string(handler_input_params.message) -- Actual content checked by mock_formatter_func behavior
-      local expected_formatted_message = string.format("Formatted: %s", string.format(event_details.message_fmt, unpack(event_details.args)))
+      local expected_formatted_message = string.format("Formatted: %s",
+        string.format(event_details.message_fmt, unpack(event_details.args)))
       assert.are.equal(expected_formatted_message, handler_input_params.message)
       assert.are.equal(event_details.timestamp, handler_input_params.timestamp)
       assert.are.equal(event_details.filename, handler_input_params.filename)

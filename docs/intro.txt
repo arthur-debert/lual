@@ -1,0 +1,122 @@
+Lual: A lua logger paying homage to python's stdlib logger.
+
+Lual is a focused but powerful and flexible logging library for lua. 
+Modeled after Python's standard library logger, it provides a simple interface
+for logging messages at different severity levels, with named loggers , rich
+dispatching and customizable handlers and formatters.
+
+It borrows from Python but also leverages Lua's strengths, hence the entire
+design is done over functions and tables. 
+
+It comes with a  spartan collection of handlers (console ; file ) and
+formatters (plaintext; colored ; json) but one can register custom functions
+for these roles with ease.
+
+It supports Lua5.1+ and LuaJIT, has a decent test coverage and hopefully will
+make your lifer fuller (of letters, at least).
+
+
+
+INSTALLATION
+
+    -- Lual is available as a LuaRocks module, so you can install it with:
+
+        luarocks install lual
+
+    -- shell
+
+
+SEE IT IN  ACTION
+
+    --  A very minimal example: 
+
+        local logger = require "lual.logger"
+
+        logger.setLevel("DEBUG") -- set the global log level
+        logger.debug("This is a debug message")
+
+    --  lua 
+
+Lual aims to fill the gap between very minimal loggers and the full l4j ones.
+
+
+EXAMPLE: HIERARCHICAL LOGGING FOR A WEB APPLICATION
+
+A powerful feature of lual is the ability to use hierarchical loggers with different settings. This is especially useful for larger applications where you want fine-grained control over logging for different components:
+
+    local lualog = require("lual.logger")
+
+    -- Set up the root logger with a stream handler to stdout
+    local root_logger = lualog.get_logger()
+    root_logger:set_level(lualog.levels.WARNING) -- Only WARNING and above by default
+    root_logger:add_handler(lualog.handlers.stream_handler, lualog.formatters.plain_formatter)
+
+    -- Logger for database operations - more verbose for debugging DB issues
+    local db_logger = lualog.get_logger("app.db")
+    db_logger:set_level(lualog.levels.DEBUG) -- More detailed logging for DB
+
+    -- Logger for authentication - only log critical issues
+    local auth_logger = lualog.get_logger("app.auth")
+    auth_logger:set_level(lualog.levels.ERROR) -- Only errors and critical issues
+
+    -- Logger for HTTP requests - info level for normal operation monitoring
+    local http_logger = lualog.get_logger("app.http")
+    http_logger:set_level(lualog.levels.INFO)
+
+    -- Now use the loggers in your application
+    db_logger:debug("Connected to database with user %s", "admin")
+    auth_logger:info("User login attempt") -- This won't be logged (below ERROR level)
+    auth_logger:error("Failed login attempt from IP %s", "192.168.1.1")
+    http_logger:info("Received request: GET /users")
+
+
+EXAMPLE: CUSTOM FORMATTER AND HANDLER
+
+Lual makes it easy to extend the library with custom formatters and handlers to fit your specific needs:
+
+    local lualog = require("lual.logger")
+
+    -- Create a custom formatter that includes milliseconds in timestamp
+    local function precise_time_formatter(record)
+        local timestamp_str = os.date("!%Y-%m-%d %H:%M:%S", record.timestamp)
+        local message = string.format(record.message_fmt, table.unpack(record.args or {}))
+        
+        return string.format("[PRECISE] %s %s [%s] %s",
+            timestamp_str,
+            record.level_name,
+            record.logger_name,
+            message)
+    end
+
+    -- Create a custom handler that sends critical errors to a notification system
+    local function notification_handler(record, config)
+        if record.level_no >= lualog.levels.ERROR then
+            local channel = config.channel or "alerts"
+            print(string.format("ALERT to %s channel: %s", channel, record.message))
+            -- In a real implementation, you would send to a notification service
+        end
+    end
+
+    -- Set up a logger with both handlers
+    local app_logger = lualog.get_logger("critical_app")
+    app_logger:set_level(lualog.levels.DEBUG)
+
+    -- Add standard console output
+    app_logger:add_handler(
+        lualog.handlers.stream_handler,
+        lualog.formatters.plain_formatter
+    )
+
+    -- Add notification alerts for critical errors
+    app_logger:add_handler(
+        notification_handler,
+        precise_time_formatter,
+        { channel = "production-alerts" }
+    )
+
+    -- Log some messages
+    app_logger:info("Application started normally")
+    app_logger:error("Database connection failed")  -- This will trigger the notification
+    -- lua
+
+Let me know how it works for you.
