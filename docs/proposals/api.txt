@@ -1,0 +1,75 @@
+API 
+
+lual allows log configuration in various ways. 
+
+1. Imperative: 
+
+    a series of functional calls to the logger object, each setting part of the config. 
+
+        -- example
+
+            local lual = require("lual")
+            local logger = lualog.get_logger("app.database")
+            logger:set_level("debug")
+
+            logger:add_output(
+                lualog.outputs.console_output,
+                lualog.formatters.plain_formatter,
+                { stream = io.stdout }  -- optional config
+            )
+            
+            -- Add file output
+            local file_output = require("lual.outputs.file_output")
+            logger:add_output(
+                file_output({ path = "app.log" }),
+                lualog.formatters.plain_formatter
+            )
+            
+            -- Add colored console output
+            logger:add_output(
+                lualog.outputs.console_output,
+                lualog.formatters.color_formatter,
+                { stream = io.stderr }
+            )
+            
+            -- Or using the facade function
+            lualog.add_output("app.database", lualog.outputs.console_output, lualog.formatters.plain_formatter)
+
+
+2. Declarative:  - FUTURE REALEASE
+
+    A single call to the logger object, with a config table. 
+
+            -- example: 
+
+                local  logger = require("lualog").logger({
+                    name = "app.database",
+                    level = "debug",
+                    outputs = {
+                        {type = "console", formatter = "color"},
+                        {type = "file", path = "app.log", formatter = "plain"}
+                    }
+                })
+
+            -- lua
+
+3. Api:  FUTURE RELEASE
+
+
+    -- the initial get logger can customize the logger.
+        It also offers a flexible and terse api for setting these up: 
+
+        local lualog = require("lualog")
+        # this  is a simple case, where there is a 101 releatioship between outputs and formatters, and only one ouput
+        local logger = lualog.logger({output: "streaam", level:"debug", formatter: "color"})
+        # for a more complex case, one could do 
+        local logger = lualog.logger({
+            name = "app.db",
+            level = "debug",
+            outputs = {
+                {type = "console", formatter = "color"},
+                {type = "file", path = "app.log", formatter = "plain"}
+            }
+        })
+
+    -- lua
