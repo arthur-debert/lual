@@ -92,21 +92,28 @@ function logger:log(level_no, ...)
 			-- message_fmt might be extracted from context_val.msg later if desired.
 			msg_fmt_val = nil -- Or extract from context_val.msg
 			args_val = table.pack() -- No args for formatting
+			if msg_fmt_val == nil and context_val and context_val.msg and type(context_val.msg) == "string" then
+				-- Attempt to extract message_fmt from context.msg for Pattern 2b
+				msg_fmt_val = context_val.msg
+			end
 		end
 	else
-		-- This branch handles cases where the first arg after level_no is not a table.
-		-- It will be fully aligned with "Pattern 1" in a later step.
-		-- For now, it largely preserves the old behavior for non-context-first calls:
-		-- first arg is message_fmt, subsequent are args.
-		if packed_varargs.n > 0 then
-			msg_fmt_val = packed_varargs[1] -- This could be a string, or other types.
+		-- Pattern 1: String Formatting Only, or no arguments after level_no
+		-- The first argument (packed_varargs[1]) is message_fmt, rest are args.
+		-- context_val remains nil (as initialized).
+		if packed_varargs.n > 0 and type(packed_varargs[1]) == "string" then
+			msg_fmt_val = packed_varargs[1]
 			if packed_varargs.n >= 2 then
 				args_val = table.pack(select(2, ...)) -- Args from 2nd element of original '...'
 			else
-				args_val = table.pack()
+				args_val = table.pack() -- No further args for formatting
 			end
-		else -- No arguments after level_no
-			msg_fmt_val = nil
+		elseif packed_varargs.n == 0 then -- No arguments after level_no
+			msg_fmt_val = "" -- Default to empty string if no message/context
+			args_val = table.pack()
+		else -- First argument is not a table and not a string (e.g. a number or boolean)
+			-- Treat as a single message to be stringified, no further args.
+			msg_fmt_val = tostring(packed_varargs[1])
 			args_val = table.pack()
 		end
 	end

@@ -167,6 +167,7 @@ describe("lualog Logger Object", function()
 					assert.are.same(2, record.args.n)
 					assert.are.same(arg1, record.args[1])
 					assert.are.same(arg2, record.args[2])
+					assert.is_nil(record.context, "Context should be nil for Pattern 1 calls")
 
 					assert.is_number(record.timestamp)
 					assert.is_string(record.filename)
