@@ -17,7 +17,7 @@ describe("lual formatters and outputs", function()
 	--   lualog = result
 	-- end)
 
-	describe("lualog.formatters.plain_formatter", function()
+	describe("lualog.formatters.text", function()
 		it("should format a basic log record correctly", function()
 			local record = {
 				timestamp = 1678886400, -- 2023-03-15 10:00:00 UTC
@@ -39,7 +39,7 @@ describe("lual formatters and outputs", function()
 			print("RECORD_MESSAGE_FMT: " .. tostring(record.message_fmt))
 			print("RECORD_ARGS[1]: " .. tostring(record.args[1]))
 			print("RECORD_ARGS[2]: " .. tostring(record.args[2]))
-			assert.are.same(expected_output, lualog.formatters.plain_formatter(record))
+			assert.are.same(expected_output, lualog.formatters.text(record))
 		end)
 
 		it("should handle nil arguments gracefully", function()
@@ -60,11 +60,11 @@ describe("lual formatters and outputs", function()
 				expected_message
 			)
 
-			assert.are.same(expected_output, lualog.formatters.plain_formatter(record))
+			assert.are.same(expected_output, lualog.formatters.text(record))
 
 			-- Test with args = {}
 			record.args = {}
-			assert.are.same(expected_output, lualog.formatters.plain_formatter(record))
+			assert.are.same(expected_output, lualog.formatters.text(record))
 		end)
 
 		it("should use fallbacks for missing optional record fields", function()
@@ -85,7 +85,7 @@ describe("lual formatters and outputs", function()
 				record1.logger_name,
 				record1.message_fmt
 			)
-			assert.are.same(expected_output1, lualog.formatters.plain_formatter(record1))
+			assert.are.same(expected_output1, lualog.formatters.text(record1))
 
 			local record2 = {
 				timestamp = ts,
@@ -101,7 +101,7 @@ describe("lual formatters and outputs", function()
 				"UNKNOWN_LOGGER",
 				record2.message_fmt
 			)
-			assert.are.same(expected_output2, lualog.formatters.plain_formatter(record2))
+			assert.are.same(expected_output2, lualog.formatters.text(record2))
 
 			local record3 = {
 				timestamp = ts,
@@ -117,7 +117,7 @@ describe("lual formatters and outputs", function()
 				"UNKNOWN_LOGGER",
 				record3.message_fmt
 			)
-			assert.are.same(expected_output3, lualog.formatters.plain_formatter(record3))
+			assert.are.same(expected_output3, lualog.formatters.text(record3))
 		end)
 	end)
 

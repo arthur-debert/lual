@@ -138,7 +138,7 @@ end
 -- 5. Formatter Definitions (Function Signatures) - REMOVED
 -- =============================================================================
 -- log.formatters = {} -- This line is removed
--- All function log.formatters.plain_formatter(...) etc. are removed.
+-- All function log.formatters.text(...) etc. are removed.
 
 -- =============================================================================
 -- Initialization (Example: Set up a default root logger)
@@ -150,10 +150,10 @@ function log.init_default_config()
     if root_logger.set_level then
       root_logger:set_level(log.levels.INFO)
     end
-    if root_logger.add_output and log.outputs and log.outputs.console_output and log.formatters and log.formatters.plain_formatter then
+    if root_logger.add_output and log.outputs and log.outputs.console_output and log.formatters and log.formatters.text then
       root_logger:add_output(
         log.outputs.console_output,
-        log.formatters.plain_formatter,
+        log.formatters.text,
         { stream = io.stdout }
       )
     end

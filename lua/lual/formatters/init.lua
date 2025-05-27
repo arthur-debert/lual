@@ -1,6 +1,6 @@
 local formatters = {}
 
-formatters.plain_formatter = require("lual.formatters.plain_formatter")
+formatters.text = require("lual.formatters.text")
 formatters.color = require("lual.formatters.color")
 
 return formatters

@@ -8,7 +8,7 @@ Status
 
 
 Preparation: 
-    - [ ] rename : remove lual.output.file_output (should just become file) for
+    - [x] rename : remove lual.output.file_output (should just become file) for
         outputs and formatters too
     - [ ] remove the facades, .add_outpout should not receive names or levels
 Implementation: 
@@ -50,7 +50,7 @@ Implementation:
             )
             
             -- Or using the facade function
-            lualog.add_output("app.database", lualog.outputs.console_output, lualog.formatters.plain_formatter)
+            lualog.add_output("app.database", lualog.outputs.console_output, lualog.formatters.text)
 
 
 2. Declarative:  - FUTURE REALEASE
