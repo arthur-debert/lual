@@ -171,8 +171,8 @@ describe("ingest.dispatch_log_event", function()
     })
 
     local event_details = {
-      message_level_no = _G.log.levels.INFO,
-      message_level_name = "INFO",
+      level_no = _G.log.levels.INFO,
+      level_name = "INFO",
       message_fmt = "Event: %s occurred",
       args = { "login" },
       timestamp = 1678886400,
@@ -181,7 +181,7 @@ describe("ingest.dispatch_log_event", function()
       source_logger_name = "main_logger"
     }
 
-    print("Event Level No: " .. tostring(event_details.message_level_no))
+    print("Event Level No: " .. tostring(event_details.level_no))
     print("Event Source Logger: " .. tostring(event_details.source_logger_name))
     local logger = _G.log.get_logger_internal("main_logger")
     print("Logger Name: " .. tostring(logger.name))
@@ -247,8 +247,8 @@ describe("ingest.dispatch_log_event", function()
     })
 
     local event_details = {
-      message_level_no = _G.log.levels.INFO,
-      message_level_name = "INFO",
+      level_no = _G.log.levels.INFO,
+      level_name = "INFO",
       message_fmt = "Debug info",
       args = {},
       timestamp = 1678886401,
@@ -272,8 +272,8 @@ describe("ingest.dispatch_log_event", function()
     })
 
     local event_details = {
-      message_level_no = _G.log.levels.INFO,
-      message_level_name = "INFO",
+      level_no = _G.log.levels.INFO,
+      level_name = "INFO",
       message_fmt = "Regular info",
       args = {},
       timestamp = 1678886402,
@@ -297,8 +297,8 @@ describe("ingest.dispatch_log_event", function()
     })
 
     local event_details = {
-      message_level_no = _G.log.levels.ERROR,
-      message_level_name = "ERROR",
+      level_no = _G.log.levels.ERROR,
+      level_name = "ERROR",
       message_fmt = "Critical failure",
       args = {},
       timestamp = 1678886403,
@@ -333,8 +333,8 @@ describe("ingest.dispatch_log_event", function()
     set_mock_loggers({ parent_logger = parent_logger, child_logger = child_logger })
 
     local event_details = {
-      message_level_no = _G.log.levels.DEBUG,
-      message_level_name = "DEBUG",
+      level_no = _G.log.levels.DEBUG,
+      level_name = "DEBUG",
       message_fmt = "Test message",
       args = {},
       timestamp = 1678886404,
@@ -379,8 +379,8 @@ describe("ingest.dispatch_log_event", function()
     set_mock_loggers({ parent_logger_no_prop = parent_logger_no_prop, child_logger_no_prop = child_logger_no_prop })
 
     local event_details = {
-      message_level_no = _G.log.levels.DEBUG,
-      message_level_name = "DEBUG",
+      level_no = _G.log.levels.DEBUG,
+      level_name = "DEBUG",
       message_fmt = "No propagate message",
       args = {},
       timestamp = 1678886405,
@@ -411,8 +411,8 @@ describe("ingest.dispatch_log_event", function()
     set_mock_loggers({ root_logger = root_logger, mid_logger = mid_logger, leaf_logger = leaf_logger })
 
     local event_details = {
-      message_level_no = _G.log.levels.DEBUG,
-      message_level_name = "DEBUG",
+      level_no = _G.log.levels.DEBUG,
+      level_name = "DEBUG",
       message_fmt = "Leaf message",
       args = {},
       timestamp = 1678886406,
@@ -453,8 +453,8 @@ describe("ingest.dispatch_log_event", function()
     set_mock_loggers({ parent_filter_logger = parent_filter_logger, child_source_logger = child_source_logger })
 
     local event_details = {
-      message_level_no = _G.log.levels.INFO, -- Child processes, parent filters
-      message_level_name = "INFO",
+      level_no = _G.log.levels.INFO, -- Child processes, parent filters
+      level_name = "INFO",
       message_fmt = "Info for child, too low for parent",
       args = {},
       timestamp = 1678886407,
@@ -486,8 +486,8 @@ describe("ingest.dispatch_log_event", function()
     })
 
     local event_details = {
-      message_level_no = _G.log.levels.INFO,
-      message_level_name = "INFO",
+      level_no = _G.log.levels.INFO,
+      level_name = "INFO",
       message_fmt = "original message %s",
       args = { "arg1" },
       timestamp = 1678886408,
@@ -508,7 +508,7 @@ describe("ingest.dispatch_log_event", function()
 
       local texts_to_find = {
         "FORMATTER ERROR",
-        event_details.message_level_name,
+        event_details.level_name,
         event_details.filename,
         tostring(event_details.lineno),
         raw_message_to_check,
@@ -541,8 +541,8 @@ describe("ingest.dispatch_log_event", function()
     })
 
     local event_details = {
-      message_level_no = _G.log.levels.INFO,
-      message_level_name = "INFO",
+      level_no = _G.log.levels.INFO,
+      level_name = "INFO",
       message_fmt = "Message for erroring handler",
       args = {},
       timestamp = 1678886409,
@@ -573,8 +573,8 @@ describe("ingest.dispatch_log_event", function()
     })
 
     local event_details = {
-      message_level_no = _G.log.levels.INFO,
-      message_level_name = "INFO",
+      level_no = _G.log.levels.INFO,
+      level_name = "INFO",
       message_fmt = "Test for multi-handler with error",
       args = {},
       timestamp = 1678886410,
@@ -617,8 +617,8 @@ describe("ingest.dispatch_log_event", function()
     set_mock_loggers({ parent_logger_prop = parent_logger_prop, child_logger_prop_error = child_logger_prop_error })
 
     local event_details = {
-      message_level_no = _G.log.levels.INFO,
-      message_level_name = "INFO",
+      level_no = _G.log.levels.INFO,
+      level_name = "INFO",
       message_fmt = "Test for error propagation",
       args = {},
       timestamp = 1678886411,
@@ -670,8 +670,8 @@ describe("ingest.dispatch_log_event", function()
     })
 
     local event_details = {
-      message_level_no = _G.log.levels.INFO,
-      message_level_name = "NOTIFY", -- Custom name for testing
+      level_no = _G.log.levels.INFO,
+      level_name = "NOTIFY", -- Custom name for testing
       message_fmt = "Event ID: %d, Data: %s",
       args = { 1001, "SampleData" },
       timestamp = 1678880000, -- Unique timestamp
@@ -686,8 +686,8 @@ describe("ingest.dispatch_log_event", function()
     assert.are.same(1, #formatter_calls_list)
     if #formatter_calls_list > 0 then
       local formatter_params = formatter_calls_list[1].params
-      assert.are.equal(event_details.message_level_name, formatter_params.level_name)
-      assert.are.equal(event_details.message_level_no, formatter_params.level_no)
+      assert.are.equal(event_details.level_name, formatter_params.level_name)
+      assert.are.equal(event_details.level_no, formatter_params.level_no)
       assert.are.equal("passthrough_logger", formatter_params.logger_name) -- Logger processing it
       assert.are.equal(event_details.message_fmt, formatter_params.message_fmt)
       assert.are.same(event_details.args, formatter_params.args)
@@ -702,8 +702,8 @@ describe("ingest.dispatch_log_event", function()
     assert.are.same(1, #handler_calls_list)
     if #handler_calls_list > 0 then
       local handler_input_params = handler_calls_list[1].params
-      assert.are.equal(event_details.message_level_name, handler_input_params.level_name)
-      assert.are.equal(event_details.message_level_no, handler_input_params.level_no)
+      assert.are.equal(event_details.level_name, handler_input_params.level_name)
+      assert.are.equal(event_details.level_no, handler_input_params.level_no)
       assert.are.equal("passthrough_logger", handler_input_params.logger_name)
       assert.is_string(handler_input_params.message) -- Actual content checked by mock_formatter_func behavior
       local expected_formatted_message = string.format("Formatted: %s",
