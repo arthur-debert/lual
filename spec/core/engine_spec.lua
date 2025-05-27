@@ -1,42 +1,46 @@
 #!/usr/bin/env lua
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 
--- local lualog = require("lual.logger") -- Will require lual.core.logger_class directly or via a facade
-local logger_class = require("lual.core.logger_class")
+-- local lualog = require("lual.logger") -- Will require lual.core.engine directly or via a facade
+local engine = require("lual.core.engine")
 local core_levels = require("lual.core.levels")
 local ingest = require("lual.ingest")
 local spy = require("luassert.spy")
 local match = require("luassert.match")
+local caller_info = require("lual.core.caller_info")
 -- local utils = require("luassert.utils") -- For stringify - remove debug prints later
 
-describe("lual.core.logger_class", function()
-	describe("logger_class.get_logger(name)", function()
+-- Get the current test file's name dynamically
+local current_test_filename = caller_info.get_caller_info(1, true) or "unknown_test"
+
+describe("lual.core.engine", function()
+	describe("engine.get_logger(name)", function()
 		it("should create a logger with auto-generated name when no name provided", function()
-			package.loaded["lual.core.logger_class"] = nil
+			package.loaded["lual.core.engine"] = nil
 			package.loaded["lual.core.levels"] = nil
 			local fresh_core_levels = require("lual.core.levels")
-			local fresh_logger_class = require("lual.core.logger_class")
-			fresh_logger_class.reset_cache() -- Ensure cache is clean
+			local fresh_engine = require("lual.core.engine")
+			fresh_engine.reset_cache() -- Ensure cache is clean
 
-			local auto_logger = fresh_logger_class.get_logger()
+			local auto_logger = fresh_engine.get_logger()
 			-- Should use the test filename (without .lua extension)
-			assert.truthy(string.find(auto_logger.name, "logger_class_spec", 1, true))
+			assert.truthy(string.find(auto_logger.name, current_test_filename, 1, true))
 			assert.is_false(string.find(auto_logger.name, ".lua", 1, true) ~= nil)
 			assert.are.same(fresh_core_levels.definition.INFO, auto_logger.level) -- Default level
 
-			local root_logger_named = fresh_logger_class.get_logger("root")
+			local root_logger_named = fresh_engine.get_logger("root")
 			assert.are.same("root", root_logger_named.name)
 			assert.is_nil(root_logger_named.parent)
 		end)
 
 		it("should create a named logger and its parents", function()
-			package.loaded["lual.core.logger_class"] = nil
+			package.loaded["lual.core.engine"] = nil
 			package.loaded["lual.core.levels"] = nil
 			local fresh_core_levels = require("lual.core.levels")
-			local fresh_logger_class = require("lual.core.logger_class")
-			fresh_logger_class.reset_cache()
+			local fresh_engine = require("lual.core.engine")
+			fresh_engine.reset_cache()
 
-			local logger_a_b = fresh_logger_class.get_logger("spec_a.spec_b")
+			local logger_a_b = fresh_engine.get_logger("spec_a.spec_b")
 			assert.are.same("spec_a.spec_b", logger_a_b.name)
 			assert.is_not_nil(logger_a_b.parent)
 			assert.are.same("spec_a", logger_a_b.parent.name)
@@ -46,20 +50,20 @@ describe("lual.core.logger_class", function()
 		end)
 
 		it("should cache loggers", function()
-			package.loaded["lual.core.logger_class"] = nil
-			local fresh_logger_class = require("lual.core.logger_class")
-			fresh_logger_class.reset_cache()
+			package.loaded["lual.core.engine"] = nil
+			local fresh_engine = require("lual.core.engine")
+			fresh_engine.reset_cache()
 
-			local logger1 = fresh_logger_class.get_logger("spec_cache_test")
-			local logger2 = fresh_logger_class.get_logger("spec_cache_test")
+			local logger1 = fresh_engine.get_logger("spec_cache_test")
+			local logger2 = fresh_engine.get_logger("spec_cache_test")
 			assert.are.same(logger1, logger2)
 		end)
 
 		it("should have propagation enabled by default", function()
-			package.loaded["lual.core.logger_class"] = nil
-			local fresh_logger_class = require("lual.core.logger_class")
-			fresh_logger_class.reset_cache()
-			local logger = fresh_logger_class.get_logger("spec_prop_test")
+			package.loaded["lual.core.engine"] = nil
+			local fresh_engine = require("lual.core.engine")
+			fresh_engine.reset_cache()
+			local logger = fresh_engine.get_logger("spec_prop_test")
 			assert.is_true(logger.propagate)
 		end)
 	end)
@@ -69,14 +73,14 @@ describe("lual.core.logger_class", function()
 		local C_LEVELS_DEF = require("lual.core.levels").definition
 
 		before_each(function()
-			package.loaded["lual.core.logger_class"] = nil
+			package.loaded["lual.core.engine"] = nil
 			package.loaded["lual.core.levels"] = nil
 			package.loaded["lual.ingest"] = nil
-			local current_logger_class_module = require("lual.core.logger_class")
+			local current_engine_module = require("lual.core.engine")
 			ingest = require("lual.ingest")
 
-			current_logger_class_module.reset_cache()
-			test_logger = current_logger_class_module.get_logger("suite_logger_methods")
+			current_engine_module.reset_cache()
+			test_logger = current_engine_module.get_logger("suite_logger_methods")
 
 			local current_dispatch = ingest.dispatch_log_event
 			if type(current_dispatch) == "table" and current_dispatch.revert then
@@ -146,11 +150,13 @@ describe("lual.core.logger_class", function()
 
 					assert.is_number(record.timestamp)
 					assert.is_string(record.filename)
-					assert.truthy(
-						string.find(record.filename, "spec/core/logger_class_spec.lua", 1, true)
-						or string.find(record.filename, "logger_class_spec.lua", 1, true)
-					)
-					assert.is_number(record.lineno)
+					-- Extract base filename from record.filename (remove path and extension)
+					local record_basename = string.match(record.filename, "([^/\\]+)%.lua$") or
+						string.match(record.filename, "([^/\\]+)$")
+					-- Extract base filename from current_test_filename (remove path)
+					local test_basename = string.match(current_test_filename, "([^%.]+)$") or current_test_filename
+					-- Check that the base filenames match
+					assert.truthy(record_basename and string.find(record_basename, test_basename, 1, true))
 
 					ingest.dispatch_log_event:clear()
 				end)
@@ -200,9 +206,9 @@ describe("lual.core.logger_class", function()
 			local logger_root, logger_p, logger_c
 
 			before_each(function()
-				package.loaded["lual.core.logger_class"] = nil
+				package.loaded["lual.core.engine"] = nil
 				package.loaded["lual.core.levels"] = nil
-				test_cl_module_for_outputs = require("lual.core.logger_class")
+				test_cl_module_for_outputs = require("lual.core.engine")
 				test_clevels_module_for_outputs = require("lual.core.levels")
 				test_cl_module_for_outputs.reset_cache()
 

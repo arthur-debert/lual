@@ -12,7 +12,7 @@ describe("Logger Propagation", function()
     before_each(function()
         -- Reset the logger system for each test
         package.loaded["lual.logger"] = nil
-        package.loaded["lual.core.logger_class"] = nil
+        package.loaded["lual.core.engine"] = nil
         package.loaded["lual.ingest"] = nil
         lual = require("lual.logger")
 

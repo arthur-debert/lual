@@ -11,23 +11,23 @@ No function bodies are implemented at this stage.
 local log = {}
 
 local core_levels = require("lual.core.levels")
-local logger_class = require("lual.core.logger_class")
+local engine = require("lual.core.engine")
 local all_outputs = require("lual.outputs.init")       -- Require the new outputs init
 local all_formatters = require("lual.formatters.init") -- Require the new formatters init
 
 log.levels = core_levels.definition
-log.get_logger = logger_class.get_logger
+log.get_logger = engine.get_logger
 log.outputs = all_outputs       -- Assign the outputs table
 log.formatters = all_formatters -- Assign the formatters table
 
 -- Removed _loggers_cache and the entire log.get_logger function body
 -- as well as the new_logger table definition and its methods.
--- These are now in core.logger_class.lua
+-- These are now in core.engine.lua
 
 -- =============================================================================
 -- 1. Logger Creation / Retrieval
 -- =============================================================================
--- The actual log.get_logger is now assigned from logger_class above.
+-- The actual log.get_logger is now assigned from engine above.
 
 -- =============================================================================
 -- 2. Core Logging Functions (Convenience on the main 'log' module)
@@ -124,7 +124,7 @@ end
 
 --- Resets all logging configuration to defaults.
 function log.reset_config()
-  logger_class.reset_cache()
+  engine.reset_cache()
   log.init_default_config()
 end
 
