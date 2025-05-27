@@ -10,12 +10,13 @@ No function bodies are implemented at this stage.
 -- Main Logging Module (e.g., 'log')
 local log = {}
 
--- local ingest = require("lual.ingest") -- No longer directly needed here for logger methods
 local core_levels = require("lual.core.levels")
 local logger_class = require("lual.core.logger_class")
+local all_handlers = require("lual.handlers.init") -- Require the new handlers init
 
 log.levels = core_levels.definition
 log.get_logger = logger_class.get_logger
+log.handlers = all_handlers -- Assign the handlers table
 
 -- Removed _loggers_cache and the entire log.get_logger function body
 -- as well as the new_logger table definition and its methods.
@@ -84,10 +85,7 @@ end
 -- @param logger_name_pattern (string) The logger name or pattern (e.g., "my.module", "engine.gas.*", "*").
 -- @param level (number or string) The log level (e.g., log.levels.INFO or "INFO").
 function log.set_level(logger_name_pattern, level)
-  -- This function needs to be implemented to find matching loggers (possibly from _loggers_cache if made accessible)
-  -- For now, it's a placeholder. A full implementation might iterate _loggers_cache or use a more complex pattern matching.
-  -- This is a global configuration affecting potentially multiple loggers.
-  local target_logger = log.get_logger(logger_name_pattern) -- Simplified: assumes exact name for now
+  local target_logger = log.get_logger(logger_name_pattern)
   if target_logger and target_logger.set_level then
     local actual_level = level
     if type(level) == "string" then
@@ -107,7 +105,6 @@ end
 -- @param formatter_func (function) The formatter function for this handler.
 -- @param handler_config (table, optional) Configuration specific to the handler (e.g., filepath for file handler).
 function log.add_handler(logger_name_pattern, handler_func, formatter_func, handler_config)
-  -- Similar to set_level, this is a global config. Simplified for now.
   local target_logger = log.get_logger(logger_name_pattern)
   if target_logger and target_logger.add_handler then
     target_logger:add_handler(handler_func, formatter_func, handler_config)
@@ -130,54 +127,10 @@ function log.reset_config()
 end
 
 -- =============================================================================
--- 4. Handler Definitions (Function Signatures)
+-- 4. Handler Definitions (Function Signatures) - REMOVED
 -- =============================================================================
-
-log.handlers = {}
-
---- Handler that writes log messages to a stream (e.g., io.stdout, io.stderr).
--- @param record (table) A table containing log record details:
---                      {
---                        level_name = "INFO",
---                        level_no = 20,
---                        logger_name = "my.module",
---                        message = "Formatted log message", -- Already formatted by a formatter
---                        timestamp = 1678886400, -- Example timestamp
---                        raw_message = "Original message with %s", -- Before formatting with '...'
---                        args = {...} -- Original '...' arguments
---                      }
--- @param config (table, optional) Handler-specific configuration. For stream_handler,
---                                  this could specify the stream (e.g., { stream = io.stderr }).
---                                  Defaults to io.stdout.
-function log.handlers.stream_handler(record, config)
-  local stream = io.stdout
-  if config and config.stream then
-    stream = config.stream
-  end
-
-  local success, err = pcall(function()
-    stream:write(record.message)
-    stream:write("\n") -- Add a newline after the message for better readability
-    stream:flush()     -- Ensure the message is written immediately
-  end)
-
-  if not success then
-    -- Fallback to printing an error message to io.stderr if writing to the stream failed
-    local error_message = string.format("Error writing to stream: %s\n", tostring(err))
-    io.stderr:write(error_message)
-    -- Optionally, could re-raise the error or handle it in a more sophisticated way
-  end
-end
-
---- Handler that writes log messages to a file.
--- @param record (table) The log record (see stream_handler for structure).
--- @param config (table) Handler-specific configuration. Must include:
---                     { filepath = "path/to/logfile.log", mode = "a" }
---                     mode defaults to "a" (append).
-function log.handlers.file_handler(record, config)
-  -- Implementation would open/append record.message to the specified file.
-  -- Needs to handle file opening/closing, errors, etc.
-end
+-- log.handlers = {} -- This line is removed
+-- All function log.handlers.stream_handler(...) etc. are removed.
 
 -- =============================================================================
 -- 5. Formatter Definitions (Function Signatures)
@@ -201,7 +154,6 @@ log.formatters = {}
 function log.formatters.plain_formatter(record)
   local timestamp_str = os.date("!%Y-%m-%d %H:%M:%S", record.timestamp)
   local msg_args = record.args or {}
-  -- Ensure unpack has something to work with, even if empty
   if type(msg_args) ~= "table" or msg_args.n == nil then msg_args = {} end
   local message = string.format(record.message_fmt, unpack(msg_args))
   return string.format("%s %s [%s] %s",
@@ -223,23 +175,19 @@ end
 -- Initialization (Example: Set up a default root logger)
 -- =============================================================================
 function log.init_default_config()
-  local root_logger = log.get_logger("root") -- Get the root logger
-
-  -- Set its level to INFO
+  local root_logger = log.get_logger("root")
   if root_logger and root_logger.set_level then
     root_logger:set_level(log.levels.INFO)
   end
-
-  -- Add a stream handler to it that uses io.stdout and the plain_formatter
   if root_logger and root_logger.add_handler and log.handlers and log.handlers.stream_handler and log.formatters and log.formatters.plain_formatter then
     root_logger:add_handler(
       log.handlers.stream_handler,
       log.formatters.plain_formatter,
-      { stream = io.stdout } -- Explicitly set stdout
+      { stream = io.stdout }
     )
   end
 end
 
-log.init_default_config() -- Call this to set up defaults when the module is loaded.
+log.init_default_config()
 
 return log
