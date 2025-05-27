@@ -10,140 +10,21 @@ No function bodies are implemented at this stage.
 -- Main Logging Module (e.g., 'log')
 local log = {}
 
-local ingest = require("lual.ingest")           -- Require the ingest module
-local core_levels = require("lual.core.levels") -- Require the new levels module
-log.levels = core_levels.definition             -- Assign the levels definition
+-- local ingest = require("lual.ingest") -- No longer directly needed here for logger methods
+local core_levels = require("lual.core.levels")
+local logger_class = require("lual.core.logger_class")
 
-local _loggers_cache = {}
+log.levels = core_levels.definition
+log.get_logger = logger_class.get_logger
+
+-- Removed _loggers_cache and the entire log.get_logger function body
+-- as well as the new_logger table definition and its methods.
+-- These are now in core.logger_class.lua
 
 -- =============================================================================
 -- 1. Logger Creation / Retrieval
 -- =============================================================================
-
---- Returns a logger instance. If a logger with the given name already exists,
---- it's returned; otherwise, a new one is created.
--- @param name (string) The name of the logger (e.g., "my.module", "engine.gas").
---                      If nil or empty, returns the root logger.
--- @return (table) The logger object.
-function log.get_logger(name)
-  local logger_name = name
-  if name == nil or name == "" then
-    logger_name = "root"
-  end
-
-  if _loggers_cache[logger_name] then
-    return _loggers_cache[logger_name]
-  end
-
-  local parent_logger = nil
-  if logger_name ~= "root" then
-    local parent_name_end = string.match(logger_name, "(.+)%.[^%.]+$")
-    local parent_name
-    if parent_name_end then
-      parent_name = parent_name_end
-    else
-      parent_name = "root"
-    end
-    parent_logger = log.get_logger(parent_name) -- Recursive call to ensure parent exists
-  end
-
-  local new_logger = {
-    name = logger_name,
-    level = log.levels.INFO, -- Default level
-    handlers = {},
-    propagate = true,
-    parent = parent_logger,
-
-    debug = function(self, message_fmt, ...)
-      self:log(log.levels.DEBUG, message_fmt, ...)
-    end,
-    info = function(self, message_fmt, ...)
-      self:log(log.levels.INFO, message_fmt, ...)
-    end,
-    warn = function(self, message_fmt, ...)
-      self:log(log.levels.WARNING, message_fmt, ...)
-    end,
-    error = function(self, message_fmt, ...)
-      self:log(log.levels.ERROR, message_fmt, ...)
-    end,
-    critical = function(self, message_fmt, ...)
-      self:log(log.levels.CRITICAL, message_fmt, ...)
-    end,
-    log = function(self, level_no, message_fmt, ...)
-      if not self:is_enabled_for(level_no) then
-        return
-      end
-
-      local info = debug.getinfo(3, "Sl") -- Check stack level carefully
-      local filename = info.short_src
-      if filename and string.sub(filename, 1, 1) == "@" then
-        filename = string.sub(filename, 2)
-      end
-
-      local log_record = {
-        level_no = level_no,
-        level_name = core_levels.get_level_name(level_no),
-        message_fmt = message_fmt,
-        args = table.pack(...), -- Use table.pack for varargs
-        timestamp = os.time(),
-        logger_name = self.name,
-        source_logger_name = self.name, -- Initially the same as logger_name
-        filename = filename,
-        lineno = info.currentline
-      }
-
-      -- Ensure _G.log.dispatch_log_event is available or handle its absence
-      -- Call the refactored dispatch_log_event from the ingest module
-      ingest.dispatch_log_event(log_record, log.get_logger, log.levels)
-    end,
-    set_level = function(self, level)
-      -- To be implemented: self.level = level (actual implementation in a later task)
-      self.level = level -- Basic assignment for now
-    end,
-    add_handler = function(self, handler_func, formatter_func, handler_config)
-      table.insert(self.handlers, {
-        handler_func = handler_func,
-        formatter_func = formatter_func,
-        handler_config = handler_config or {} -- Ensure handler_config is at least an empty table
-      })
-    end,
-    is_enabled_for = function(self, message_level_no)
-      -- Ensure self.level is valid; NONE (100) means nothing is enabled unless message_level_no is also NONE
-      if self.level == log.levels.NONE then
-        return message_level_no == log.levels.NONE
-      end
-      return message_level_no >= self.level
-    end,
-    get_effective_handlers = function(self)
-      local effective_handlers = {}
-      local current_logger = self
-
-      while current_logger do
-        -- Add handlers from the current logger, along with its context
-        for _, handler_item in ipairs(current_logger.handlers or {}) do
-          -- Ensure handler_item has the expected structure from add_handler
-          -- (e.g., handler_item = {handler_func=..., formatter_func=..., handler_config=...})
-          table.insert(effective_handlers, {
-            handler_func = handler_item.handler_func,
-            formatter_func = handler_item.formatter_func,
-            handler_config = handler_item.handler_config,
-            owner_logger_name = current_logger.name,
-            owner_logger_level = current_logger.level
-          })
-        end
-
-        if not current_logger.propagate or not current_logger.parent then
-          break -- Stop propagation if propagate is false or no parent
-        end
-        current_logger = current_logger.parent
-      end
-      return effective_handlers
-    end
-  }
-
-  _loggers_cache[logger_name] = new_logger
-  return new_logger
-end
+-- The actual log.get_logger is now assigned from logger_class above.
 
 -- =============================================================================
 -- 2. Core Logging Functions (Convenience on the main 'log' module)
@@ -154,31 +35,46 @@ end
 -- @param logger_name (string) The name of the logger to use.
 -- @param message (string) The message to log.
 -- @param ... (any) Additional arguments to be formatted into the message (optional).
-function log.debug(logger_name, message, ...) end
+function log.debug(logger_name, message, ...)
+  local target_logger = log.get_logger(logger_name)
+  target_logger:debug(message, ...)
+end
 
 --- Logs a message with INFO severity.
 -- @param logger_name (string) The name of the logger to use.
 -- @param message (string) The message to log.
 -- @param ... (any) Additional arguments to be formatted into the message (optional).
-function log.info(logger_name, message, ...) end
+function log.info(logger_name, message, ...)
+  local target_logger = log.get_logger(logger_name)
+  target_logger:info(message, ...)
+end
 
 --- Logs a message with WARNING severity.
 -- @param logger_name (string) The name of the logger to use.
 -- @param message (string) The message to log.
 -- @param ... (any) Additional arguments to be formatted into the message (optional).
-function log.warn(logger_name, message, ...) end
+function log.warn(logger_name, message, ...)
+  local target_logger = log.get_logger(logger_name)
+  target_logger:warn(message, ...)
+end
 
 --- Logs a message with ERROR severity.
 -- @param logger_name (string) The name of the logger to use.
 -- @param message (string) The message to log.
 -- @param ... (any) Additional arguments to be formatted into the message (optional).
-function log.error(logger_name, message, ...) end
+function log.error(logger_name, message, ...)
+  local target_logger = log.get_logger(logger_name)
+  target_logger:error(message, ...)
+end
 
 --- Logs a message with CRITICAL severity.
 -- @param logger_name (string) The name of the logger to use.
 -- @param message (string) The message to log.
 -- @param ... (any) Additional arguments to be formatted into the message (optional).
-function log.critical(logger_name, message, ...) end
+function log.critical(logger_name, message, ...)
+  local target_logger = log.get_logger(logger_name)
+  target_logger:critical(message, ...)
+end
 
 -- =============================================================================
 -- 3. Configuration
@@ -187,21 +83,51 @@ function log.critical(logger_name, message, ...) end
 --- Sets the logging level for a specific logger or a pattern.
 -- @param logger_name_pattern (string) The logger name or pattern (e.g., "my.module", "engine.gas.*", "*").
 -- @param level (number or string) The log level (e.g., log.levels.INFO or "INFO").
-function log.set_level(logger_name_pattern, level) end
+function log.set_level(logger_name_pattern, level)
+  -- This function needs to be implemented to find matching loggers (possibly from _loggers_cache if made accessible)
+  -- For now, it's a placeholder. A full implementation might iterate _loggers_cache or use a more complex pattern matching.
+  -- This is a global configuration affecting potentially multiple loggers.
+  local target_logger = log.get_logger(logger_name_pattern) -- Simplified: assumes exact name for now
+  if target_logger and target_logger.set_level then
+    local actual_level = level
+    if type(level) == "string" then
+      actual_level = log.levels[level:upper()]
+    end
+    if actual_level then
+      target_logger:set_level(actual_level)
+    else
+      io.stderr:write("Unknown level: " .. tostring(level) .. "\n")
+    end
+  end
+end
 
 --- Adds a handler and its associated formatter to a logger or pattern.
 -- @param logger_name_pattern (string) The logger name or pattern.
 -- @param handler_func (function) The handler function.
 -- @param formatter_func (function) The formatter function for this handler.
 -- @param handler_config (table, optional) Configuration specific to the handler (e.g., filepath for file handler).
-function log.add_handler(logger_name_pattern, handler_func, formatter_func, handler_config) end
+function log.add_handler(logger_name_pattern, handler_func, formatter_func, handler_config)
+  -- Similar to set_level, this is a global config. Simplified for now.
+  local target_logger = log.get_logger(logger_name_pattern)
+  if target_logger and target_logger.add_handler then
+    target_logger:add_handler(handler_func, formatter_func, handler_config)
+  end
+end
 
 --- Removes all handlers for a given logger or pattern.
 -- @param logger_name_pattern (string) The logger name or pattern.
-function log.remove_handlers(logger_name_pattern) end
+function log.remove_handlers(logger_name_pattern)
+  local target_logger = log.get_logger(logger_name_pattern)
+  if target_logger then
+    target_logger.handlers = {}
+  end
+end
 
 --- Resets all logging configuration to defaults.
-function log.reset_config() end
+function log.reset_config()
+  logger_class.reset_cache()
+  log.init_default_config()
+end
 
 -- =============================================================================
 -- 4. Handler Definitions (Function Signatures)
@@ -274,7 +200,10 @@ log.formatters = {}
 -- @return (string) The formatted log message string.
 function log.formatters.plain_formatter(record)
   local timestamp_str = os.date("!%Y-%m-%d %H:%M:%S", record.timestamp)
-  local message = string.format(record.message_fmt, unpack(record.args or {}))
+  local msg_args = record.args or {}
+  -- Ensure unpack has something to work with, even if empty
+  if type(msg_args) ~= "table" or msg_args.n == nil then msg_args = {} end
+  local message = string.format(record.message_fmt, unpack(msg_args))
   return string.format("%s %s [%s] %s",
     timestamp_str,
     record.level_name or "UNKNOWN_LEVEL",
