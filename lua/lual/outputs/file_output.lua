@@ -16,6 +16,18 @@
 
 local MAX_BACKUPS = 5
 
+--- Checks if a file exists by attempting to open it for reading.
+-- @param path (string) The file path to check.
+-- @return boolean True if file exists, false otherwise.
+local function file_exists(path)
+    local file = io.open(path, "r")
+    if file then
+        file:close()
+        return true
+    end
+    return false
+end
+
 --- Generates a list of file system operations needed for log rotation.
 -- This function returns a list of commands without executing them,
 -- allowing for validation and testing.
@@ -26,9 +38,7 @@ local function generate_rotation_commands(log_path)
 
     -- Step 1: Check if oldest backup exists and mark for removal
     local oldest_backup_path = log_path .. "." .. MAX_BACKUPS
-    -- Use os.rename trick to check existence
-    local oldest_exists, _ = os.rename(oldest_backup_path, oldest_backup_path)
-    if oldest_exists then
+    if file_exists(oldest_backup_path) then
         table.insert(commands, {
             type = "remove",
             target = oldest_backup_path
@@ -40,9 +50,7 @@ local function generate_rotation_commands(log_path)
         local current_backup_path = log_path .. "." .. i
         local next_backup_path = log_path .. "." .. (i + 1)
 
-        -- Check if current_backup_path exists using os.rename trick
-        local exists, _ = os.rename(current_backup_path, current_backup_path)
-        if exists then
+        if file_exists(current_backup_path) then
             table.insert(commands, {
                 type = "rename",
                 source = current_backup_path,
@@ -52,9 +60,7 @@ local function generate_rotation_commands(log_path)
     end
 
     -- Step 3: Generate command to rotate current log to .1
-    -- Check if log_path exists using os.rename trick
-    local exists, _ = os.rename(log_path, log_path)
-    if exists then
+    if file_exists(log_path) then
         local first_backup_path = log_path .. ".1"
         table.insert(commands, {
             type = "rename",
@@ -123,14 +129,15 @@ local function execute_rotation_commands(commands)
         if cmd.type == "remove" then
             local removed, err_remove = os.remove(cmd.target)
             if not removed then
-                local msg = string.format("lual: Failed to remove '%s': %s\n", cmd.target, tostring(err_remove))
+                local msg = string.format("lual: Failed to remove '%s': %s\n", cmd.target,
+                    tostring(err_remove or "unknown error"))
                 io.stderr:write(msg)
             end
         elseif cmd.type == "rename" then
             local renamed, err_rename = os.rename(cmd.source, cmd.target)
             if not renamed then
                 local msg = string.format("lual: Failed to rename '%s' to '%s': %s\n",
-                    cmd.source, cmd.target, tostring(err_rename))
+                    cmd.source, cmd.target, tostring(err_rename or "unknown error"))
                 io.stderr:write(msg)
             end
         end
@@ -144,7 +151,7 @@ local function rotate_logs(log_path)
     local valid, err = validate_rotation_commands(commands, log_path)
 
     if not valid then
-        io.stderr:write(string.format("lual: Invalid rotation commands: %s\n", err))
+        io.stderr:write(string.format("lual: Invalid rotation commands: %s\n", tostring(err)))
         return
     end
 
@@ -170,7 +177,8 @@ local function file_output_factory(config)
     return function(record)
         local file, err_open = io.open(log_path, "a") -- Open in append mode for ongoing writes
         if not file then
-            local msg = string.format("lual: Error opening log '%s' for append: %s\n", log_path, tostring(err_open))
+            local msg = string.format("lual: Error opening log '%s' for append: %s\n", log_path,
+                tostring(err_open or "unknown error"))
             io.stderr:write(msg)
             return
         end
@@ -182,7 +190,8 @@ local function file_output_factory(config)
         end)
 
         if not success then
-            io.stderr:write(string.format("lual: Error writing to log file '%s': %s\n", log_path, tostring(err_write)))
+            io.stderr:write(string.format("lual: Error writing to log file '%s': %s\n", log_path,
+                tostring(err_write or "unknown error")))
         end
 
         file:close()
