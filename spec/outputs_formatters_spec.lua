@@ -2,22 +2,21 @@ package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua"
 
 -- Compatibility for Lua 5.1 if running in a context where table.unpack is not defined
 local unpack = unpack or table.unpack
+local lualog = require("lual.logger")
 
 describe("lual formatters and outputs", function()
-  pending(
-    "Skipping this test suite due to persistent 'before_all is nil' and subsequent table.unpack/format issues. Needs investigation into Busted execution context for this file.")
 
-  --[[ -- All original content commented out due to pending status
-  local lualog
+  -- All original content commented out due to pending status
+  -- local lualog -- Removed, lualog is now a top-level local
 
-  before_all(function()
-    -- Ensure lualog is loaded once for all tests in this file
-    local status, result = pcall(require, "lual.logger")
-    if not status then
-      error("Failed to load lual.logger: " .. tostring(result))
-    end
-    lualog = result
-  end)
+  -- before_all(function() -- Removed, require is done at top-level
+  --   -- Ensure lualog is loaded once for all tests in this file
+  --   local status, result = pcall(require, "lual.logger")
+  --   if not status then
+  --     error("Failed to load lual.logger: " .. tostring(result))
+  --   end
+  --   lualog = result
+  -- end)
 
   describe("lualog.formatters.plain_formatter", function()
     it("should format a basic log record correctly", function()
@@ -192,5 +191,5 @@ describe("lual formatters and outputs", function()
       assert.are.same("", mock_stream.written_data)
     end)
   end)
-  --]]
+
 end)
