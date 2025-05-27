@@ -1,0 +1,90 @@
+FILE OUTPUT: ROTATING LOG FILES
+
+The file output handler writes log messages to files with automatic rotation
+on startup. This prevents log files from growing indefinitely. This is not a 
+robust rotation solution, though. 
+
+    -- Note: 
+        For production systems, you should use a proper log rotation tool like 
+        logrotate.
+    --
+
+When initialized, the file output:
+1. Rotates existing log files, keeping up to 5 backups
+   - app.log → app.log.1, app.log.1 → app.log.2, ..., app.log.4 → app.log.5
+   - app.log.5 is deleted if it exists
+2. Opens a fresh main log file for new entries
+
+This rotation happens once per application startup, making it ideal for
+single-threaded Lua applications and providing session-specific logs.
+
+
+BASIC USAGE
+
+    local lual = require("lual")
+    local file_output = require("lual.outputs.file_output")
+
+    local logger = lual.get_logger("app")
+    logger:add_output(file_output({ path = "app.log" }))
+    
+    logger:info("Application started")  -- Written to fresh app.log
+    -- lua
+
+
+CONFIGURATION
+
+The file output factory accepts a single configuration parameter:
+
+    file_output({ path = "path/to/logfile.log" })
+
+- `path` (string, required): Path to the main log file
+
+
+EXAMPLE: APPLICATION LOGGING WITH ROTATION
+
+    local lual = require("lual")
+    local file_output = require("lual.outputs.file_output")
+
+    -- Set up logger with file output
+    local app_logger = lual.get_logger("myapp")
+    app_logger:set_level(lual.levels.INFO)
+    app_logger:add_output(
+        file_output({ path = "/var/log/myapp.log" }),
+        lual.formatters.plain_formatter
+    )
+
+    -- Each application restart will rotate logs automatically
+    app_logger:info("Application started - version 1.2.3")
+    app_logger:error("Database connection failed")
+    -- lua
+
+After several application restarts, you'll have:
+- `/var/log/myapp.log` (current session)
+- `/var/log/myapp.log.1` (previous session)
+- `/var/log/myapp.log.2` (2 sessions ago)
+- ... up to `/var/log/myapp.log.5`
+
+
+INTERNALS
+
+The file output implementation uses a three-phase approach for safe rotation:
+
+1. **Command Generation**: Creates a list of file operations (remove/rename)
+   without executing them, allowing validation and testing
+
+2. **Validation**: Ensures the command list is correct and won't cause
+   data loss (no duplicate targets, proper backup file patterns)
+
+3. **Execution**: Performs the actual file operations in the correct order
+
+File existence is checked using `io.open(path, "r")` rather than filesystem
+APIs for maximum compatibility across Lua implementations and platforms.
+
+The rotation logic processes files in reverse order (.5 → .4 → .3 → .2 → .1)
+to avoid overwriting files that haven't been moved yet. Error handling is
+robust - individual operation failures are logged to stderr but don't prevent
+the application from continuing.
+
+Each log write opens the file in append mode, writes the message with a
+newline, flushes the buffer, and closes the file. This ensures data is
+written immediately and the file handle doesn't remain open.
