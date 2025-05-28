@@ -3,6 +3,23 @@ local core_levels = require("lual.core.levels")
 local M = {}
 
 -- =============================================================================
+-- CONSTANTS
+-- =============================================================================
+
+-- Valid output types
+local VALID_OUTPUT_TYPES = {
+    console = true,
+    file = true
+}
+
+-- Valid formatter types
+local VALID_FORMATTER_TYPES = {
+    text = true,
+    color = true,
+    json = true
+}
+
+-- =============================================================================
 -- CANONICAL CONFIG SCHEMA
 -- =============================================================================
 
@@ -228,16 +245,13 @@ local function validate_shortcut_fields(config)
     if type(config.formatter) ~= "string" then
         return false, "Shortcut config 'formatter' field must be a string"
     end
-
     -- Validate known output types
-    local valid_outputs = { console = true, file = true }
-    if not valid_outputs[config.output] then
+    if not VALID_OUTPUT_TYPES[config.output] then
         return false, "Unknown output type: " .. config.output .. ". Valid types are: console, file"
     end
 
     -- Validate known formatter types
-    local valid_formatters = { text = true, color = true, json = true }
-    if not valid_formatters[config.formatter] then
+    if not VALID_FORMATTER_TYPES[config.formatter] then
         return false, "Unknown formatter type: " .. config.formatter .. ". Valid types are: color, json, text"
     end
 
@@ -371,17 +385,15 @@ local function validate_single_output(output, index)
     end
 
     -- Validate known output types
-    local valid_output_types = { console = true, file = true }
-    if not valid_output_types[output.type] then
+    -- Validate known output types
+    if not VALID_OUTPUT_TYPES[output.type] then
         return false, "Unknown output type: " .. output.type .. ". Valid types are: console, file"
     end
 
     -- Validate known formatter types
-    local valid_formatter_types = { text = true, color = true, json = true }
-    if not valid_formatter_types[output.formatter] then
+    if not VALID_FORMATTER_TYPES[output.formatter] then
         return false, "Unknown formatter type: " .. output.formatter .. ". Valid types are: color, json, text"
     end
-
     -- Validate type-specific fields
     if output.type == "file" then
         if not output.path or type(output.path) ~= "string" then
