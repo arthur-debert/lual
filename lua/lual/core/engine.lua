@@ -306,9 +306,22 @@ function M.logger(input_config)
     -- Use the config module to process the input config (handles shortcut, declarative, validation, etc.)
     local canonical_config = config_module.process_config(input_config, default_config)
 
-    -- Check if logger already exists in cache
+    -- Check if logger already exists in cache and if its configuration matches
     if canonical_config.name and _loggers_cache[canonical_config.name] then
-        return _loggers_cache[canonical_config.name]
+        local cached_logger = _loggers_cache[canonical_config.name]
+        local cached_config = cached_logger:get_config()
+
+        -- Compare key configuration fields to see if we can reuse the cached logger
+        if cached_config.level == canonical_config.level and
+            cached_config.timezone == canonical_config.timezone and
+            cached_config.propagate == canonical_config.propagate then
+            -- For outputs, we'll do a simple length check for now
+            -- A more sophisticated comparison could be added later if needed
+            if #(cached_config.outputs or {}) == #(canonical_config.outputs or {}) then
+                return cached_logger
+            end
+        end
+        -- If configuration doesn't match, we'll create a new logger and update the cache
     end
 
     -- Handle parent logger creation if needed
