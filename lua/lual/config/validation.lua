@@ -128,7 +128,7 @@ function M.validate_canonical_config(config)
             if not output.output_func or type(output.output_func) ~= "function" then
                 return false, "Each output must have an output_func function"
             end
-            if not output.formatter_func or type(output.formatter_func) ~= "function" then
+            if not output.formatter_func or (type(output.formatter_func) ~= "function" and not (type(output.formatter_func) == "table" and getmetatable(output.formatter_func) and getmetatable(output.formatter_func).__call)) then
                 return false, "Each output must have a formatter_func function"
             end
         end

@@ -180,11 +180,24 @@ function M.declarative_to_canonical_config(declarative_config)
 
             -- Get formatter function
             if output_config.formatter == "text" then
-                formatter_func = all_formatters.text
+                local text_factory = all_formatters.text
+                formatter_func = text_factory()
             elseif output_config.formatter == "color" then
-                formatter_func = all_formatters.color
+                local color_factory = all_formatters.color
+                -- Extract color-specific config if present
+                local formatter_config = {}
+                if output_config.level_colors then
+                    formatter_config.level_colors = output_config.level_colors
+                end
+                formatter_func = color_factory(formatter_config)
             elseif output_config.formatter == "json" then
-                formatter_func = all_formatters.json
+                local json_factory = all_formatters.json
+                -- Extract json-specific config if present
+                local formatter_config = {}
+                if output_config.pretty ~= nil then
+                    formatter_config.pretty = output_config.pretty
+                end
+                formatter_func = json_factory(formatter_config)
             end
 
             table.insert(canonical.outputs, {

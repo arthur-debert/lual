@@ -6,6 +6,17 @@ local match = require("luassert.match")
 local validation = require("lual.config.validation")
 local constants = require("lual.config.constants")
 
+-- Helper function to check if something is callable (function or callable table)
+local function is_callable(obj)
+    if type(obj) == "function" then
+        return true
+    elseif type(obj) == "table" then
+        local mt = getmetatable(obj)
+        return mt and type(mt.__call) == "function"
+    end
+    return false
+end
+
 describe("Declarative API", function()
     before_each(function()
         -- Reset the logger system for each test
@@ -51,13 +62,13 @@ describe("Declarative API", function()
             -- Check first output (console)
             local console_output = logger.outputs[1]
             assert.is_function(console_output.output_func)
-            assert.is_function(console_output.formatter_func)
+            assert.is_true(is_callable(console_output.formatter_func))
             assert.is_table(console_output.output_config)
 
             -- Check second output (file)
             local file_output = logger.outputs[2]
             assert.is_function(file_output.output_func)
-            assert.is_function(file_output.formatter_func)
+            assert.is_true(is_callable(file_output.formatter_func))
             assert.is_table(file_output.output_config)
             assert.are.same("test.log", file_output.output_config.path)
         end)
@@ -144,7 +155,7 @@ describe("Declarative API", function()
             assert.are.same(1, #logger.outputs)
             local output = logger.outputs[1]
             assert.is_function(output.output_func)
-            assert.is_function(output.formatter_func)
+            assert.is_true(is_callable(output.formatter_func))
             -- Default console config should be empty (uses io.stdout by default)
             assert.is_table(output.output_config)
         end)
@@ -173,7 +184,7 @@ describe("Declarative API", function()
             assert.are.same(1, #logger.outputs)
             local output = logger.outputs[1]
             assert.is_function(output.output_func)
-            assert.is_function(output.formatter_func)
+            assert.is_true(is_callable(output.formatter_func))
             assert.are.same("app.log", output.output_config.path)
         end)
 
@@ -192,7 +203,7 @@ describe("Declarative API", function()
             -- Check that each output is properly configured
             for i, output in ipairs(logger.outputs) do
                 assert.is_function(output.output_func, "Output " .. i .. " missing output_func")
-                assert.is_function(output.formatter_func, "Output " .. i .. " missing formatter_func")
+                assert.is_true(is_callable(output.formatter_func), "Output " .. i .. " missing formatter_func")
                 assert.is_table(output.output_config, "Output " .. i .. " missing output_config")
             end
 
@@ -216,7 +227,7 @@ describe("Declarative API", function()
             -- Check that both outputs are properly configured with JSON formatter
             for i, output in ipairs(logger.outputs) do
                 assert.is_function(output.output_func, "Output " .. i .. " missing output_func")
-                assert.is_function(output.formatter_func, "Output " .. i .. " missing formatter_func")
+                assert.is_true(is_callable(output.formatter_func), "Output " .. i .. " missing formatter_func")
                 assert.are.same(lualog.lib.json, output.formatter_func, "Output " .. i .. " should use JSON formatter")
                 assert.is_table(output.output_config, "Output " .. i .. " missing output_config")
             end

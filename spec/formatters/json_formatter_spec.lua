@@ -1,10 +1,11 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
-local json_formatter = require("lual.formatters.json")
+local json_formatter_factory = require("lual.formatters.json")
 local dkjson = require("dkjson")
 
 describe("lual.formatters.json", function()
     describe("Basic functionality", function()
         it("should format a basic log record as JSON", function()
+            local json_formatter = json_formatter_factory()
             local record = {
                 timestamp = 1678886400, -- 2023-03-15 10:00:00 UTC
                 timezone = "utc",       -- Explicitly set timezone to UTC for predictable test
@@ -30,6 +31,7 @@ describe("lual.formatters.json", function()
         end)
 
         it("should handle records with no arguments", function()
+            local json_formatter = json_formatter_factory()
             local record = {
                 timestamp = 1678886401,
                 level_name = "DEBUG",
@@ -48,6 +50,7 @@ describe("lual.formatters.json", function()
         end)
 
         it("should handle records with nil arguments", function()
+            local json_formatter = json_formatter_factory()
             local record = {
                 timestamp = 1678886402,
                 level_name = "WARNING",
@@ -68,6 +71,7 @@ describe("lual.formatters.json", function()
 
     describe("Fallback handling", function()
         it("should use fallbacks for missing optional fields", function()
+            local json_formatter = json_formatter_factory()
             local record = {
                 timestamp = 1678886403,
                 level_name = nil,
@@ -86,6 +90,7 @@ describe("lual.formatters.json", function()
         end)
 
         it("should handle formatting errors gracefully", function()
+            local json_formatter = json_formatter_factory()
             local record = {
                 timestamp = 1678886404,
                 level_name = "ERROR",
@@ -104,6 +109,7 @@ describe("lual.formatters.json", function()
         end)
 
         it("should handle non-table args gracefully", function()
+            local json_formatter = json_formatter_factory()
             local record = {
                 timestamp = 1678886405,
                 level_name = "INFO",
@@ -123,6 +129,7 @@ describe("lual.formatters.json", function()
 
     describe("Configuration options", function()
         it("should format as compact JSON by default", function()
+            local json_formatter = json_formatter_factory()
             local record = {
                 timestamp = 1678886406,
                 level_name = "INFO",
@@ -139,6 +146,7 @@ describe("lual.formatters.json", function()
         end)
 
         it("should format as pretty JSON when configured", function()
+            local json_formatter = json_formatter_factory({ pretty = true })
             local record = {
                 timestamp = 1678886407,
                 level_name = "INFO",
@@ -147,7 +155,7 @@ describe("lual.formatters.json", function()
                 args = {},
             }
 
-            local formatted = json_formatter(record, { pretty = true })
+            local formatted = json_formatter(record)
 
             -- Pretty JSON should contain newlines and indentation
             assert.is_not_nil(formatted:find("\n"))
@@ -157,6 +165,7 @@ describe("lual.formatters.json", function()
 
     describe("Additional fields handling", function()
         it("should include caller_info when present", function()
+            local json_formatter = json_formatter_factory()
             local record = {
                 timestamp = 1678886408,
                 level_name = "DEBUG",
@@ -180,6 +189,7 @@ describe("lual.formatters.json", function()
         end)
 
         it("should include extra fields from record", function()
+            local json_formatter = json_formatter_factory()
             local record = {
                 timestamp = 1678886409,
                 level_name = "INFO",
@@ -200,6 +210,7 @@ describe("lual.formatters.json", function()
         end)
 
         it("should not override core fields with extra fields", function()
+            local json_formatter = json_formatter_factory()
             local record = {
                 timestamp = 1678886410,
                 level_name = "INFO",
@@ -221,6 +232,7 @@ describe("lual.formatters.json", function()
 
     describe("Error handling", function()
         it("should handle non-serializable values gracefully", function()
+            local json_formatter = json_formatter_factory()
             local record = {
                 timestamp = 1678886411,
                 level_name = "ERROR",
@@ -250,6 +262,7 @@ describe("lual.formatters.json", function()
         end)
 
         it("should provide fallback JSON when encoding completely fails", function()
+            local json_formatter = json_formatter_factory()
             -- This is a bit tricky to test since dkjson is quite robust
             -- We'll mock a scenario where encoding might fail
             local original_encode = dkjson.encode
@@ -278,6 +291,7 @@ describe("lual.formatters.json", function()
 
     describe("Complex data types", function()
         it("should handle nested tables in arguments", function()
+            local json_formatter = json_formatter_factory()
             local record = {
                 timestamp = 1678886413,
                 level_name = "INFO",
@@ -307,6 +321,7 @@ describe("lual.formatters.json", function()
         end)
 
         it("should handle arrays and mixed data types", function()
+            local json_formatter = json_formatter_factory()
             local record = {
                 timestamp = 1678886414,
                 level_name = "DEBUG",
@@ -335,6 +350,7 @@ describe("lual.formatters.json", function()
 
     describe("Timezone handling", function()
         it("should format timestamp in UTC when timezone is 'utc'", function()
+            local json_formatter = json_formatter_factory()
             local record = {
                 timestamp = 1609459200, -- 2021-01-01 00:00:00 UTC
                 timezone = "utc",
@@ -353,6 +369,7 @@ describe("lual.formatters.json", function()
         end)
 
         it("should format timestamp in local time when timezone is 'local'", function()
+            local json_formatter = json_formatter_factory()
             local record = {
                 timestamp = 1609459200, -- 2021-01-01 00:00:00 UTC
                 timezone = "local",
@@ -374,6 +391,7 @@ describe("lual.formatters.json", function()
         end)
 
         it("should default to local timezone when timezone is nil", function()
+            local json_formatter = json_formatter_factory()
             local record = {
                 timestamp = 1609459200,
                 timezone = nil,
@@ -391,6 +409,7 @@ describe("lual.formatters.json", function()
         end)
 
         it("should handle case insensitive timezone values", function()
+            local json_formatter = json_formatter_factory()
             local record = {
                 timestamp = 1609459200,
                 timezone = "UTC", -- Uppercase
@@ -414,7 +433,26 @@ describe("lual.formatters.json", function()
             local lualog = require("lual.logger")
 
             assert.is_not_nil(lualog.lib.json)
-            assert.are.same(json_formatter, lualog.lib.json)
+            -- lib.json should be a callable formatter object (created by calling the factory)
+            assert.is_table(lualog.lib.json)
+            assert.is_not_nil(getmetatable(lualog.lib.json))
+            assert.is_function(getmetatable(lualog.lib.json).__call)
+
+            -- Test that it actually works as a formatter
+            local test_record = {
+                timestamp = 1640995200,
+                timezone = "utc",
+                level_name = "INFO",
+                logger_name = "test",
+                message_fmt = "test message",
+                args = {}
+            }
+            local result = lualog.lib.json(test_record)
+            assert.is_string(result)
+            local parsed = require("dkjson").decode(result)
+            assert.is_table(parsed)
+            assert.are.same("INFO", parsed.level)
+            assert.are.same("test message", parsed.message)
         end)
     end)
 end)

@@ -28,10 +28,10 @@ log.lib = {
   file = all_outputs.file_output,
   syslog = all_outputs.syslog_output,
 
-  -- Formatter shortcuts
-  text = all_formatters.text,
-  color = all_formatters.color,
-  json = all_formatters.json
+  -- Formatter shortcuts (call factories with default config for backward compatibility)
+  text = all_formatters.text(),
+  color = all_formatters.color(),
+  json = all_formatters.json()
 }
 
 -- Add LEVELS mapping for external validation and use

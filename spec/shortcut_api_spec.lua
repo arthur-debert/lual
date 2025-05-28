@@ -4,6 +4,17 @@ local config = require("lual.config")
 local validation = require("lual.config.validation")
 local constants = require("lual.config.constants")
 
+-- Helper function to check if something is callable (function or callable table)
+local function is_callable(obj)
+    if type(obj) == "function" then
+        return true
+    elseif type(obj) == "table" then
+        local mt = getmetatable(obj)
+        return mt and type(mt.__call) == "function"
+    end
+    return false
+end
+
 describe("Shortcut Declarative API", function()
     before_each(function()
         -- Reset the logger system for each test
@@ -54,7 +65,7 @@ describe("Shortcut Declarative API", function()
 
             local output = logger.outputs[1]
             assert.is_function(output.output_func)
-            assert.is_function(output.formatter_func)
+            assert.is_true(is_callable(output.formatter_func))
             assert.is_table(output.output_config)
         end)
 
@@ -74,7 +85,7 @@ describe("Shortcut Declarative API", function()
 
             local output = logger.outputs[1]
             assert.is_function(output.output_func)
-            assert.is_function(output.formatter_func)
+            assert.is_true(is_callable(output.formatter_func))
             assert.are.same("test.log", output.output_config.path)
         end)
 
@@ -429,7 +440,7 @@ describe("Shortcut Declarative API", function()
 
             local output = logger.outputs[1]
             assert.is_function(output.output_func)
-            assert.is_function(output.formatter_func)
+            assert.is_true(is_callable(output.formatter_func))
         end)
 
         it("should work with named logger using shortcut syntax", function()
