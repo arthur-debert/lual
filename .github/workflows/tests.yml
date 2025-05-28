@@ -39,7 +39,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.luarocks # Corrected path for where --local installs
-          key: ${{ runner.os }}-luarocks-${{ hashFiles('fsynth-0.1.0-1.rockspec') }}
+          key: ${{ runner.os }}-luarocks-${{ hashFiles('lual-0.7.1-1.rockspec') }}
           restore-keys: |
             ${{ runner.os }}-luarocks-
 
@@ -49,7 +49,7 @@ jobs:
       - name: Install Lua dependencies
         if: steps.cache-lua-deps.dispatchers.cache-hit != 'true'
         run: |
-          luarocks install --local --only-deps lual-0.1.0-1.rockspec
+          luarocks install --local --only-deps lual-0.7.1-1.rockspec
       # on maocs, bustes comes with luarocks, but not on ubuntu:
       # Busted should now be installed via apt from .github/apt-packages.txt
       - name: Run tests
