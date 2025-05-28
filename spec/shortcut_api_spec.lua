@@ -168,7 +168,7 @@ describe("Shortcut Declarative API", function()
                     output = "file",
                     formatter = "text"
                 })
-            end, "Invalid shortcut config: File output in shortcut config must have a 'path' string field")
+            end, "Invalid shortcut config: File output must have a 'path' string field")
         end)
 
         it("should reject file output with non-string path", function()
@@ -178,7 +178,7 @@ describe("Shortcut Declarative API", function()
                     formatter = "text",
                     path = 123
                 })
-            end, "Invalid shortcut config: File output in shortcut config must have a 'path' string field")
+            end, "Invalid shortcut config: File output must have a 'path' string field")
         end)
 
         it("should reject console output with invalid stream type", function()

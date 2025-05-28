@@ -79,6 +79,22 @@ end
 -- @param shortcut_config table The shortcut config
 -- @return table The standard declarative config
 function M.shortcut_to_declarative_config(shortcut_config)
+    -- Minimal validation: check required fields
+    if not shortcut_config.output then
+        error("Invalid shortcut config: Shortcut config must have an 'output' field")
+    end
+    if not shortcut_config.formatter then
+        error("Invalid shortcut config: Shortcut config must have a 'formatter' field")
+    end
+
+    -- Check for unknown keys
+    local valid_shortcut_keys = constants.VALID_SHORTCUT_KEYS
+    for key in pairs(shortcut_config) do
+        if not valid_shortcut_keys[key] then
+            error("Invalid shortcut config: Unknown shortcut config key: " .. key)
+        end
+    end
+
     local declarative_config = {
         name = shortcut_config.name,
         level = shortcut_config.level,

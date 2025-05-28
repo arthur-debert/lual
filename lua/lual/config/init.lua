@@ -17,34 +17,31 @@ function M.process_config(input_config, default_config)
     end
 
     local final_declarative_config
+    local is_shortcut = transformation.is_shortcut_config(input_config)
 
     -- Check if this is a shortcut config and transform it if needed
-    if transformation.is_shortcut_config(input_config) then
-        -- Validate the shortcut config
-        local valid, err = validation.validate_shortcut_config(input_config)
-        if not valid then
-            error("Invalid shortcut config: " .. err)
-        end
-
-        -- Transform shortcut to standard declarative format
+    if is_shortcut then
+        -- Transform shortcut to standard declarative format (no separate validation needed)
         final_declarative_config = transformation.shortcut_to_declarative_config(input_config)
     else
         -- For standard declarative config, just use it as-is
         final_declarative_config = input_config
     end
 
-    -- Merge with defaults and validate in one step
+    -- Merge with defaults and validate in one step (same for all config types)
     if default_config then
         local merged_config, err = validation.validate_and_merge_config(final_declarative_config, default_config)
         if not merged_config then
-            error("Invalid declarative config: " .. err)
+            local prefix = is_shortcut and "Invalid shortcut config: " or "Invalid declarative config: "
+            error(prefix .. err)
         end
         final_declarative_config = merged_config
     else
         -- If no defaults, still need to validate for unknown fields
         local merged_config, err = validation.validate_and_merge_config(final_declarative_config, {})
         if not merged_config then
-            error("Invalid declarative config: " .. err)
+            local prefix = is_shortcut and "Invalid shortcut config: " or "Invalid declarative config: "
+            error(prefix .. err)
         end
         final_declarative_config = merged_config
     end
