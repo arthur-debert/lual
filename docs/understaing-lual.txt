@@ -20,9 +20,22 @@ This is what happens:
     1. The main logger is called. 
     2. It replaces the debug call with a log call and appends the level
        and message to the log queue. (those are just shortcuts to log)
-    3. This triggers the ingest pieline.
+    3. This triggers the ingest pipeline.
         a. The first question is: which (if any) of your loggers should see the
         message? 
         b. It goes through loggers, finds the one you that cares about this level
         and that shares a name (if you haven't changed much it will hit your
         root logger).
+        Once it finds a logger, it makes sense to work on this (else just drop
+        the message)
+    4. Now your log record will go through the logging pipeline: 
+        a. It will be passed to any(s) of the transformers you have set. These
+        are factions that receive a log record and return one. They usually do
+        thing on the data side of it, like changing the timezone, adding or
+        computing more information (like the which server or process generated
+        this) and others.
+        b. It will be sent to the dispatcher (if any)
+        c. The dispatcher will write it to the output (file, console, etc.)
+        d. After all transformations are done, it's time to make your message
+        look good! This will run the presenter(s) which will change things like
+        adding colors, emoji, etc.

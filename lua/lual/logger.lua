@@ -12,14 +12,16 @@ local log = {}
 
 local core_levels = require("lual.core.levels")
 local engine = require("lual.core.logging")
-local all_dispatchers = require("lual.dispatchers.init") -- Require the new dispatchers init
-local all_presenters = require("lual.presenters.init")   -- Require the new presenters init
+local all_dispatchers = require("lual.dispatchers.init")   -- Require the new dispatchers init
+local all_presenters = require("lual.presenters.init")     -- Require the new presenters init
+local all_transformers = require("lual.transformers.init") -- Require the new transformers init
 
 log.levels = core_levels.definition
-log.logger = engine.logger        -- Primary API for creating loggers
-log.logger = engine.logger        -- Backward compatibility alias
-log.dispatchers = all_dispatchers -- Assign the dispatchers table
-log.presenters = all_presenters   -- Assign the presenters table
+log.logger = engine.logger          -- Primary API for creating loggers
+log.logger = engine.logger          -- Backward compatibility alias
+log.dispatchers = all_dispatchers   -- Assign the dispatchers table
+log.presenters = all_presenters     -- Assign the presenters table
+log.transformers = all_transformers -- Assign the transformers table
 
 -- Add convenient shortcuts for dispatchers and presenters
 log.lib = {
@@ -31,7 +33,10 @@ log.lib = {
   -- PRESENTER shortcuts (call factories with default config for backward compatibility)
   text = all_presenters.text(),
   color = all_presenters.color(),
-  json = all_presenters.json()
+  json = all_presenters.json(),
+
+  -- TRANSFORMER shortcuts (call factories with default config for backward compatibility)
+  noop = all_transformers.noop_transformer()
 }
 
 -- Add LEVELS mapping for external validation and use
