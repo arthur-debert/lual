@@ -5,19 +5,83 @@ local constants = require("lual.config.constants")
 
 local M = {}
 
+--- Helper function to generate expected error message for testing
+-- @param value The invalid value
+-- @param constant_table The constant table with _meta property
+-- @return string The expected error message
+function M.generate_expected_error_message(value, constant_table)
+    local meta = constant_table._meta
+    if not meta then
+        error("Constant table missing _meta property")
+    end
+
+    local field_name = meta.name
+
+    -- Generate valid values list
+    local valid_values = {}
+    for key, _ in pairs(constant_table) do
+        if key ~= "_meta" then -- Skip the meta property
+            table.insert(valid_values, key)
+        end
+    end
+    table.sort(valid_values) -- Sort for consistent output
+
+    return string.format("Invalid %s: %s. Valid values are: %s",
+        field_name,
+        tostring(value),
+        table.concat(valid_values, ", "))
+end
+
+--- Generic validator for values against constant tables with metadata
+-- @param value The value to validate
+-- @param constant_table The constant table with _meta property
+-- @param allow_nil boolean Whether nil values are allowed (default: true)
+-- @return boolean, string True if valid, or false with error message
+function M.validate_against_constants(value, constant_table, allow_nil)
+    if allow_nil == nil then allow_nil = true end
+
+    if value == nil then
+        return allow_nil, allow_nil and nil or ("Value cannot be nil")
+    end
+
+    local meta = constant_table._meta
+    if not meta then
+        error("Constant table missing _meta property")
+    end
+
+    local case_sensitive = meta.case_sensitive
+
+    -- Convert value for comparison if case-insensitive
+    local lookup_value = value
+    if not case_sensitive and type(value) == "string" then
+        lookup_value = string.lower(value)
+    end
+
+    -- Check if value exists in constant table
+    if constant_table[lookup_value] then
+        return true
+    end
+
+    -- Use the helper function to generate the error message
+    local error_msg = M.generate_expected_error_message(value, constant_table)
+    return false, error_msg
+end
+
 --- Validates output and formatter types
 -- @param output_type string The output type to validate
 -- @param formatter_type string The formatter type to validate
 -- @return boolean, string True if valid, or false with error message
 function M.validate_output_formatter_types(output_type, formatter_type)
-    -- Validate known output types
-    if not constants.VALID_OUTPUT_TYPES[output_type] then
-        return false, "Unknown output type: " .. output_type .. ". Valid types are: console, file"
+    -- Validate output type
+    local valid, err = M.validate_against_constants(output_type, constants.VALID_OUTPUT_TYPES, false)
+    if not valid then
+        return false, err
     end
 
-    -- Validate known formatter types
-    if not constants.VALID_FORMATTER_TYPES[formatter_type] then
-        return false, "Unknown formatter type: " .. formatter_type .. ". Valid types are: color, json, text"
+    -- Validate formatter type
+    valid, err = M.validate_against_constants(formatter_type, constants.VALID_FORMATTER_TYPES, false)
+    if not valid then
+        return false, err
     end
 
     return true
@@ -32,17 +96,13 @@ function M.validate_level(level)
     end
 
     if type(level) == "string" then
-        if not constants.VALID_LEVEL_STRINGS[string.lower(level)] then
-            return false,
-                "Invalid level string: " .. level .. ". Valid levels are: critical, debug, error, info, none, warning"
-        end
+        return M.validate_against_constants(level, constants.VALID_LEVEL_STRINGS, false)
     elseif type(level) == "number" then
         -- Allow numeric levels
+        return true
     else
         return false, "Level must be a string or number"
     end
-
-    return true
 end
 
 --- Validates a timezone value
@@ -57,11 +117,7 @@ function M.validate_timezone(timezone)
         return false, "Timezone must be a string"
     end
 
-    if not constants.VALID_TIMEZONES[string.lower(timezone)] then
-        return false, "Invalid timezone: " .. timezone .. ". Valid timezones are: local, utc"
-    end
-
-    return true
+    return M.validate_against_constants(timezone, constants.VALID_TIMEZONES, false)
 end
 
 --- Validates basic config fields (name, propagate, timezone)

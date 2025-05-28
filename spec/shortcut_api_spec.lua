@@ -1,6 +1,8 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 local lualog = require("lual.logger")
 local config = require("lual.config")
+local validation = require("lual.config.validation")
+local constants = require("lual.config.constants")
 
 describe("Shortcut Declarative API", function()
     before_each(function()
@@ -139,21 +141,25 @@ describe("Shortcut Declarative API", function()
         end)
 
         it("should reject unknown output types", function()
+            local expected_error = "Invalid shortcut config: " ..
+                validation.generate_expected_error_message("unknown", constants.VALID_OUTPUT_TYPES)
             assert.has_error(function()
                 lualog.logger({
                     output = "unknown",
                     formatter = "text"
                 })
-            end, "Invalid shortcut config: Unknown output type: unknown. Valid types are: console, file")
+            end, expected_error)
         end)
 
         it("should reject unknown formatter types", function()
+            local expected_error = "Invalid shortcut config: " ..
+                validation.generate_expected_error_message("unknown", constants.VALID_FORMATTER_TYPES)
             assert.has_error(function()
                 lualog.logger({
                     output = "console",
                     formatter = "unknown"
                 })
-            end, "Invalid shortcut config: Unknown formatter type: unknown. Valid types are: color, json, text")
+            end, expected_error)
         end)
 
         it("should reject file output without path", function()
@@ -196,6 +202,8 @@ describe("Shortcut Declarative API", function()
         end)
 
         it("should reject invalid level in shortcut config", function()
+            local expected_error = "Invalid shortcut config: " ..
+                validation.generate_expected_error_message("invalid_level", constants.VALID_LEVEL_STRINGS)
             assert.has_error(function()
                     lualog.logger({
                         output = "console",
@@ -203,7 +211,7 @@ describe("Shortcut Declarative API", function()
                         level = "invalid_level"
                     })
                 end,
-                "Invalid shortcut config: Invalid level string: invalid_level. Valid levels are: critical, debug, error, info, none, warning")
+                expected_error)
         end)
 
         it("should reject invalid name type in shortcut config", function()

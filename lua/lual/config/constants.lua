@@ -5,12 +5,14 @@ local M = {}
 
 -- Valid output types
 M.VALID_OUTPUT_TYPES = {
+    _meta = { name = "output type", case_sensitive = false },
     console = true,
     file = true
 }
 
 -- Valid formatter types
 M.VALID_FORMATTER_TYPES = {
+    _meta = { name = "formatter type", case_sensitive = false },
     text = true,
     color = true,
     json = true
@@ -18,12 +20,14 @@ M.VALID_FORMATTER_TYPES = {
 
 -- Valid timezone values
 M.VALID_TIMEZONES = {
+    _meta = { name = "timezone", case_sensitive = false },
     ["local"] = true,
     utc = true
 }
 
 -- Valid level strings (case-insensitive)
 M.VALID_LEVEL_STRINGS = {
+    _meta = { name = "level", case_sensitive = false },
     debug = true,
     info = true,
     warning = true,

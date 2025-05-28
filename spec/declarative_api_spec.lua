@@ -3,6 +3,8 @@ local lualog = require("lual.logger")
 local engine = require("lual.core.logging")
 local spy = require("luassert.spy")
 local match = require("luassert.match")
+local validation = require("lual.config.validation")
+local constants = require("lual.config.constants")
 
 describe("Declarative API", function()
     before_each(function()
@@ -249,13 +251,15 @@ describe("Declarative API", function()
         end)
 
         it("should reject invalid level strings", function()
+            local expected_error = "Invalid declarative config: " ..
+                validation.generate_expected_error_message("invalid_level", constants.VALID_LEVEL_STRINGS)
             assert.has_error(function()
                     lualog.logger({
                         name = "test",
                         level = "invalid_level"
                     })
                 end,
-                "Invalid declarative config: Invalid level string: invalid_level. Valid levels are: critical, debug, error, info, none, warning")
+                expected_error)
         end)
 
         it("should reject invalid level types", function()
@@ -316,6 +320,8 @@ describe("Declarative API", function()
         end)
 
         it("should reject unknown output types", function()
+            local expected_error = "Invalid declarative config: " ..
+                validation.generate_expected_error_message("unknown", constants.VALID_OUTPUT_TYPES)
             assert.has_error(function()
                 lualog.logger({
                     name = "test",
@@ -323,10 +329,12 @@ describe("Declarative API", function()
                         { type = "unknown", formatter = "text" }
                     }
                 })
-            end, "Invalid declarative config: Unknown output type: unknown. Valid types are: console, file")
+            end, expected_error)
         end)
 
         it("should reject unknown formatter types", function()
+            local expected_error = "Invalid declarative config: " ..
+                validation.generate_expected_error_message("unknown", constants.VALID_FORMATTER_TYPES)
             assert.has_error(function()
                 lualog.logger({
                     name = "test",
@@ -334,7 +342,7 @@ describe("Declarative API", function()
                         { type = "console", formatter = "unknown" }
                     }
                 })
-            end, "Invalid declarative config: Unknown formatter type: unknown. Valid types are: color, json, text")
+            end, expected_error)
         end)
 
         it("should reject file output without path", function()
