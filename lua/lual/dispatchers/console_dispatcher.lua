@@ -1,7 +1,7 @@
---- Output that writes log messages to a stream (e.g., io.stdout, io.stderr).
+--- dispatcher that writes log messages to a stream (e.g., io.stdout, io.stderr).
 -- @param record (table) A table containing log record details
--- @param config (table, optional) Output-specific configuration.
-local function console_output(record, config)
+-- @param config (table, optional) dispatcher-specific configuration.
+local function console_dispatcher(record, config)
     local stream = io.stdout
     if config and config.stream then
         stream = config.stream
@@ -19,4 +19,4 @@ local function console_output(record, config)
     end
 end
 
-return console_output
+return console_dispatcher

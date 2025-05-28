@@ -12,21 +12,21 @@ local log = {}
 
 local core_levels = require("lual.core.levels")
 local engine = require("lual.core.logging")
-local all_outputs = require("lual.outputs.init")       -- Require the new outputs init
-local all_formatters = require("lual.formatters.init") -- Require the new formatters init
+local all_dispatchers = require("lual.dispatchers.init") -- Require the new dispatchers init
+local all_formatters = require("lual.formatters.init")   -- Require the new formatters init
 
 log.levels = core_levels.definition
-log.logger = engine.logger      -- Primary API for creating loggers
-log.logger = engine.logger      -- Backward compatibility alias
-log.outputs = all_outputs       -- Assign the outputs table
-log.formatters = all_formatters -- Assign the formatters table
+log.logger = engine.logger        -- Primary API for creating loggers
+log.logger = engine.logger        -- Backward compatibility alias
+log.dispatchers = all_dispatchers -- Assign the dispatchers table
+log.formatters = all_formatters   -- Assign the formatters table
 
--- Add convenient shortcuts for outputs and formatters
+-- Add convenient shortcuts for dispatchers and formatters
 log.lib = {
-  -- Output shortcuts
-  console = all_outputs.console_output,
-  file = all_outputs.file_output,
-  syslog = all_outputs.syslog_output,
+  -- dispatcher shortcuts
+  console = all_dispatchers.console_dispatcher,
+  file = all_dispatchers.file_dispatcher,
+  syslog = all_dispatchers.syslog_dispatcher,
 
   -- Formatter shortcuts (call factories with default config for backward compatibility)
   text = all_formatters.text(),
@@ -69,10 +69,10 @@ function log.reset_config()
 end
 
 -- =============================================================================
--- 4. Output Definitions (Function Signatures) - REMOVED
+-- 4. dispatcher Definitions (Function Signatures) - REMOVED
 -- =============================================================================
--- log.outputs = {} -- This line is removed
--- All function log.outputs.console_output(...) etc. are removed.
+-- log.dispatchers = {} -- This line is removed
+-- All function log.dispatchers.console_dispatcher(...) etc. are removed.
 
 -- =============================================================================
 -- 5. Formatter Definitions (Function Signatures) - REMOVED
@@ -86,13 +86,13 @@ end
 function log.init_default_config()
   local root_logger = log.logger("root")
   if root_logger then
-    root_logger.outputs = {} -- Clear existing default outputs
+    root_logger.dispatchers = {} -- Clear existing default dispatchers
     if root_logger.set_level then
       root_logger:set_level(log.levels.INFO)
     end
-    if root_logger.add_output and log.outputs and log.outputs.console_output and log.formatters and log.formatters.text then
-      root_logger:add_output(
-        log.outputs.console_output,
+    if root_logger.add_dispatcher and log.dispatchers and log.dispatchers.console_dispatcher and log.formatters and log.formatters.text then
+      root_logger:add_dispatcher(
+        log.dispatchers.console_dispatcher,
         log.formatters.text,
         { stream = io.stdout }
       )

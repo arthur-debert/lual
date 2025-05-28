@@ -1,4 +1,4 @@
---- Output that sends log messages to syslog servers via UDP.
+--- dispatcher that sends log messages to syslog servers via UDP.
 --
 -- This handler implements RFC 3164 syslog protocol and supports:
 -- - Local syslog (localhost:514) and remote syslog servers
@@ -9,14 +9,14 @@
 --
 -- @usage
 -- local lual = require("lual")
--- local syslog_output_factory = require("lual.outputs.syslog_output")
+-- local syslog_dispatcher_factory = require("lual.dispatchers.syslog_dispatcher")
 --
 -- -- Local syslog
 -- local logger = lual.logger("my_app")
--- logger:add_output(syslog_output_factory({ facility = "LOCAL0" }), lual.levels.INFO)
+-- logger:add_dispatcher(syslog_dispatcher_factory({ facility = "LOCAL0" }), lual.levels.INFO)
 --
 -- -- Remote syslog
--- logger:add_output(syslog_output_factory({
+-- logger:add_dispatcher(syslog_dispatcher_factory({
 --     host = "log.example.com",
 --     port = 514,
 --     facility = "USER"
@@ -117,7 +117,7 @@ end
 -- @return boolean, string True if valid, false and error message if invalid.
 local function validate_config(config)
     if not config then
-        return false, "syslog_output_factory requires a config table"
+        return false, "syslog_dispatcher_factory requires a config table"
     end
 
     -- Validate facility
@@ -167,15 +167,15 @@ local function validate_config(config)
     return true
 end
 
---- Creates a syslog output handler.
--- @param config (table) Configuration for the syslog output.
+--- Creates a syslog dispatcher handler.
+-- @param config (table) Configuration for the syslog dispatcher.
 --   - facility (string|number, optional): Syslog facility (default: "USER")
 --   - host (string, optional): Syslog server host (default: "localhost")
 --   - port (number, optional): Syslog server port (default: 514)
 --   - tag (string, optional): Application tag (default: "lual")
 --   - hostname (string, optional): Hostname to include in messages (default: auto-detected)
 -- @return function(record) The actual log sending function.
-local function syslog_output_factory(config)
+local function syslog_dispatcher_factory(config)
     local valid, err = validate_config(config)
     if not valid then
         io.stderr:write(string.format("lual: %s\n", err))
@@ -234,7 +234,7 @@ local module = setmetatable({
     _validate_config = validate_config
 }, {
     __call = function(_, config)
-        return syslog_output_factory(config)
+        return syslog_dispatcher_factory(config)
     end
 })
 

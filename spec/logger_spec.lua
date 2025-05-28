@@ -360,46 +360,47 @@ describe("lualog Logger Object", function()
 			end)
 		end)
 
-		it("logger:add_output(output_func, formatter_func, output_config) should add output correctly", function()
-			local mock_output_fn = function() end
-			local mock_formatter_fn = function() end
-			local mock_cfg = { type = "test" }
+		it("logger:add_dispatcher(dispatcher_func, formatter_func, dispatcher_config) should add dispatcher correctly",
+			function()
+				local mock_dispatcher_fn = function() end
+				local mock_formatter_fn = function() end
+				local mock_cfg = { type = "test" }
 
-			test_logger:add_output(mock_output_fn, mock_formatter_fn, mock_cfg)
-			assert.are.same(1, #test_logger.outputs)
-			local entry = test_logger.outputs[1]
-			assert.are.same(mock_output_fn, entry.output_func)
-			assert.are.same(mock_formatter_fn, entry.formatter_func)
-			assert.are.same(mock_cfg, entry.output_config)
+				test_logger:add_dispatcher(mock_dispatcher_fn, mock_formatter_fn, mock_cfg)
+				assert.are.same(1, #test_logger.dispatchers)
+				local entry = test_logger.dispatchers[1]
+				assert.are.same(mock_dispatcher_fn, entry.dispatcher_func)
+				assert.are.same(mock_formatter_fn, entry.formatter_func)
+				assert.are.same(mock_cfg, entry.dispatcher_config)
 
-			-- Test with nil config
-			test_logger:add_output(mock_output_fn, mock_formatter_fn, nil)
-			assert.are.same(2, #test_logger.outputs)
-			local entry_nil_config = test_logger.outputs[2]
-			assert.is_table(entry_nil_config.output_config) -- Should default to {}
-			assert.are.same(0, #entry_nil_config.output_config)
-		end)
+				-- Test with nil config
+				test_logger:add_dispatcher(mock_dispatcher_fn, mock_formatter_fn, nil)
+				assert.are.same(2, #test_logger.dispatchers)
+				local entry_nil_config = test_logger.dispatchers[2]
+				assert.is_table(entry_nil_config.dispatcher_config) -- Should default to {}
+				assert.are.same(0, #entry_nil_config.dispatcher_config)
+			end)
 
-		describe("logger:get_effective_outputs()", function()
-			local fresh_lualog_for_outputs
+		describe("logger:get_effective_dispatchers()", function()
+			local fresh_lualog_for_dispatchers
 			local logger_root, logger_p, logger_c
 
 			before_each(function()
 				package.loaded["lual.logger"] = nil
-				fresh_lualog_for_outputs = require("lual.logger")
+				fresh_lualog_for_dispatchers = require("lual.logger")
 				-- Use unique names for this test block to ensure clean hierarchy
-				logger_root = fresh_lualog_for_outputs.logger("eff_root")
-				logger_p = fresh_lualog_for_outputs.logger("eff_root.p")
-				logger_c = fresh_lualog_for_outputs.logger("eff_root.p.c")
+				logger_root = fresh_lualog_for_dispatchers.logger("eff_root")
+				logger_p = fresh_lualog_for_dispatchers.logger("eff_root.p")
+				logger_c = fresh_lualog_for_dispatchers.logger("eff_root.p.c")
 
-				-- Reset levels and outputs for these specific loggers
-				logger_root:set_level(fresh_lualog_for_outputs.levels.DEBUG)
-				logger_p:set_level(fresh_lualog_for_outputs.levels.DEBUG)
-				logger_c:set_level(fresh_lualog_for_outputs.levels.DEBUG)
-				-- Clear outputs directly for test setup (this is acceptable for tests)
-				logger_root.outputs = {}
-				logger_p.outputs = {}
-				logger_c.outputs = {}
+				-- Reset levels and dispatchers for these specific loggers
+				logger_root:set_level(fresh_lualog_for_dispatchers.levels.DEBUG)
+				logger_p:set_level(fresh_lualog_for_dispatchers.levels.DEBUG)
+				logger_c:set_level(fresh_lualog_for_dispatchers.levels.DEBUG)
+				-- Clear dispatchers directly for test setup (this is acceptable for tests)
+				logger_root.dispatchers = {}
+				logger_p.dispatchers = {}
+				logger_c.dispatchers = {}
 				logger_root:set_propagate(true)
 				logger_p:set_propagate(true)
 				logger_c:set_propagate(true)
@@ -408,78 +409,78 @@ describe("lualog Logger Object", function()
 			local mock_h_fn = function() end
 			local mock_f_fn = function() end
 
-			it("should collect outputs from self and propagating parents", function()
-				logger_c:add_output(mock_h_fn, mock_f_fn, { id = "hc" })
-				logger_p:add_output(mock_h_fn, mock_f_fn, { id = "hp" })
-				logger_root:add_output(mock_h_fn, mock_f_fn, { id = "h_root" })
+			it("should collect dispatchers from self and propagating parents", function()
+				logger_c:add_dispatcher(mock_h_fn, mock_f_fn, { id = "hc" })
+				logger_p:add_dispatcher(mock_h_fn, mock_f_fn, { id = "hp" })
+				logger_root:add_dispatcher(mock_h_fn, mock_f_fn, { id = "h_root" })
 
-				local c_outputs = logger_c:get_effective_outputs()
-				assert.are.same(4, #c_outputs) -- Expect 3 local + 1 from actual root
-				assert.are.same("eff_root.p.c", c_outputs[1].owner_logger_name)
-				assert.are.same("eff_root.p", c_outputs[2].owner_logger_name)
-				assert.are.same("eff_root", c_outputs[3].owner_logger_name)
-				assert.are.same("root", c_outputs[4].owner_logger_name) -- Check the propagated root output
+				local c_dispatchers = logger_c:get_effective_dispatchers()
+				assert.are.same(4, #c_dispatchers) -- Expect 3 local + 1 from actual root
+				assert.are.same("eff_root.p.c", c_dispatchers[1].owner_logger_name)
+				assert.are.same("eff_root.p", c_dispatchers[2].owner_logger_name)
+				assert.are.same("eff_root", c_dispatchers[3].owner_logger_name)
+				assert.are.same("root", c_dispatchers[4].owner_logger_name) -- Check the propagated root dispatcher
 			end)
 
 			it("should stop collecting if propagate is false on child", function()
 				-- Reset the logger system to get a clean root logger
-				fresh_lualog_for_outputs.reset_config()
+				fresh_lualog_for_dispatchers.reset_config()
 
 				-- Re-get the loggers after reset
-				logger_root = fresh_lualog_for_outputs.logger("eff_root")
-				logger_p = fresh_lualog_for_outputs.logger("eff_root.p")
-				logger_c = fresh_lualog_for_outputs.logger("eff_root.p.c")
+				logger_root = fresh_lualog_for_dispatchers.logger("eff_root")
+				logger_p = fresh_lualog_for_dispatchers.logger("eff_root.p")
+				logger_c = fresh_lualog_for_dispatchers.logger("eff_root.p.c")
 
-				-- Reset levels and outputs for these specific loggers
-				logger_root:set_level(fresh_lualog_for_outputs.levels.DEBUG)
-				logger_p:set_level(fresh_lualog_for_outputs.levels.DEBUG)
-				logger_c:set_level(fresh_lualog_for_outputs.levels.DEBUG)
-				logger_root.outputs = {}
-				logger_p.outputs = {}
-				logger_c.outputs = {}
+				-- Reset levels and dispatchers for these specific loggers
+				logger_root:set_level(fresh_lualog_for_dispatchers.levels.DEBUG)
+				logger_p:set_level(fresh_lualog_for_dispatchers.levels.DEBUG)
+				logger_c:set_level(fresh_lualog_for_dispatchers.levels.DEBUG)
+				logger_root.dispatchers = {}
+				logger_p.dispatchers = {}
+				logger_c.dispatchers = {}
 				logger_root:set_propagate(true)
 				logger_p:set_propagate(true)
 				logger_c:set_propagate(true)
 
-				logger_c:add_output(mock_h_fn, mock_f_fn, { id = "hc" })
-				logger_p:add_output(mock_h_fn, mock_f_fn, { id = "hp" })
-				logger_root:add_output(mock_h_fn, mock_f_fn, { id = "h_root" })
+				logger_c:add_dispatcher(mock_h_fn, mock_f_fn, { id = "hc" })
+				logger_p:add_dispatcher(mock_h_fn, mock_f_fn, { id = "hp" })
+				logger_root:add_dispatcher(mock_h_fn, mock_f_fn, { id = "h_root" })
 
 				logger_c:set_propagate(false)
-				local c_outputs = logger_c:get_effective_outputs()
-				assert.are.same(1, #c_outputs)
-				assert.are.same("eff_root.p.c", c_outputs[1].owner_logger_name)
+				local c_dispatchers = logger_c:get_effective_dispatchers()
+				assert.are.same(1, #c_dispatchers)
+				assert.are.same("eff_root.p.c", c_dispatchers[1].owner_logger_name)
 			end)
 
 			it("should stop collecting if propagate is false on parent", function()
 				-- Reset the logger system to get a clean root logger
-				fresh_lualog_for_outputs.reset_config()
+				fresh_lualog_for_dispatchers.reset_config()
 
 				-- Re-get the loggers after reset
-				logger_root = fresh_lualog_for_outputs.logger("eff_root")
-				logger_p = fresh_lualog_for_outputs.logger("eff_root.p")
-				logger_c = fresh_lualog_for_outputs.logger("eff_root.p.c")
+				logger_root = fresh_lualog_for_dispatchers.logger("eff_root")
+				logger_p = fresh_lualog_for_dispatchers.logger("eff_root.p")
+				logger_c = fresh_lualog_for_dispatchers.logger("eff_root.p.c")
 
-				-- Reset levels and outputs for these specific loggers
-				logger_root:set_level(fresh_lualog_for_outputs.levels.DEBUG)
-				logger_p:set_level(fresh_lualog_for_outputs.levels.DEBUG)
-				logger_c:set_level(fresh_lualog_for_outputs.levels.DEBUG)
-				logger_root.outputs = {}
-				logger_p.outputs = {}
-				logger_c.outputs = {}
+				-- Reset levels and dispatchers for these specific loggers
+				logger_root:set_level(fresh_lualog_for_dispatchers.levels.DEBUG)
+				logger_p:set_level(fresh_lualog_for_dispatchers.levels.DEBUG)
+				logger_c:set_level(fresh_lualog_for_dispatchers.levels.DEBUG)
+				logger_root.dispatchers = {}
+				logger_p.dispatchers = {}
+				logger_c.dispatchers = {}
 				logger_root:set_propagate(true)
 				logger_p:set_propagate(true)
 				logger_c:set_propagate(true)
 
-				logger_c:add_output(mock_h_fn, mock_f_fn, { id = "hc" })
-				logger_p:add_output(mock_h_fn, mock_f_fn, { id = "hp" })
-				logger_root:add_output(mock_h_fn, mock_f_fn, { id = "h_root" })
+				logger_c:add_dispatcher(mock_h_fn, mock_f_fn, { id = "hc" })
+				logger_p:add_dispatcher(mock_h_fn, mock_f_fn, { id = "hp" })
+				logger_root:add_dispatcher(mock_h_fn, mock_f_fn, { id = "h_root" })
 
 				logger_p:set_propagate(false) -- c propagates to p, but p doesn't propagate to root
-				local c_outputs = logger_c:get_effective_outputs()
-				assert.are.same(2, #c_outputs)
-				assert.are.same("eff_root.p.c", c_outputs[1].owner_logger_name)
-				assert.are.same("eff_root.p", c_outputs[2].owner_logger_name)
+				local c_dispatchers = logger_c:get_effective_dispatchers()
+				assert.are.same(2, #c_dispatchers)
+				assert.are.same("eff_root.p.c", c_dispatchers[1].owner_logger_name)
+				assert.are.same("eff_root.p", c_dispatchers[2].owner_logger_name)
 			end)
 		end)
 	end)
@@ -491,7 +492,7 @@ describe("lual.logger (Facade)", function()
 		package.loaded["lual.logger"] = nil
 		package.loaded["lual.core.logging"] = nil
 		package.loaded["lual.core.levels"] = nil
-		package.loaded["lual.outputs.init"] = nil
+		package.loaded["lual.dispatchers.init"] = nil
 		package.loaded["lual.formatters.init"] = nil
 		package.loaded["lual.ingest"] = nil
 
@@ -500,23 +501,24 @@ describe("lual.logger (Facade)", function()
 	end)
 
 	describe("log.init_default_config()", function()
-		it("should add one default output to the root logger", function()
+		it("should add one default dispatcher to the root logger", function()
 			local root_logger = lualog.logger("root")
 			assert.is_not_nil(root_logger)
-			assert.are.same(1, #root_logger.outputs, "Root logger should have 1 output after init.")
-			if #root_logger.outputs == 1 then
-				local output_entry = root_logger.outputs[1]
-				assert.is_function(output_entry.output_func)
-				assert.is_function(output_entry.formatter_func)
+			assert.are.same(1, #root_logger.dispatchers, "Root logger should have 1 dispatcher after init.")
+			if #root_logger.dispatchers == 1 then
+				local dispatcher_entry = root_logger.dispatchers[1]
+				assert.is_function(dispatcher_entry.dispatcher_func)
+				assert.is_function(dispatcher_entry.formatter_func)
 			end
 		end)
 
-		it("calling init_default_config multiple times should still result in one default output", function()
+		it("calling init_default_config multiple times should still result in one default dispatcher", function()
 			lualog.init_default_config() -- Call again
 			lualog.init_default_config() -- Call yet again
 
 			local root_logger = lualog.logger("root")
-			assert.are.same(1, #root_logger.outputs, "Root logger should still have 1 output after multiple inits.")
+			assert.are.same(1, #root_logger.dispatchers,
+				"Root logger should still have 1 dispatcher after multiple inits.")
 		end)
 	end)
 
@@ -532,7 +534,7 @@ describe("lual.logger (Facade)", function()
 			assert.are.same(lualog.levels.INFO, logger2.level, "Logger level should be default INFO after reset.")
 
 			local root_logger = lualog.logger("root")
-			assert.are.same(1, #root_logger.outputs, "Root logger should have 1 default output after reset.")
+			assert.are.same(1, #root_logger.dispatchers, "Root logger should have 1 default dispatcher after reset.")
 		end)
 	end)
 
@@ -546,13 +548,13 @@ describe("lual.logger (Facade)", function()
 			test_logger:set_level(lualog.levels.DEBUG)
 			assert.are.same(lualog.levels.DEBUG, test_logger.level)
 
-			-- Test adding output directly on logger instance
+			-- Test adding dispatcher directly on logger instance
 			local mock_h = function() end
 			local mock_f = function() end
-			test_logger:add_output(mock_h, mock_f, { id = "test1" })
-			assert.are.same(1, #test_logger.outputs)
-			if #test_logger.outputs == 1 then
-				assert.are.same(mock_h, test_logger.outputs[1].output_func)
+			test_logger:add_dispatcher(mock_h, mock_f, { id = "test1" })
+			assert.are.same(1, #test_logger.dispatchers)
+			if #test_logger.dispatchers == 1 then
+				assert.are.same(mock_h, test_logger.dispatchers[1].dispatcher_func)
 			end
 		end)
 
@@ -576,7 +578,7 @@ describe("lual.logger (Facade)", function()
 			local utc_logger = fresh_lualog.logger({
 				name = "config_test",
 				timezone = "UTC", -- Test case insensitive
-				output = "console",
+				dispatcher = "console",
 				formatter = "text"
 			})
 
@@ -591,7 +593,7 @@ describe("lual.logger (Facade)", function()
 			local utc_logger = fresh_lualog.logger({
 				name = "utc_test",
 				timezone = "utc",
-				output = "console",
+				dispatcher = "console",
 				formatter = "text"
 			})
 			assert.are.equal("utc", utc_logger.timezone)
@@ -600,7 +602,7 @@ describe("lual.logger (Facade)", function()
 			local local_logger = fresh_lualog.logger({
 				name = "local_test",
 				timezone = "local",
-				output = "console",
+				dispatcher = "console",
 				formatter = "text"
 			})
 			assert.are.equal("local", local_logger.timezone)
@@ -609,7 +611,7 @@ describe("lual.logger (Facade)", function()
 		it("should handle timezone in shortcut API", function()
 			local fresh_lualog = require("lual.logger")
 			local shortcut_logger = fresh_lualog.logger({
-				output = "console",
+				dispatcher = "console",
 				formatter = "text",
 				timezone = "utc"
 			})

@@ -4,8 +4,8 @@ local assert = require("luassert")
 
 -- luacheck: globals describe it setup teardown os io
 
-describe("lual.outputs.file_output", function()
-	local file_output_factory
+describe("lual.dispatchers.file_dispatcher", function()
+	local file_dispatcher_factory
 
 	-- Mock storage, localized to this describe block
 	local mock_os_rename_calls
@@ -74,8 +74,8 @@ describe("lual.outputs.file_output", function()
 		}
 
 		-- Clear lual's cache if it's already loaded to get fresh mocks
-		package.loaded["lual.outputs.file_output"] = nil
-		file_output_factory = require("lual.outputs.file_output")
+		package.loaded["lual.dispatchers.file_dispatcher"] = nil
+		file_dispatcher_factory = require("lua.lual.dispatchers.file_dispatcher")
 	end)
 
 	before_each(function()
@@ -139,13 +139,13 @@ describe("lual.outputs.file_output", function()
 	end)
 
 	it("should require config.path", function()
-		file_output_factory({})
+		file_dispatcher_factory({})
 		local msg1 = mock_io_stderr_write_messages[1]
 		assert.truthy(msg1 and string.find(msg1, "requires config.path"))
 
 		-- Reset for next check within same test
 		mock_io_stderr_write_messages = {}
-		file_output_factory({ path = 123 }) -- Invalid type
+		file_dispatcher_factory({ path = 123 }) -- Invalid type
 		local msg2 = mock_io_stderr_write_messages[1]
 		assert.truthy(msg2 and string.find(msg2, "requires config.path"))
 	end)
@@ -165,7 +165,7 @@ describe("lual.outputs.file_output", function()
 				return mock_file_object -- for append mode
 			end
 
-			file_output_factory({ path = log_path })
+			file_dispatcher_factory({ path = log_path })
 
 			-- Check that .5 was checked for existence
 			assert.are.same({ path = log_path .. ".5", mode = "r" }, mock_io_open_calls[1])
@@ -187,7 +187,7 @@ describe("lual.outputs.file_output", function()
 				return mock_file_object -- for append mode
 			end
 
-			file_output_factory({ path = log_path })
+			file_dispatcher_factory({ path = log_path })
 
 			-- Expected rename operations for shifting
 			-- .4 -> .5, .3 -> .4, .2 -> .3, .1 -> .2
@@ -217,7 +217,7 @@ describe("lual.outputs.file_output", function()
 				return mock_file_object -- for append mode
 			end
 
-			file_output_factory({ path = log_path })
+			file_dispatcher_factory({ path = log_path })
 
 			-- Find the rename of current log to .1
 			local found_rename_current_log = false
@@ -232,7 +232,7 @@ describe("lual.outputs.file_output", function()
 
 		it("should handle rotation when no previous log files exist", function()
 			-- Default mock behavior: no files exist (already set in setup)
-			file_output_factory({ path = log_path })
+			file_dispatcher_factory({ path = log_path })
 
 			-- Check that existence checks were made for all files during rotation
 			local expected_checks = {
@@ -259,7 +259,7 @@ describe("lual.outputs.file_output", function()
 		local log_path = "write_test.log"
 
 		it("should open the new log file in append mode for writing", function()
-			local handler = file_output_factory({ path = log_path })
+			local handler = file_dispatcher_factory({ path = log_path })
 			mock_io_open_calls = {} -- Clear calls from rotation phase
 
 			handler({ message = "dummy write to trigger open" })
@@ -269,7 +269,7 @@ describe("lual.outputs.file_output", function()
 		end)
 
 		it("should write record message, newline, and flush", function()
-			local handler = file_output_factory({ path = log_path })
+			local handler = file_dispatcher_factory({ path = log_path })
 			local record = { message = "Test log message" }
 			handler(record)
 
@@ -291,7 +291,7 @@ describe("lual.outputs.file_output", function()
 				return mock_file_object -- Should not be reached for the 'a' mode in this test
 			end
 
-			local handler = file_output_factory({ path = log_path })
+			local handler = file_dispatcher_factory({ path = log_path })
 			handler({ message = "test" })
 			local err_msg_open = mock_io_stderr_write_messages[1]
 			assert.truthy(err_msg_open and string.find(err_msg_open, "Error opening log"))
@@ -302,7 +302,7 @@ describe("lual.outputs.file_output", function()
 			mock_file_object.write = function()
 				error("Disk full")
 			end
-			local handler = file_output_factory({ path = log_path })
+			local handler = file_dispatcher_factory({ path = log_path })
 			handler({ message = "test" })
 			local err_msg_write = mock_io_stderr_write_messages[1]
 			assert.truthy(err_msg_write and string.find(err_msg_write, "Error writing to log file"))

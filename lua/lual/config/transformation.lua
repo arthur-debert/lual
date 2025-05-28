@@ -16,7 +16,7 @@ function M.create_canonical_config(config)
     return {
         name = config.name or "root",
         level = config.level or core_levels.definition.INFO,
-        outputs = config.outputs or {},
+        dispatchers = config.dispatchers or {},
         propagate = config.propagate ~= false, -- Default to true unless explicitly false
         parent = config.parent or nil,
         timezone = config.timezone or "local"  -- Default to local time
@@ -29,14 +29,14 @@ end
 function M.clone_config(config)
     local cloned = {}
     for k, v in pairs(config) do
-        if type(v) == "table" and k == "outputs" then
-            -- Deep clone outputs array
+        if type(v) == "table" and k == "dispatchers" then
+            -- Deep clone dispatchers array
             cloned[k] = {}
-            for i, output in ipairs(v) do
+            for i, dispatcher in ipairs(v) do
                 cloned[k][i] = {
-                    output_func = output.output_func,
-                    formatter_func = output.formatter_func,
-                    output_config = output.output_config or {}
+                    dispatcher_func = dispatcher.dispatcher_func,
+                    formatter_func = dispatcher.formatter_func,
+                    dispatcher_config = dispatcher.dispatcher_config or {}
                 }
             end
         else
@@ -73,7 +73,7 @@ function M.is_shortcut_config(config)
     if not config or type(config) ~= "table" then
         return false
     end
-    return config.output ~= nil or config.formatter ~= nil
+    return config.dispatcher ~= nil or config.formatter ~= nil
 end
 
 --- Transforms shortcut config to standard declarative config format
@@ -104,23 +104,23 @@ function M.shortcut_to_declarative_config(shortcut_config)
         level = validated_config.level,
         propagate = validated_config.propagate,
         timezone = validated_config.timezone,
-        outputs = {}
+        dispatchers = {}
     }
 
-    -- Create the single output entry
-    local output_entry = {
-        type = validated_config.output,
+    -- Create the single dispatcher entry
+    local dispatcher_entry = {
+        type = validated_config.dispatcher,
         formatter = validated_config.formatter
     }
 
     -- Add type-specific fields
-    if validated_config.output == "file" then
-        output_entry.path = validated_config.path
-    elseif validated_config.output == "console" and validated_config.stream then
-        output_entry.stream = validated_config.stream
+    if validated_config.dispatcher == "file" then
+        dispatcher_entry.path = validated_config.path
+    elseif validated_config.dispatcher == "console" and validated_config.stream then
+        dispatcher_entry.stream = validated_config.stream
     end
 
-    table.insert(declarative_config.outputs, output_entry)
+    table.insert(declarative_config.dispatchers, dispatcher_entry)
 
     return declarative_config
 end
@@ -129,14 +129,14 @@ end
 -- @param declarative_config (table) The declarative config
 -- @return table The canonical config
 function M.declarative_to_canonical_config(declarative_config)
-    local all_outputs = require("lual.outputs.init")
+    local all_dispatchers = require("lua.lual.dispatchers.init")
     local all_formatters = require("lual.formatters.init")
 
     local canonical = {
         name = declarative_config.name,
         propagate = declarative_config.propagate,
         timezone = declarative_config.timezone,
-        outputs = {}
+        dispatchers = {}
     }
 
     -- Convert level string to number if needed
@@ -156,58 +156,58 @@ function M.declarative_to_canonical_config(declarative_config)
         end
     end
 
-    -- Convert outputs from declarative to canonical format
-    if declarative_config.outputs then
-        for _, output_config in ipairs(declarative_config.outputs) do
-            local output_func
+    -- Convert dispatchers from declarative to canonical format
+    if declarative_config.dispatchers then
+        for _, dispatcher_config in ipairs(declarative_config.dispatchers) do
+            local dispatcher_func
             local formatter_func
             local config = {}
 
-            -- Get output function
-            if output_config.type == "console" then
-                output_func = all_outputs.console_output
-                if output_config.stream then
-                    config.stream = output_config.stream
+            -- Get dispatcher function
+            if dispatcher_config.type == "console" then
+                dispatcher_func = all_dispatchers.console_dispatcher
+                if dispatcher_config.stream then
+                    config.stream = dispatcher_config.stream
                 end
-            elseif output_config.type == "file" then
-                -- File output is a factory, so we need to call it with config to get the actual function
-                local file_factory = all_outputs.file_output
-                config.path = output_config.path
+            elseif dispatcher_config.type == "file" then
+                -- File dispatcher is a factory, so we need to call it with config to get the actual function
+                local file_factory = all_dispatchers.file_dispatcher
+                config.path = dispatcher_config.path
                 -- Copy other file-specific config
-                for k, v in pairs(output_config) do
+                for k, v in pairs(dispatcher_config) do
                     if k ~= "type" and k ~= "formatter" and k ~= "path" then
                         config[k] = v
                     end
                 end
-                output_func = file_factory(config)
+                dispatcher_func = file_factory(config)
             end
 
             -- Get formatter function
-            if output_config.formatter == "text" then
+            if dispatcher_config.formatter == "text" then
                 local text_factory = all_formatters.text
                 formatter_func = text_factory()
-            elseif output_config.formatter == "color" then
+            elseif dispatcher_config.formatter == "color" then
                 local color_factory = all_formatters.color
                 -- Extract color-specific config if present
                 local formatter_config = {}
-                if output_config.level_colors then
-                    formatter_config.level_colors = output_config.level_colors
+                if dispatcher_config.level_colors then
+                    formatter_config.level_colors = dispatcher_config.level_colors
                 end
                 formatter_func = color_factory(formatter_config)
-            elseif output_config.formatter == "json" then
+            elseif dispatcher_config.formatter == "json" then
                 local json_factory = all_formatters.json
                 -- Extract json-specific config if present
                 local formatter_config = {}
-                if output_config.pretty ~= nil then
-                    formatter_config.pretty = output_config.pretty
+                if dispatcher_config.pretty ~= nil then
+                    formatter_config.pretty = dispatcher_config.pretty
                 end
                 formatter_func = json_factory(formatter_config)
             end
 
-            table.insert(canonical.outputs, {
-                output_func = output_func,
+            table.insert(canonical.dispatchers, {
+                dispatcher_func = dispatcher_func,
                 formatter_func = formatter_func,
-                output_config = config
+                dispatcher_config = config
             })
         end
     end

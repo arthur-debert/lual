@@ -27,7 +27,7 @@ function M.create_logger_from_config(config)
 
     new_logger.name = canonical_config.name
     new_logger.level = canonical_config.level
-    new_logger.outputs = canonical_config.outputs
+    new_logger.dispatchers = canonical_config.dispatchers
     new_logger.propagate = canonical_config.propagate
     new_logger.parent = canonical_config.parent
     new_logger.timezone = canonical_config.timezone
@@ -68,7 +68,7 @@ function M.create_simple_logger(name, get_logger_func)
     local config = {
         name = logger_name,
         level = core_levels.definition.INFO,
-        outputs = {},
+        dispatchers = {},
         propagate = true,
         parent = parent_logger,
         timezone = "local", -- Default to local time

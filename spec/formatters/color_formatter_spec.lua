@@ -31,7 +31,7 @@ describe("lual.formatters.color", function()
 
 		-- Print debug info
 		print("Expected message:", expected_message)
-		print("Formatted output:", formatted)
+		print("Formatted dispatcher:", formatted)
 
 		assert.truthy(
 			formatted:find(colors.dim .. timestamp_str .. colors.reset, 1, true),

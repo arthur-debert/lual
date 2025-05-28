@@ -17,20 +17,20 @@ design is done over functions and tables, look ma, no classes.
 
         # configure a more involved logger:
         local logger = lualog.logger({
-            output: lual.lib.console
+            dispatcher: lual.lib.console
             level:lual.levels.DEBUG
             formatter: lual.lib.color
         })
         local  bigLogging = require("lualog").logger({
             name = "app.database",
              level = "debug",
-            outputs = {
+            dispatchers = {
                 {type = "console", formatter = "color"},
                 {type = "file", path = "app.log", formatter = "text"}
             }
         })
-        # of course you can imperatively add outputs and formatters:
-        logger:add_output(lual.lib.console, lual.lib.text)
+        # of course you can imperatively add dispatchers and formatters:
+        logger:add_dispatcher(lual.lib.console, lual.lib.text)
 
         # supports structured logging:
         logger:info("Time to leave", {destination="home"}
@@ -40,15 +40,15 @@ design is done over functions and tables, look ma, no classes.
         
     -- lua
 
-It has a small but useful set of outputs and formatters:
-    outputs:
+It has a small but useful set of dispatchers and formatters:
+    dispatchers:
         console: prints to the console
         file: writes to a file
     formatters:
         text: plain text
         color: terminal colored 
         json: as json
-But formatters and outputs are just functions, pass your own.
+But formatters and dispatchers are just functions, pass your own.
 
 Names can be either introspected or set manually. There is hierarchical logging, with propagation, see docs/propagation.txt . 
 

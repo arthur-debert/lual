@@ -10,9 +10,9 @@ that are automatically enforced.
     --
 
 The system validates three types of configurations:
-1. Declarative configs (standard format with outputs array)
-2. Shortcut configs (simplified single-output format)  
-3. Output configs (individual output definitions)
+1. Declarative configs (standard format with dispatchers array)
+2. Shortcut configs (simplified single-dispatcher format)  
+3. dispatcher configs (individual dispatcher definitions)
 
 Validation returns a result table with two keys:
 - `data`: The validated configuration data
@@ -42,7 +42,7 @@ BASIC USAGE
 VALIDATION FUNCTIONS
 
     schema.validate_config(data)    -- Declarative config validation
-    schema.validate_output(data)    -- Single output validation  
+    schema.validate_dispatcher(data)    -- Single dispatcher validation  
     schema.validate_shortcut(data)  -- Shortcut config validation
     -- lua
 
@@ -92,7 +92,7 @@ Schemas are defined as tables with field validation rules:
 
 Available schemas:
 - `ConfigSchema`: Main configuration validation
-- `OutputSchema`: Output configuration validation  
+- `dispatcherschema`: dispatcher configuration validation  
 - `ShortcutSchema`: Shortcut configuration validation
 
 
@@ -109,7 +109,7 @@ The system automatically handles:
 - Case-insensitive enum matching ("INFO" matches "info")
 - Type coercion validation (level can be string or number)
 - Conditional requirements (path required when type="file")
-- Nested error reporting (outputs[1].formatter errors)
+- Nested error reporting (dispatchers[1].formatter errors)
 
 
 INTERNALS

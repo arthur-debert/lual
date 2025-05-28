@@ -1,6 +1,6 @@
-FILE OUTPUT: ROTATING LOG FILES
+FILE dispatcher: ROTATING LOG FILES
 
-The file output handler writes log messages to files with automatic rotation
+The file dispatcher handler writes log messages to files with automatic rotation
 on startup. This prevents log files from growing indefinitely. This is not a 
 robust rotation solution, though. 
 
@@ -9,7 +9,7 @@ robust rotation solution, though.
         logrotate.
     --
 
-When initialized, the file output:
+When initialized, the file dispatcher:
 1. Rotates existing log files, keeping up to 5 backups
    - app.log → app.log.1, app.log.1 → app.log.2, ..., app.log.4 → app.log.5
    - app.log.5 is deleted if it exists
@@ -22,10 +22,10 @@ single-threaded Lua applications and providing session-specific logs.
 BASIC USAGE
 
     local lual = require("lual")
-    local file_output = require("lual.outputs.file_output")
+    local file_dispatcher = require("lual.dispatchers.file_dispatcher")
 
     local logger = lual.logger("app")
-    logger:add_output(file_output({ path = "app.log" }))
+    logger:add_dispatcher(file_dispatcher({ path = "app.log" }))
     
     logger:info("Application started")  -- Written to fresh app.log
     -- lua
@@ -33,9 +33,9 @@ BASIC USAGE
 
 CONFIGURATION
 
-The file output factory accepts a single configuration parameter:
+The file dispatcher factory accepts a single configuration parameter:
 
-    file_output({ path = "path/to/logfile.log" })
+    file_dispatcher({ path = "path/to/logfile.log" })
 
 - `path` (string, required): Path to the main log file
 
@@ -43,13 +43,13 @@ The file output factory accepts a single configuration parameter:
 EXAMPLE: APPLICATION LOGGING WITH ROTATION
 
     local lual = require("lual")
-    local file_output = require("lual.outputs.file_output")
+    local file_dispatcher = require("lual.dispatchers.file_dispatcher")
 
-    -- Set up logger with file output
+    -- Set up logger with file dispatcher
     local app_logger = lual.logger("myapp")
     app_logger:set_level(lual.levels.INFO)
-    app_logger:add_output(
-        file_output({ path = "/var/log/myapp.log" }),
+    app_logger:add_dispatcher(
+        file_dispatcher({ path = "/var/log/myapp.log" }),
         lual.formatters.text
     )
 
@@ -67,7 +67,7 @@ After several application restarts, you'll have:
 
 INTERNALS
 
-The file output implementation uses a three-phase approach for safe rotation:
+The file dispatcher implementation uses a three-phase approach for safe rotation:
 
 1. **Command Generation**: Creates a list of file operations (remove/rename)
    without executing them, allowing validation and testing

@@ -27,20 +27,21 @@ function M.set_level(logger, level, create_logger_func, update_cache_func)
     end
 end
 
---- Adds an output to a logger
+--- Adds an dispatcher to a logger
 -- @param logger table The logger instance to update
--- @param output_func function The output function
+-- @param dispatcher_func function The dispatcher function
 -- @param formatter_func function The formatter function
--- @param output_config table The output configuration
+-- @param dispatcher_config table The dispatcher configuration
 -- @param create_logger_func function Function to create new logger instances
 -- @param update_cache_func function Function to update the logger cache
-function M.add_output(logger, output_func, formatter_func, output_config, create_logger_func, update_cache_func)
+function M.add_dispatcher(logger, dispatcher_func, formatter_func, dispatcher_config, create_logger_func,
+                          update_cache_func)
     -- Get current config, modify it, and recreate logger
     local current_config = M.get_config(logger)
-    table.insert(current_config.outputs, {
-        output_func = output_func,
+    table.insert(current_config.dispatchers, {
+        dispatcher_func = dispatcher_func,
         formatter_func = formatter_func,
-        output_config = output_config or {},
+        dispatcher_config = dispatcher_config or {},
     })
     local new_logger = create_logger_func(current_config)
 
@@ -84,7 +85,7 @@ function M.get_config(logger)
     return config_module.create_canonical_config({
         name = logger.name,
         level = logger.level,
-        outputs = logger.outputs or {},
+        dispatchers = logger.dispatchers or {},
         propagate = logger.propagate,
         parent = logger.parent,
         timezone = logger.timezone,
@@ -100,8 +101,8 @@ function M.add_management_methods(logger_prototype, create_logger_func, update_c
         M.set_level(self, level, create_logger_func, update_cache_func)
     end
 
-    function logger_prototype:add_output(output_func, formatter_func, output_config)
-        M.add_output(self, output_func, formatter_func, output_config, create_logger_func, update_cache_func)
+    function logger_prototype:add_dispatcher(dispatcher_func, formatter_func, dispatcher_config)
+        M.add_dispatcher(self, dispatcher_func, formatter_func, dispatcher_config, create_logger_func, update_cache_func)
     end
 
     function logger_prototype:set_propagate(propagate)

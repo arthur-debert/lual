@@ -14,14 +14,14 @@
 set -e
 
 # Check if gh command is available
-if ! command -v gh &> /dev/null; then
+if ! command -v gh &>/dev/null; then
     echo "Error: GitHub CLI (gh) is not installed or not in PATH" >&2
     echo "Please install it from https://cli.github.com/" >&2
     exit 1
 fi
 
 # Check if jq command is available
-if ! command -v jq &> /dev/null; then
+if ! command -v jq &>/dev/null; then
     echo "Error: jq is not installed or not in PATH" >&2
     echo "Please install it using your package manager" >&2
     exit 1
@@ -37,7 +37,7 @@ if [ $? -ne 0 ] || [ -z "$result" ]; then
     exit 1
 fi
 
-# Extract and output just the ID
+# Extract and dispatcher just the ID
 workflow_id=$(echo "$result" | jq -r '.[0].databaseId // empty')
 
 if [ -z "$workflow_id" ]; then
@@ -46,4 +46,3 @@ if [ -z "$workflow_id" ]; then
 fi
 
 echo "$workflow_id"
-

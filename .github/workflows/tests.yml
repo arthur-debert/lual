@@ -47,7 +47,7 @@ jobs:
         run: |
           pwd ; ls -lah
       - name: Install Lua dependencies
-        if: steps.cache-lua-deps.outputs.cache-hit != 'true'
+        if: steps.cache-lua-deps.dispatchers.cache-hit != 'true'
         run: |
           luarocks install --local --only-deps lual-0.1.0-1.rockspec
       # on maocs, bustes comes with luarocks, but not on ubuntu:
