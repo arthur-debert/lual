@@ -12,7 +12,7 @@
 -- local syslog_output_factory = require("lual.outputs.syslog_output")
 --
 -- -- Local syslog
--- local logger = lual.get_logger("my_app")
+-- local logger = lual.logger("my_app")
 -- logger:add_output(syslog_output_factory({ facility = "LOCAL0" }), lual.levels.INFO)
 --
 -- -- Remote syslog

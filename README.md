@@ -97,7 +97,7 @@ local logger = lual.logger({
 })
 ```
 
-**Note:** `lual.get_logger()` is still available for backward compatibility, but
+**Note:** `lual.logger()` is still available for backward compatibility, but
 `lual.logger()` is now the official API.
 
 ## Features (v1)

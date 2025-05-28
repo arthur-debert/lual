@@ -24,7 +24,7 @@ BASIC USAGE
     local lual = require("lual")
     local file_output = require("lual.outputs.file_output")
 
-    local logger = lual.get_logger("app")
+    local logger = lual.logger("app")
     logger:add_output(file_output({ path = "app.log" }))
     
     logger:info("Application started")  -- Written to fresh app.log
@@ -46,7 +46,7 @@ EXAMPLE: APPLICATION LOGGING WITH ROTATION
     local file_output = require("lual.outputs.file_output")
 
     -- Set up logger with file output
-    local app_logger = lual.get_logger("myapp")
+    local app_logger = lual.logger("myapp")
     app_logger:set_level(lual.levels.INFO)
     app_logger:add_output(
         file_output({ path = "/var/log/myapp.log" }),

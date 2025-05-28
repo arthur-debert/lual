@@ -14,9 +14,9 @@ describe("lual.core.engine auto-naming", function()
         engine.reset_cache()
     end)
 
-    describe("get_logger() with automatic naming", function()
+    describe("logger() with automatic naming", function()
         it("should use filename as logger name when no name provided", function()
-            local logger = engine.get_logger()
+            local logger = engine.logger()
 
             -- Should use the test filename (without .lua extension)
             assert.truthy(string.find(logger.name, current_test_filename, 1, true))
@@ -34,7 +34,7 @@ describe("lual.core.engine auto-naming", function()
                 end
             end
 
-            local logger = engine.get_logger()
+            local logger = engine.logger()
 
             -- Restore original function
             caller_info.get_caller_info = original_get_caller_info
@@ -53,7 +53,7 @@ describe("lual.core.engine auto-naming", function()
                 end
             end
 
-            local logger = engine.get_logger()
+            local logger = engine.logger()
 
             -- Restore original function
             caller_info.get_caller_info = original_get_caller_info
@@ -72,7 +72,7 @@ describe("lual.core.engine auto-naming", function()
                 end
             end
 
-            local logger = engine.get_logger()
+            local logger = engine.logger()
 
             -- Restore original function
             caller_info.get_caller_info = original_get_caller_info
@@ -91,7 +91,7 @@ describe("lual.core.engine auto-naming", function()
                 end
             end
 
-            local logger = engine.get_logger()
+            local logger = engine.logger()
 
             -- Restore original function
             caller_info.get_caller_info = original_get_caller_info
@@ -110,7 +110,7 @@ describe("lual.core.engine auto-naming", function()
                 end
             end
 
-            local logger = engine.get_logger()
+            local logger = engine.logger()
 
             -- Restore original function
             caller_info.get_caller_info = original_get_caller_info
@@ -125,7 +125,7 @@ describe("lual.core.engine auto-naming", function()
                 return nil, nil
             end
 
-            local logger = engine.get_logger()
+            local logger = engine.logger()
 
             -- Restore original function
             caller_info.get_caller_info = original_get_caller_info
@@ -134,21 +134,21 @@ describe("lual.core.engine auto-naming", function()
         end)
 
         it("should still use provided name when explicitly given", function()
-            local logger = engine.get_logger("my.custom.logger")
+            local logger = engine.logger("my.custom.logger")
 
             assert.are.equal("my.custom.logger", logger.name)
         end)
 
         it("should still use provided name even when empty string", function()
-            local logger = engine.get_logger("")
+            local logger = engine.logger("")
 
             -- Empty string should trigger auto-naming
             assert.truthy(string.find(logger.name, current_test_filename, 1, true))
         end)
 
         it("should cache loggers with auto-generated names", function()
-            local logger1 = engine.get_logger()
-            local logger2 = engine.get_logger()
+            local logger1 = engine.logger()
+            local logger2 = engine.logger()
 
             -- Should be the same instance
             assert.are.same(logger1, logger2)
@@ -166,7 +166,7 @@ describe("lual.core.engine auto-naming", function()
                 end
             end
 
-            local logger = engine.get_logger()
+            local logger = engine.logger()
 
             -- Restore original function
             caller_info.get_caller_info = original_get_caller_info

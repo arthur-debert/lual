@@ -14,7 +14,7 @@ local caller_info = require("lual.core.caller_info")
 local current_test_filename = caller_info.get_caller_info(1, true) or "unknown_test"
 
 describe("lual.core.engine", function()
-	describe("engine.get_logger(name)", function()
+	describe("engine.logger(name)", function()
 		it("should create a logger with auto-generated name when no name provided", function()
 			package.loaded["lual.core.engine"] = nil
 			package.loaded["lual.core.levels"] = nil
@@ -22,13 +22,13 @@ describe("lual.core.engine", function()
 			local fresh_engine = require("lual.core.engine")
 			fresh_engine.reset_cache() -- Ensure cache is clean
 
-			local auto_logger = fresh_engine.get_logger()
+			local auto_logger = fresh_engine.logger()
 			-- Should use the test filename (without .lua extension)
 			assert.truthy(string.find(auto_logger.name, current_test_filename, 1, true))
 			assert.is_false(string.find(auto_logger.name, ".lua", 1, true) ~= nil)
 			assert.are.same(fresh_core_levels.definition.INFO, auto_logger.level) -- Default level
 
-			local root_logger_named = fresh_engine.get_logger("root")
+			local root_logger_named = fresh_engine.logger("root")
 			assert.are.same("root", root_logger_named.name)
 			assert.is_nil(root_logger_named.parent)
 		end)
@@ -40,7 +40,7 @@ describe("lual.core.engine", function()
 			local fresh_engine = require("lual.core.engine")
 			fresh_engine.reset_cache()
 
-			local logger_a_b = fresh_engine.get_logger("spec_a.spec_b")
+			local logger_a_b = fresh_engine.logger("spec_a.spec_b")
 			assert.are.same("spec_a.spec_b", logger_a_b.name)
 			assert.is_not_nil(logger_a_b.parent)
 			assert.are.same("spec_a", logger_a_b.parent.name)
@@ -54,8 +54,8 @@ describe("lual.core.engine", function()
 			local fresh_engine = require("lual.core.engine")
 			fresh_engine.reset_cache()
 
-			local logger1 = fresh_engine.get_logger("spec_cache_test")
-			local logger2 = fresh_engine.get_logger("spec_cache_test")
+			local logger1 = fresh_engine.logger("spec_cache_test")
+			local logger2 = fresh_engine.logger("spec_cache_test")
 			assert.are.same(logger1, logger2)
 		end)
 
@@ -63,7 +63,7 @@ describe("lual.core.engine", function()
 			package.loaded["lual.core.engine"] = nil
 			local fresh_engine = require("lual.core.engine")
 			fresh_engine.reset_cache()
-			local logger = fresh_engine.get_logger("spec_prop_test")
+			local logger = fresh_engine.logger("spec_prop_test")
 			assert.is_true(logger.propagate)
 		end)
 	end)
@@ -80,7 +80,7 @@ describe("lual.core.engine", function()
 			ingest = require("lual.ingest")
 
 			current_engine_module.reset_cache()
-			test_logger = current_engine_module.get_logger("suite_logger_methods")
+			test_logger = current_engine_module.logger("suite_logger_methods")
 
 			local current_dispatch = ingest.dispatch_log_event
 			if type(current_dispatch) == "table" and current_dispatch.revert then
@@ -212,9 +212,9 @@ describe("lual.core.engine", function()
 				test_clevels_module_for_outputs = require("lual.core.levels")
 				test_cl_module_for_outputs.reset_cache()
 
-				logger_root = test_cl_module_for_outputs.get_logger("eff_root")
-				logger_p = test_cl_module_for_outputs.get_logger("eff_root.p")
-				logger_c = test_cl_module_for_outputs.get_logger("eff_root.p.c")
+				logger_root = test_cl_module_for_outputs.logger("eff_root")
+				logger_p = test_cl_module_for_outputs.logger("eff_root.p")
+				logger_c = test_cl_module_for_outputs.logger("eff_root.p.c")
 
 				logger_root.outputs = {} -- Clear any default outputs on eff_root itself
 				logger_p.outputs = {}
@@ -228,7 +228,7 @@ describe("lual.core.engine", function()
 				logger_c.propagate = true
 
 				-- Crucially, ensure the canonical "root" logger (parent of eff_root) also has clean outputs for this test
-				local canonical_root = test_cl_module_for_outputs.get_logger("root")
+				local canonical_root = test_cl_module_for_outputs.logger("root")
 				if canonical_root then
 					canonical_root.outputs = {}
 				end

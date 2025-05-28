@@ -450,21 +450,6 @@ describe("Declarative API", function()
         end)
     end)
 
-    describe("Backward compatibility", function()
-        it("should support get_logger as an alias to logger", function()
-            local logger1 = lualog.logger("test.compat")
-            local logger2 = lualog.get_logger("test.compat")
-
-            -- Should return the same cached instance
-            assert.are.same(logger1, logger2)
-        end)
-
-        it("should support get_logger with no arguments", function()
-            local logger = lualog.get_logger()
-            assert.is_not_nil(logger)
-            assert.is_string(logger.name)
-        end)
-    end)
 
     describe("Edge cases", function()
         it("should handle empty outputs array", function()

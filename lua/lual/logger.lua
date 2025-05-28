@@ -16,10 +16,10 @@ local all_outputs = require("lual.outputs.init")       -- Require the new output
 local all_formatters = require("lual.formatters.init") -- Require the new formatters init
 
 log.levels = core_levels.definition
-log.logger = engine.logger         -- Primary API for creating loggers
-log.get_logger = engine.get_logger -- Backward compatibility alias
-log.outputs = all_outputs          -- Assign the outputs table
-log.formatters = all_formatters    -- Assign the formatters table
+log.logger = engine.logger      -- Primary API for creating loggers
+log.logger = engine.logger      -- Backward compatibility alias
+log.outputs = all_outputs       -- Assign the outputs table
+log.formatters = all_formatters -- Assign the formatters table
 
 -- Add convenient shortcuts for outputs and formatters
 log.lib = {
@@ -44,14 +44,14 @@ log.LEVELS = {
   none = core_levels.definition.NONE
 }
 
--- Removed _loggers_cache and the entire log.get_logger function body
+-- Removed _loggers_cache and the entire log.logger function body
 -- as well as the new_logger table definition and its methods.
 -- These are now in core.engine.lua
 
 -- =============================================================================
 -- 1. Logger Creation / Retrieval
 -- =============================================================================
--- The actual log.get_logger is now assigned from engine above.
+-- The actual log.logger is now assigned from engine above.
 
 -- =============================================================================
 -- 2. Core Logging Functions (Convenience on the main 'log' module) - REMOVED
