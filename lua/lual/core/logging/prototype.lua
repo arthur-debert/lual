@@ -1,0 +1,146 @@
+--- Logger prototype and instance methods
+-- This module defines the logger prototype and all methods that operate on logger instances
+
+local core_levels = require("lual.core.levels")
+local caller_info = require("lual.core.caller_info")
+
+local M = {}
+
+-- Forward declaration for ingest dispatch
+local ingest_dispatch_log_event
+
+--- Logger prototype table
+M.logger_prototype = {}
+
+--- Basic logging methods
+function M.logger_prototype:debug(...)
+    self:log(core_levels.definition.DEBUG, ...)
+end
+
+function M.logger_prototype:info(...)
+    self:log(core_levels.definition.INFO, ...)
+end
+
+function M.logger_prototype:warn(...)
+    self:log(core_levels.definition.WARNING, ...)
+end
+
+function M.logger_prototype:error(...)
+    self:log(core_levels.definition.ERROR, ...)
+end
+
+function M.logger_prototype:critical(...)
+    self:log(core_levels.definition.CRITICAL, ...)
+end
+
+--- Core logging method with argument parsing and record creation
+function M.logger_prototype:log(level_no, ...)
+    if not self:is_enabled_for(level_no) then
+        return
+    end
+
+    local filename, lineno = caller_info.get_caller_info()
+
+    local packed_varargs = table.pack(...)
+    local msg_fmt_val
+    local args_val
+    local context_val = nil -- Initialize context as nil
+
+    if packed_varargs.n > 0 and type(packed_varargs[1]) == "table" then
+        -- This is Pattern 2: context_table, [message_format_string, ...format_args]
+        context_val = packed_varargs[1]
+        if packed_varargs.n >= 2 and type(packed_varargs[2]) == "string" then
+            msg_fmt_val = packed_varargs[2]
+            if packed_varargs.n >= 3 then
+                args_val = table.pack(select(3, ...)) -- Args from 3rd element of original '...'
+            else
+                args_val = table.pack()               -- No further args for formatting
+            end
+        else
+            -- Context only (Pattern 2b), or context + non-string second arg.
+            -- message_fmt might be extracted from context_val.msg later if desired.
+            msg_fmt_val = nil       -- Or extract from context_val.msg
+            args_val = table.pack() -- No args for formatting
+            if msg_fmt_val == nil and context_val and context_val.msg and type(context_val.msg) == "string" then
+                -- Attempt to extract message_fmt from context.msg for Pattern 2b
+                msg_fmt_val = context_val.msg
+            end
+        end
+    else
+        -- Pattern 1: String Formatting Only, or no arguments after level_no
+        -- The first argument (packed_varargs[1]) is message_fmt, rest are args.
+        -- context_val remains nil (as initialized).
+        if packed_varargs.n > 0 and type(packed_varargs[1]) == "string" then
+            msg_fmt_val = packed_varargs[1]
+            if packed_varargs.n >= 2 then
+                args_val = table.pack(select(2, ...)) -- Args from 2nd element of original '...'
+            else
+                args_val = table.pack()               -- No further args for formatting
+            end
+        elseif packed_varargs.n == 0 then             -- No arguments after level_no
+            msg_fmt_val = ""                          -- Default to empty string if no message/context
+            args_val = table.pack()
+        else                                          -- First argument is not a table and not a string (e.g. a number or boolean)
+            -- Treat as a single message to be stringified, no further args.
+            msg_fmt_val = tostring(packed_varargs[1])
+            args_val = table.pack()
+        end
+    end
+
+    local log_record = {
+        level_no = level_no,
+        level_name = core_levels.get_level_name(level_no),
+        message_fmt = msg_fmt_val,
+        args = args_val,
+        context = context_val,               -- Add the new context field
+        timestamp = os.time(),
+        timezone = self.timezone or "local", -- Add timezone configuration
+        logger_name = self.name,
+        source_logger_name = self.name,      -- Initially the same as logger_name
+        filename = filename,
+        lineno = lineno,
+    }
+
+    -- Dispatch the log event using the injected function
+    ingest_dispatch_log_event(log_record)
+end
+
+--- Checks if a logger is enabled for a given level
+function M.logger_prototype:is_enabled_for(message_level_no)
+    if self.level == core_levels.definition.NONE then
+        return message_level_no == core_levels.definition.NONE
+    end
+    return message_level_no >= self.level
+end
+
+--- Gets all effective outputs for this logger (including parent outputs via propagation)
+function M.logger_prototype:get_effective_outputs()
+    local effective_outputs = {}
+    local current_logger = self
+
+    while current_logger do
+        for _, output_item in ipairs(current_logger.outputs or {}) do
+            table.insert(effective_outputs, {
+                output_func = output_item.output_func,
+                formatter_func = output_item.formatter_func,
+                output_config = output_item.output_config,
+                owner_logger_name = current_logger.name,
+                owner_logger_level = current_logger.level,
+            })
+        end
+
+        if not current_logger.propagate or not current_logger.parent then
+            break
+        end
+        current_logger = current_logger.parent
+    end
+    return effective_outputs
+end
+
+--- Sets the ingest dispatch function (dependency injection)
+-- @param dispatch_func function The ingest.dispatch_log_event function
+function M.set_ingest_dispatch(dispatch_func)
+    ingest_dispatch_log_event = dispatch_func
+end
+
+return M

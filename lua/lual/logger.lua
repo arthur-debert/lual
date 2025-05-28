@@ -11,7 +11,7 @@ No function bodies are implemented at this stage.
 local log = {}
 
 local core_levels = require("lual.core.levels")
-local engine = require("lual.core.engine")
+local engine = require("lual.core.logging")
 local all_outputs = require("lual.outputs.init")       -- Require the new outputs init
 local all_formatters = require("lual.formatters.init") -- Require the new formatters init
 

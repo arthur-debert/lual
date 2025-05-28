@@ -1,6 +1,6 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 local lualog = require("lual.logger")
-local engine = require("lual.core.engine")
+local engine = require("lual.core.logging")
 local spy = require("luassert.spy")
 local match = require("luassert.match")
 
@@ -8,9 +8,9 @@ describe("Declarative API", function()
     before_each(function()
         -- Reset the logger system for each test
         package.loaded["lual.logger"] = nil
-        package.loaded["lual.core.engine"] = nil
+        package.loaded["lual.core.logging"] = nil
         lualog = require("lual.logger")
-        engine = require("lual.core.engine")
+        engine = require("lual.core.logging")
 
         -- Reset the logger cache
         engine.reset_cache()

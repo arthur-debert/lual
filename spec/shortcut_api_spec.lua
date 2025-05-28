@@ -6,13 +6,13 @@ describe("Shortcut Declarative API", function()
     before_each(function()
         -- Reset the logger system for each test
         package.loaded["lual.logger"] = nil
-        package.loaded["lual.core.engine"] = nil
+        package.loaded["lual.core.logging"] = nil
         package.loaded["lual.config"] = nil
         lualog = require("lual.logger")
         config = require("lual.config")
 
         -- Reset the logger cache
-        local engine = require("lual.core.engine")
+        local engine = require("lual.core.logging")
         engine.reset_cache()
     end)
 

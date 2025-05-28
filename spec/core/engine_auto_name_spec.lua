@@ -1,7 +1,7 @@
 #!/usr/bin/env lua
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 
-local engine = require("lual.core.engine")
+local engine = require("lual.core.logging")
 local caller_info = require("lual.core.caller_info")
 local assert = require("luassert")
 

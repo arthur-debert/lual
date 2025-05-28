@@ -489,7 +489,7 @@ describe("lual.logger (Facade)", function()
 	before_each(function()
 		-- Ensure a clean state for lualog and its components for each facade test
 		package.loaded["lual.logger"] = nil
-		package.loaded["lual.core.engine"] = nil
+		package.loaded["lual.core.logging"] = nil
 		package.loaded["lual.core.levels"] = nil
 		package.loaded["lual.outputs.init"] = nil
 		package.loaded["lual.formatters.init"] = nil
