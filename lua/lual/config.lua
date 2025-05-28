@@ -86,6 +86,24 @@ end
 -- VALIDATION FUNCTIONS
 -- =============================================================================
 
+--- Validates output and formatter types
+-- @param output_type string The output type to validate
+-- @param formatter_type string The formatter type to validate
+-- @return boolean, string True if valid, or false with error message
+local function validate_output_formatter_types(output_type, formatter_type)
+    -- Validate known output types
+    if not VALID_OUTPUT_TYPES[output_type] then
+        return false, "Unknown output type: " .. output_type .. ". Valid types are: console, file"
+    end
+
+    -- Validate known formatter types
+    if not VALID_FORMATTER_TYPES[formatter_type] then
+        return false, "Unknown formatter type: " .. formatter_type .. ". Valid types are: color, json, text"
+    end
+
+    return true
+end
+
 --- Validates a level value (string or number)
 -- @param level The level to validate
 -- @return boolean, string True if valid, or false with error message
@@ -245,14 +263,10 @@ local function validate_shortcut_fields(config)
     if type(config.formatter) ~= "string" then
         return false, "Shortcut config 'formatter' field must be a string"
     end
-    -- Validate known output types
-    if not VALID_OUTPUT_TYPES[config.output] then
-        return false, "Unknown output type: " .. config.output .. ". Valid types are: console, file"
-    end
-
-    -- Validate known formatter types
-    if not VALID_FORMATTER_TYPES[config.formatter] then
-        return false, "Unknown formatter type: " .. config.formatter .. ". Valid types are: color, json, text"
+    -- Validate output and formatter types
+    local valid, err = validate_output_formatter_types(config.output, config.formatter)
+    if not valid then
+        return false, err
     end
 
     -- Validate file-specific requirements
@@ -385,14 +399,10 @@ local function validate_single_output(output, index)
     end
 
     -- Validate known output types
-    -- Validate known output types
-    if not VALID_OUTPUT_TYPES[output.type] then
-        return false, "Unknown output type: " .. output.type .. ". Valid types are: console, file"
-    end
-
-    -- Validate known formatter types
-    if not VALID_FORMATTER_TYPES[output.formatter] then
-        return false, "Unknown formatter type: " .. output.formatter .. ". Valid types are: color, json, text"
+    -- Validate output and formatter types
+    local valid, err = validate_output_formatter_types(output.type, output.formatter)
+    if not valid then
+        return false, err
     end
     -- Validate type-specific fields
     if output.type == "file" then
