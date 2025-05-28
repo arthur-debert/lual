@@ -27,7 +27,7 @@ local config = {
     name = "my.logger",
     level = "info",
     dispatchers = {
-        { type = "console", formatter = "text" }
+        { type = "console", presenter = "text" }
     }
 }
 

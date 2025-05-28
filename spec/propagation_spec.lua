@@ -7,7 +7,7 @@ local assert = require("luassert")
 
 describe("Logger Propagation", function()
     local mock_dispatcher_calls
-    local mock_formatter_calls
+    local mock_presenter_calls
 
     before_each(function()
         -- Reset the logger system for each test
@@ -16,9 +16,9 @@ describe("Logger Propagation", function()
         package.loaded["lual.ingest"] = nil
         lual = require("lual.logger")
 
-        -- Track dispatcher and formatter calls
+        -- Track dispatcher and presenter calls
         mock_dispatcher_calls = {}
-        mock_formatter_calls = {}
+        mock_presenter_calls = {}
 
         -- Clear any default dispatchers that might be set up
         local root_logger = lual.logger("root")
@@ -38,10 +38,10 @@ describe("Logger Propagation", function()
         end
     end
 
-    local function create_mock_formatter(name)
+    local function create_mock_presenter(name)
         return function(record)
-            table.insert(mock_formatter_calls, {
-                formatter_name = name,
+            table.insert(mock_presenter_calls, {
+                presenter_name = name,
                 logger_name = record.logger_name,               -- Owner of the dispatcher
                 source_logger_name = record.source_logger_name, -- Originator of the message
                 message_fmt = record.message_fmt,
@@ -58,8 +58,8 @@ describe("Logger Propagation", function()
             local db_logger = lual.logger("app.database")
 
             -- Add dispatchers to different levels
-            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_formatter("root_formatter"))
-            app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_formatter("app_formatter"))
+            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_presenter("root_presenter"))
+            app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_presenter("app_presenter"))
 
             -- Log from the deepest logger
             db_logger:info("Database connection established")
@@ -88,16 +88,16 @@ describe("Logger Propagation", function()
             assert.are.equal("app.database", root_call.source_logger_name) -- Originator of the message
             assert.are.equal("INFO", root_call.level_name)
 
-            -- Check formatters were called
-            assert.are.equal(2, #mock_formatter_calls)
+            -- Check presenters were called
+            assert.are.equal(2, #mock_presenter_calls)
         end)
 
         it("should include logger's own dispatchers when propagating", function()
             local app_logger = lual.logger("app")
             local db_logger = lual.logger("app.database")
 
-            app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_formatter("app_formatter"))
-            db_logger:add_dispatcher(create_mock_dispatcher("db_dispatcher"), create_mock_formatter("db_formatter"))
+            app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_presenter("app_presenter"))
+            db_logger:add_dispatcher(create_mock_dispatcher("db_dispatcher"), create_mock_presenter("db_presenter"))
 
             db_logger:warn("Connection timeout")
 
@@ -129,10 +129,10 @@ describe("Logger Propagation", function()
             local app_logger = lual.logger("app")
             local security_logger = lual.logger("app.security")
 
-            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_formatter("root_formatter"))
-            app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_formatter("app_formatter"))
+            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_presenter("root_presenter"))
+            app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_presenter("app_presenter"))
             security_logger:add_dispatcher(create_mock_dispatcher("security_dispatcher"),
-                create_mock_formatter("security_formatter"))
+                create_mock_presenter("security_presenter"))
 
             -- Disable propagation on security logger
             security_logger:set_propagate(false)
@@ -152,10 +152,10 @@ describe("Logger Propagation", function()
             local db_logger = lual.logger("app.database")
             local conn_logger = lual.logger("app.database.connection")
 
-            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_formatter("root_formatter"))
-            app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_formatter("app_formatter"))
-            db_logger:add_dispatcher(create_mock_dispatcher("db_dispatcher"), create_mock_formatter("db_formatter"))
-            conn_logger:add_dispatcher(create_mock_dispatcher("conn_dispatcher"), create_mock_formatter("conn_formatter"))
+            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_presenter("root_presenter"))
+            app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_presenter("app_presenter"))
+            db_logger:add_dispatcher(create_mock_dispatcher("db_dispatcher"), create_mock_presenter("db_presenter"))
+            conn_logger:add_dispatcher(create_mock_dispatcher("conn_dispatcher"), create_mock_presenter("conn_presenter"))
 
             -- Disable propagation at database level
             db_logger:set_propagate(false)
@@ -190,10 +190,10 @@ describe("Logger Propagation", function()
             app_logger:set_level(lual.levels.INFO)     -- Info and above
             debug_logger:set_level(lual.levels.DEBUG)  -- Everything
 
-            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_formatter("root_formatter"))
-            app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_formatter("app_formatter"))
+            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_presenter("root_presenter"))
+            app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_presenter("app_presenter"))
             debug_logger:add_dispatcher(create_mock_dispatcher("debug_dispatcher"),
-                create_mock_formatter("debug_formatter"))
+                create_mock_presenter("debug_presenter"))
 
             -- Log an INFO message from debug logger
             debug_logger:info("Debug session started")
@@ -217,8 +217,8 @@ describe("Logger Propagation", function()
             local app_logger = lual.logger("app")
             local db_logger = lual.logger("app.database")
 
-            app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_formatter("app_formatter"))
-            db_logger:add_dispatcher(create_mock_dispatcher("db_dispatcher"), create_mock_formatter("db_formatter"))
+            app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_presenter("app_presenter"))
+            db_logger:add_dispatcher(create_mock_dispatcher("db_dispatcher"), create_mock_presenter("db_presenter"))
 
             -- Set db_logger to only accept ERROR and above
             db_logger:set_level(lual.levels.ERROR)
@@ -228,7 +228,7 @@ describe("Logger Propagation", function()
 
             -- No dispatchers should be called since the message is filtered at the source
             assert.are.equal(0, #mock_dispatcher_calls)
-            assert.are.equal(0, #mock_formatter_calls)
+            assert.are.equal(0, #mock_presenter_calls)
         end)
     end)
 
@@ -247,7 +247,7 @@ describe("Logger Propagation", function()
             for i, logger in ipairs(loggers) do
                 logger:add_dispatcher(
                     create_mock_dispatcher("dispatcher_" .. i),
-                    create_mock_formatter("formatter_" .. i)
+                    create_mock_presenter("presenter_" .. i)
                 )
             end
 
@@ -273,11 +273,11 @@ describe("Logger Propagation", function()
             local db_logger = lual.logger("app.database")
 
             -- Add multiple dispatchers to app logger
-            app_logger:add_dispatcher(create_mock_dispatcher("app_console"), create_mock_formatter("app_console_fmt"))
-            app_logger:add_dispatcher(create_mock_dispatcher("app_file"), create_mock_formatter("app_file_fmt"))
+            app_logger:add_dispatcher(create_mock_dispatcher("app_console"), create_mock_presenter("app_console_fmt"))
+            app_logger:add_dispatcher(create_mock_dispatcher("app_file"), create_mock_presenter("app_file_fmt"))
 
             -- Add one dispatcher to db logger
-            db_logger:add_dispatcher(create_mock_dispatcher("db_debug"), create_mock_formatter("db_debug_fmt"))
+            db_logger:add_dispatcher(create_mock_dispatcher("db_debug"), create_mock_presenter("db_debug_fmt"))
 
             db_logger:error("Database error occurred")
 
@@ -304,7 +304,7 @@ describe("Logger Propagation", function()
             local db_logger = lual.logger("app.database")
 
             -- Only root has dispatchers
-            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_formatter("root_formatter"))
+            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_presenter("root_presenter"))
 
             -- app_logger and db_logger have no dispatchers
 
@@ -321,8 +321,8 @@ describe("Logger Propagation", function()
             local root_logger = lual.logger("root")
             local app_logger = lual.logger("app")
 
-            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_formatter("root_formatter"))
-            app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_formatter("app_formatter"))
+            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_presenter("root_presenter"))
+            app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_presenter("app_presenter"))
 
             -- Disable propagation on root (shouldn't matter since it has no parent)
             root_logger:set_propagate(false)
@@ -342,9 +342,9 @@ describe("Logger Propagation", function()
             local app_logger = lual.logger("app")
             local app_sub_logger = lual.logger("app.app") -- Confusing but valid
 
-            app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_formatter("app_formatter"))
+            app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_presenter("app_presenter"))
             app_sub_logger:add_dispatcher(create_mock_dispatcher("app_sub_dispatcher"),
-                create_mock_formatter("app_sub_formatter"))
+                create_mock_presenter("app_sub_presenter"))
 
             app_sub_logger:info("Confusing hierarchy test")
 

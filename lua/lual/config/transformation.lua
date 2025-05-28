@@ -35,7 +35,7 @@ function M.clone_config(config)
             for i, dispatcher in ipairs(v) do
                 cloned[k][i] = {
                     dispatcher_func = dispatcher.dispatcher_func,
-                    formatter_func = dispatcher.formatter_func,
+                    presenter_func = dispatcher.presenter_func,
                     dispatcher_config = dispatcher.dispatcher_config or {}
                 }
             end
@@ -73,7 +73,7 @@ function M.is_shortcut_config(config)
     if not config or type(config) ~= "table" then
         return false
     end
-    return config.dispatcher ~= nil or config.formatter ~= nil
+    return config.dispatcher ~= nil or config.presenter ~= nil
 end
 
 --- Transforms shortcut config to standard declarative config format
@@ -110,7 +110,7 @@ function M.shortcut_to_declarative_config(shortcut_config)
     -- Create the single dispatcher entry
     local dispatcher_entry = {
         type = validated_config.dispatcher,
-        formatter = validated_config.formatter
+        presenter = validated_config.presenter
     }
 
     -- Add type-specific fields
@@ -130,7 +130,7 @@ end
 -- @return table The canonical config
 function M.declarative_to_canonical_config(declarative_config)
     local all_dispatchers = require("lua.lual.dispatchers.init")
-    local all_formatters = require("lual.formatters.init")
+    local all_presenters = require("lual.presenters.init")
 
     local canonical = {
         name = declarative_config.name,
@@ -160,7 +160,7 @@ function M.declarative_to_canonical_config(declarative_config)
     if declarative_config.dispatchers then
         for _, dispatcher_config in ipairs(declarative_config.dispatchers) do
             local dispatcher_func
-            local formatter_func
+            local presenter_func
             local config = {}
 
             -- Get dispatcher function
@@ -175,38 +175,38 @@ function M.declarative_to_canonical_config(declarative_config)
                 config.path = dispatcher_config.path
                 -- Copy other file-specific config
                 for k, v in pairs(dispatcher_config) do
-                    if k ~= "type" and k ~= "formatter" and k ~= "path" then
+                    if k ~= "type" and k ~= "presenter" and k ~= "path" then
                         config[k] = v
                     end
                 end
                 dispatcher_func = file_factory(config)
             end
 
-            -- Get formatter function
-            if dispatcher_config.formatter == "text" then
-                local text_factory = all_formatters.text
-                formatter_func = text_factory()
-            elseif dispatcher_config.formatter == "color" then
-                local color_factory = all_formatters.color
+            -- Get presenter function
+            if dispatcher_config.presenter == "text" then
+                local text_factory = all_presenters.text
+                presenter_func = text_factory()
+            elseif dispatcher_config.presenter == "color" then
+                local color_factory = all_presenters.color
                 -- Extract color-specific config if present
-                local formatter_config = {}
+                local presenter_config = {}
                 if dispatcher_config.level_colors then
-                    formatter_config.level_colors = dispatcher_config.level_colors
+                    presenter_config.level_colors = dispatcher_config.level_colors
                 end
-                formatter_func = color_factory(formatter_config)
-            elseif dispatcher_config.formatter == "json" then
-                local json_factory = all_formatters.json
+                presenter_func = color_factory(presenter_config)
+            elseif dispatcher_config.presenter == "json" then
+                local json_factory = all_presenters.json
                 -- Extract json-specific config if present
-                local formatter_config = {}
+                local presenter_config = {}
                 if dispatcher_config.pretty ~= nil then
-                    formatter_config.pretty = dispatcher_config.pretty
+                    presenter_config.pretty = dispatcher_config.pretty
                 end
-                formatter_func = json_factory(formatter_config)
+                presenter_func = json_factory(presenter_config)
             end
 
             table.insert(canonical.dispatchers, {
                 dispatcher_func = dispatcher_func,
-                formatter_func = formatter_func,
+                presenter_func = presenter_func,
                 dispatcher_config = config
             })
         end

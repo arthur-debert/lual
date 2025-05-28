@@ -28,8 +28,8 @@ function M.generate_expected_error(schema_name, field_name, error_type, value)
     if error_type == "required" then
         if field_name == "type" then
             return "Each dispatcher must have a 'type' string field"
-        elseif field_name == "formatter" then
-            return "Each dispatcher must have a 'formatter' string field"
+        elseif field_name == "presenter" then
+            return "Each dispatcher must have a 'presenter' string field"
         else
             return string.format("%s is required", string.gsub(field_name, "^%l", string.upper))
         end
@@ -60,8 +60,8 @@ function M.generate_expected_error(schema_name, field_name, error_type, value)
             if field_name == "type" then
                 return string.format("Invalid dispatcher type: %s. Valid values are: %s",
                     tostring(value), table.concat(valid_values, ", "))
-            elseif field_name == "formatter" then
-                return string.format("Invalid formatter type: %s. Valid values are: %s",
+            elseif field_name == "presenter" then
+                return string.format("Invalid presenter type: %s. Valid values are: %s",
                     tostring(value), table.concat(valid_values, ", "))
             else
                 return string.format("Invalid %s: %s. Valid values are: %s",
@@ -130,12 +130,12 @@ M.dispatcherschema = {
         description = "The type of dispatcher (console or file)."
     },
 
-    formatter = {
+    presenter = {
         multiple = false,
         type = "string",
-        values = extract_valid_values(constants.VALID_FORMATTER_TYPES),
+        values = extract_valid_values(constants.VALID_PRESENTER_TYPES),
         required = true,
-        description = "The formatter type to use for this dispatcher."
+        description = "The presenter type to use for this dispatcher."
     },
 
     path = {
@@ -198,12 +198,12 @@ M.ShortcutSchema = {
         description = "The type of dispatcher (console or file)."
     },
 
-    formatter = {
+    presenter = {
         multiple = false,
         type = "string",
-        values = extract_valid_values(constants.VALID_FORMATTER_TYPES),
+        values = extract_valid_values(constants.VALID_PRESENTER_TYPES),
         required = true,
-        description = "The formatter type to use for this dispatcher."
+        description = "The presenter type to use for this dispatcher."
     },
 
     path = {

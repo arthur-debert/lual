@@ -109,7 +109,7 @@ The system automatically handles:
 - Case-insensitive enum matching ("INFO" matches "info")
 - Type coercion validation (level can be string or number)
 - Conditional requirements (path required when type="file")
-- Nested error reporting (dispatchers[1].formatter errors)
+- Nested error reporting (dispatchers[1].presenter errors)
 
 
 INTERNALS

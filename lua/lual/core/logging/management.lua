@@ -30,17 +30,17 @@ end
 --- Adds an dispatcher to a logger
 -- @param logger table The logger instance to update
 -- @param dispatcher_func function The dispatcher function
--- @param formatter_func function The formatter function
+-- @param presenter_func function The presenter function
 -- @param dispatcher_config table The dispatcher configuration
 -- @param create_logger_func function Function to create new logger instances
 -- @param update_cache_func function Function to update the logger cache
-function M.add_dispatcher(logger, dispatcher_func, formatter_func, dispatcher_config, create_logger_func,
+function M.add_dispatcher(logger, dispatcher_func, presenter_func, dispatcher_config, create_logger_func,
                           update_cache_func)
     -- Get current config, modify it, and recreate logger
     local current_config = M.get_config(logger)
     table.insert(current_config.dispatchers, {
         dispatcher_func = dispatcher_func,
-        formatter_func = formatter_func,
+        presenter_func = presenter_func,
         dispatcher_config = dispatcher_config or {},
     })
     local new_logger = create_logger_func(current_config)
@@ -101,8 +101,8 @@ function M.add_management_methods(logger_prototype, create_logger_func, update_c
         M.set_level(self, level, create_logger_func, update_cache_func)
     end
 
-    function logger_prototype:add_dispatcher(dispatcher_func, formatter_func, dispatcher_config)
-        M.add_dispatcher(self, dispatcher_func, formatter_func, dispatcher_config, create_logger_func, update_cache_func)
+    function logger_prototype:add_dispatcher(dispatcher_func, presenter_func, dispatcher_config)
+        M.add_dispatcher(self, dispatcher_func, presenter_func, dispatcher_config, create_logger_func, update_cache_func)
     end
 
     function logger_prototype:set_propagate(propagate)

@@ -360,21 +360,21 @@ describe("lualog Logger Object", function()
 			end)
 		end)
 
-		it("logger:add_dispatcher(dispatcher_func, formatter_func, dispatcher_config) should add dispatcher correctly",
+		it("logger:add_dispatcher(dispatcher_func, presenter_func, dispatcher_config) should add dispatcher correctly",
 			function()
 				local mock_dispatcher_fn = function() end
-				local mock_formatter_fn = function() end
+				local mock_presenter_fn = function() end
 				local mock_cfg = { type = "test" }
 
-				test_logger:add_dispatcher(mock_dispatcher_fn, mock_formatter_fn, mock_cfg)
+				test_logger:add_dispatcher(mock_dispatcher_fn, mock_presenter_fn, mock_cfg)
 				assert.are.same(1, #test_logger.dispatchers)
 				local entry = test_logger.dispatchers[1]
 				assert.are.same(mock_dispatcher_fn, entry.dispatcher_func)
-				assert.are.same(mock_formatter_fn, entry.formatter_func)
+				assert.are.same(mock_presenter_fn, entry.presenter_func)
 				assert.are.same(mock_cfg, entry.dispatcher_config)
 
 				-- Test with nil config
-				test_logger:add_dispatcher(mock_dispatcher_fn, mock_formatter_fn, nil)
+				test_logger:add_dispatcher(mock_dispatcher_fn, mock_presenter_fn, nil)
 				assert.are.same(2, #test_logger.dispatchers)
 				local entry_nil_config = test_logger.dispatchers[2]
 				assert.is_table(entry_nil_config.dispatcher_config) -- Should default to {}
@@ -493,7 +493,7 @@ describe("lual.logger (Facade)", function()
 		package.loaded["lual.core.logging"] = nil
 		package.loaded["lual.core.levels"] = nil
 		package.loaded["lual.dispatchers.init"] = nil
-		package.loaded["lual.formatters.init"] = nil
+		package.loaded["lual.presenters.init"] = nil
 		package.loaded["lual.ingest"] = nil
 
 		-- Re-require lualog to get a fresh instance with fresh dependencies
@@ -508,7 +508,7 @@ describe("lual.logger (Facade)", function()
 			if #root_logger.dispatchers == 1 then
 				local dispatcher_entry = root_logger.dispatchers[1]
 				assert.is_function(dispatcher_entry.dispatcher_func)
-				assert.is_function(dispatcher_entry.formatter_func)
+				assert.is_function(dispatcher_entry.presenter_func)
 			end
 		end)
 
@@ -579,7 +579,7 @@ describe("lual.logger (Facade)", function()
 				name = "config_test",
 				timezone = "UTC", -- Test case insensitive
 				dispatcher = "console",
-				formatter = "text"
+				presenter = "text"
 			})
 
 			local config = utc_logger:get_config()
@@ -594,7 +594,7 @@ describe("lual.logger (Facade)", function()
 				name = "utc_test",
 				timezone = "utc",
 				dispatcher = "console",
-				formatter = "text"
+				presenter = "text"
 			})
 			assert.are.equal("utc", utc_logger.timezone)
 
@@ -603,7 +603,7 @@ describe("lual.logger (Facade)", function()
 				name = "local_test",
 				timezone = "local",
 				dispatcher = "console",
-				formatter = "text"
+				presenter = "text"
 			})
 			assert.are.equal("local", local_logger.timezone)
 		end)
@@ -612,7 +612,7 @@ describe("lual.logger (Facade)", function()
 			local fresh_lualog = require("lual.logger")
 			local shortcut_logger = fresh_lualog.logger({
 				dispatcher = "console",
-				formatter = "text",
+				presenter = "text",
 				timezone = "utc"
 			})
 

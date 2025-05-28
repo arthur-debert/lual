@@ -48,8 +48,8 @@ describe("Declarative API", function()
                 level = "debug",
                 propagate = false,
                 dispatchers = {
-                    { type = "console", formatter = "text" },
-                    { type = "file",    path = "test.log", formatter = "color" }
+                    { type = "console", presenter = "text" },
+                    { type = "file",    path = "test.log", presenter = "color" }
                 }
             })
 
@@ -62,13 +62,13 @@ describe("Declarative API", function()
             -- Check first dispatcher (console)
             local console_dispatcher = logger.dispatchers[1]
             assert.is_function(console_dispatcher.dispatcher_func)
-            assert.is_true(is_callable(console_dispatcher.formatter_func))
+            assert.is_true(is_callable(console_dispatcher.presenter_func))
             assert.is_table(console_dispatcher.dispatcher_config)
 
             -- Check second dispatcher (file)
             local file_dispatcher = logger.dispatchers[2]
             assert.is_function(file_dispatcher.dispatcher_func)
-            assert.is_true(is_callable(file_dispatcher.formatter_func))
+            assert.is_true(is_callable(file_dispatcher.presenter_func))
             assert.is_table(file_dispatcher.dispatcher_config)
             assert.are.same("test.log", file_dispatcher.dispatcher_config.path)
         end)
@@ -148,14 +148,14 @@ describe("Declarative API", function()
             local logger = lualog.logger({
                 name = "test.console",
                 dispatchers = {
-                    { type = "console", formatter = "text" }
+                    { type = "console", presenter = "text" }
                 }
             })
 
             assert.are.same(1, #logger.dispatchers)
             local dispatcher = logger.dispatchers[1]
             assert.is_function(dispatcher.dispatcher_func)
-            assert.is_true(is_callable(dispatcher.formatter_func))
+            assert.is_true(is_callable(dispatcher.presenter_func))
             -- Default console config should be empty (uses io.stdout by default)
             assert.is_table(dispatcher.dispatcher_config)
         end)
@@ -164,7 +164,7 @@ describe("Declarative API", function()
             local logger = lualog.logger({
                 name = "test.console.stderr",
                 dispatchers = {
-                    { type = "console", formatter = "text", stream = io.stderr }
+                    { type = "console", presenter = "text", stream = io.stderr }
                 }
             })
 
@@ -177,14 +177,14 @@ describe("Declarative API", function()
             local logger = lualog.logger({
                 name = "test.file",
                 dispatchers = {
-                    { type = "file", path = "app.log", formatter = "color" }
+                    { type = "file", path = "app.log", presenter = "color" }
                 }
             })
 
             assert.are.same(1, #logger.dispatchers)
             local dispatcher = logger.dispatchers[1]
             assert.is_function(dispatcher.dispatcher_func)
-            assert.is_true(is_callable(dispatcher.formatter_func))
+            assert.is_true(is_callable(dispatcher.presenter_func))
             assert.are.same("app.log", dispatcher.dispatcher_config.path)
         end)
 
@@ -192,9 +192,9 @@ describe("Declarative API", function()
             local logger = lualog.logger({
                 name = "test.multiple",
                 dispatchers = {
-                    { type = "console", formatter = "color" },
-                    { type = "file",    path = "debug.log", formatter = "text" },
-                    { type = "console", formatter = "text", stream = io.stderr }
+                    { type = "console", presenter = "color" },
+                    { type = "file",    path = "debug.log", presenter = "text" },
+                    { type = "console", presenter = "text", stream = io.stderr }
                 }
             })
 
@@ -203,7 +203,7 @@ describe("Declarative API", function()
             -- Check that each dispatcher is properly configured
             for i, dispatcher in ipairs(logger.dispatchers) do
                 assert.is_function(dispatcher.dispatcher_func, "dispatcher " .. i .. " missing dispatcher_func")
-                assert.is_true(is_callable(dispatcher.formatter_func), "dispatcher " .. i .. " missing formatter_func")
+                assert.is_true(is_callable(dispatcher.presenter_func), "dispatcher " .. i .. " missing presenter_func")
                 assert.is_table(dispatcher.dispatcher_config, "dispatcher " .. i .. " missing dispatcher_config")
             end
 
@@ -213,23 +213,23 @@ describe("Declarative API", function()
             assert.are.same(io.stderr, logger.dispatchers[3].dispatcher_config.stream)
         end)
 
-        it("should configure JSON formatter correctly", function()
+        it("should configure JSON presenter correctly", function()
             local logger = lualog.logger({
                 name = "test.json",
                 dispatchers = {
-                    { type = "console", formatter = "json" },
-                    { type = "file",    path = "app.json", formatter = "json" }
+                    { type = "console", presenter = "json" },
+                    { type = "file",    path = "app.json", presenter = "json" }
                 }
             })
 
             assert.are.same(2, #logger.dispatchers)
 
-            -- Check that both dispatchers are properly configured with JSON formatter
+            -- Check that both dispatchers are properly configured with JSON presenter
             for i, dispatcher in ipairs(logger.dispatchers) do
                 assert.is_function(dispatcher.dispatcher_func, "dispatcher " .. i .. " missing dispatcher_func")
-                assert.is_true(is_callable(dispatcher.formatter_func), "dispatcher " .. i .. " missing formatter_func")
-                assert.are.same(lualog.lib.json, dispatcher.formatter_func,
-                    "dispatcher " .. i .. " should use JSON formatter")
+                assert.is_true(is_callable(dispatcher.presenter_func), "dispatcher " .. i .. " missing presenter_func")
+                assert.are.same(lualog.lib.json, dispatcher.presenter_func,
+                    "dispatcher " .. i .. " should use JSON presenter")
                 assert.is_table(dispatcher.dispatcher_config, "dispatcher " .. i .. " missing dispatcher_config")
             end
 
@@ -314,13 +314,13 @@ describe("Declarative API", function()
                 lualog.logger({
                     name = "test",
                     dispatchers = {
-                        { formatter = "text" }
+                        { presenter = "text" }
                     }
                 })
             end, "Invalid declarative config: Each dispatcher must have a 'type' string field")
         end)
 
-        it("should reject dispatchers without formatter field", function()
+        it("should reject dispatchers without presenter field", function()
             assert.has_error(function()
                 lualog.logger({
                     name = "test",
@@ -328,7 +328,7 @@ describe("Declarative API", function()
                         { type = "console" }
                     }
                 })
-            end, "Invalid declarative config: Each dispatcher must have a 'formatter' string field")
+            end, "Invalid declarative config: Each dispatcher must have a 'presenter' string field")
         end)
 
         it("should reject unknown dispatcher types", function()
@@ -338,20 +338,20 @@ describe("Declarative API", function()
                 lualog.logger({
                     name = "test",
                     dispatchers = {
-                        { type = "unknown", formatter = "text" }
+                        { type = "unknown", presenter = "text" }
                     }
                 })
             end, expected_error)
         end)
 
-        it("should reject unknown formatter types", function()
+        it("should reject unknown presenter types", function()
             local expected_error = "Invalid declarative config: " ..
-                constants.generate_expected_error_message("unknown", constants.VALID_FORMATTER_TYPES)
+                constants.generate_expected_error_message("unknown", constants.VALID_PRESENTER_TYPES)
             assert.has_error(function()
                 lualog.logger({
                     name = "test",
                     dispatchers = {
-                        { type = "console", formatter = "unknown" }
+                        { type = "console", presenter = "unknown" }
                     }
                 })
             end, expected_error)
@@ -362,7 +362,7 @@ describe("Declarative API", function()
                 lualog.logger({
                     name = "test",
                     dispatchers = {
-                        { type = "file", formatter = "text" }
+                        { type = "file", presenter = "text" }
                     }
                 })
             end, "Invalid declarative config: File dispatcher must have a 'path' string field")
@@ -373,7 +373,7 @@ describe("Declarative API", function()
                 lualog.logger({
                     name = "test",
                     dispatchers = {
-                        { type = "file", formatter = "text", path = 123 }
+                        { type = "file", presenter = "text", path = 123 }
                     }
                 })
             end, "Invalid declarative config: File dispatcher must have a 'path' string field")
@@ -384,7 +384,7 @@ describe("Declarative API", function()
                 lualog.logger({
                     name = "test",
                     dispatchers = {
-                        { type = "console", formatter = "text", stream = "stdout" }
+                        { type = "console", presenter = "text", stream = "stdout" }
                     }
                 })
             end, "Invalid declarative config: Console dispatcher 'stream' field must be a file handle")
@@ -397,7 +397,7 @@ describe("Declarative API", function()
                 name = "test.integration",
                 level = "debug",
                 dispatchers = {
-                    { type = "console", formatter = "text" }
+                    { type = "console", presenter = "text" }
                 }
             })
 
@@ -445,7 +445,7 @@ describe("Declarative API", function()
             local parent_logger = lualog.logger({
                 name = "test.parent",
                 dispatchers = {
-                    { type = "console", formatter = "text" }
+                    { type = "console", presenter = "text" }
                 }
             })
 

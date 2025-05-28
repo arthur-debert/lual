@@ -31,8 +31,8 @@ describe("Shortcut Declarative API", function()
 
     describe("Detection and validation", function()
         it("should detect shortcut config format", function()
-            local shortcut_config = { dispatcher = "console", formatter = "text" }
-            local standard_config = { dispatchers = { { type = "console", formatter = "text" } } }
+            local shortcut_config = { dispatcher = "console", presenter = "text" }
+            local standard_config = { dispatchers = { { type = "console", presenter = "text" } } }
 
             assert.is_true(config.is_shortcut_config(shortcut_config))
             assert.is_false(config.is_shortcut_config(standard_config))
@@ -43,8 +43,8 @@ describe("Shortcut Declarative API", function()
             assert.is_true(config.is_shortcut_config(config_table))
         end)
 
-        it("should detect shortcut config with only formatter field", function()
-            local config_table = { formatter = "text" }
+        it("should detect shortcut config with only presenter field", function()
+            local config_table = { presenter = "text" }
             assert.is_true(config.is_shortcut_config(config_table))
         end)
     end)
@@ -54,7 +54,7 @@ describe("Shortcut Declarative API", function()
             local logger = lualog.logger({
                 name = "test.shortcut.console",
                 dispatcher = "console",
-                formatter = "text",
+                presenter = "text",
                 level = "debug"
             })
 
@@ -65,7 +65,7 @@ describe("Shortcut Declarative API", function()
 
             local dispatcher = logger.dispatchers[1]
             assert.is_function(dispatcher.dispatcher_func)
-            assert.is_true(is_callable(dispatcher.formatter_func))
+            assert.is_true(is_callable(dispatcher.presenter_func))
             assert.is_table(dispatcher.dispatcher_config)
         end)
 
@@ -74,7 +74,7 @@ describe("Shortcut Declarative API", function()
                 name = "test.shortcut.file",
                 dispatcher = "file",
                 path = "test.log",
-                formatter = "color",
+                presenter = "color",
                 level = "info"
             })
 
@@ -85,14 +85,14 @@ describe("Shortcut Declarative API", function()
 
             local dispatcher = logger.dispatchers[1]
             assert.is_function(dispatcher.dispatcher_func)
-            assert.is_true(is_callable(dispatcher.formatter_func))
+            assert.is_true(is_callable(dispatcher.presenter_func))
             assert.are.same("test.log", dispatcher.dispatcher_config.path)
         end)
 
         it("should create a logger with minimal shortcut config", function()
             local logger = lualog.logger({
                 dispatcher = "console",
-                formatter = "text"
+                presenter = "text"
             })
 
             assert.is_not_nil(logger)
@@ -106,7 +106,7 @@ describe("Shortcut Declarative API", function()
             local logger = lualog.logger({
                 name = "test.shortcut.stderr",
                 dispatcher = "console",
-                formatter = "color",
+                presenter = "color",
                 stream = io.stderr
             })
 
@@ -120,33 +120,33 @@ describe("Shortcut Declarative API", function()
         it("should reject shortcut config without dispatcher field", function()
             assert.has_error(function()
                 lualog.logger({
-                    formatter = "text"
+                    presenter = "text"
                 })
             end, "Invalid shortcut config: Shortcut config must have an 'dispatcher' field")
         end)
 
-        it("should reject shortcut config without formatter field", function()
+        it("should reject shortcut config without presenter field", function()
             assert.has_error(function()
                 lualog.logger({
                     dispatcher = "console"
                 })
-            end, "Invalid shortcut config: Shortcut config must have a 'formatter' field")
+            end, "Invalid shortcut config: Shortcut config must have a 'presenter' field")
         end)
 
         it("should reject non-string dispatcher field", function()
             assert.has_error(function()
                 lualog.logger({
                     dispatcher = 123,
-                    formatter = "text"
+                    presenter = "text"
                 })
             end, "Invalid shortcut config: dispatcher type must be a string")
         end)
 
-        it("should reject non-string formatter field", function()
+        it("should reject non-string presenter field", function()
             assert.has_error(function()
                 lualog.logger({
                     dispatcher = "console",
-                    formatter = 456
+                    presenter = 456
                 })
             end, "Invalid shortcut config: Formatter type must be a string")
         end)
@@ -157,18 +157,18 @@ describe("Shortcut Declarative API", function()
             assert.has_error(function()
                 lualog.logger({
                     dispatcher = "unknown",
-                    formatter = "text"
+                    presenter = "text"
                 })
             end, expected_error)
         end)
 
-        it("should reject unknown formatter types", function()
+        it("should reject unknown presenter types", function()
             local expected_error = "Invalid shortcut config: " ..
-                constants.generate_expected_error_message("unknown", constants.VALID_FORMATTER_TYPES)
+                constants.generate_expected_error_message("unknown", constants.VALID_PRESENTER_TYPES)
             assert.has_error(function()
                 lualog.logger({
                     dispatcher = "console",
-                    formatter = "unknown"
+                    presenter = "unknown"
                 })
             end, expected_error)
         end)
@@ -177,7 +177,7 @@ describe("Shortcut Declarative API", function()
             assert.has_error(function()
                 lualog.logger({
                     dispatcher = "file",
-                    formatter = "text"
+                    presenter = "text"
                 })
             end, "Invalid shortcut config: File dispatcher must have a 'path' string field")
         end)
@@ -186,7 +186,7 @@ describe("Shortcut Declarative API", function()
             assert.has_error(function()
                 lualog.logger({
                     dispatcher = "file",
-                    formatter = "text",
+                    presenter = "text",
                     path = 123
                 })
             end, "Invalid shortcut config: File dispatcher must have a 'path' string field")
@@ -196,7 +196,7 @@ describe("Shortcut Declarative API", function()
             assert.has_error(function()
                 lualog.logger({
                     dispatcher = "console",
-                    formatter = "text",
+                    presenter = "text",
                     stream = "stdout"
                 })
             end, "Invalid shortcut config: Console dispatcher 'stream' field must be a file handle")
@@ -206,7 +206,7 @@ describe("Shortcut Declarative API", function()
             assert.has_error(function()
                 lualog.logger({
                     dispatcher = "console",
-                    formatter = "text",
+                    presenter = "text",
                     unknown_key = "value"
                 })
             end, "Invalid shortcut config: Unknown shortcut config key: unknown_key")
@@ -218,7 +218,7 @@ describe("Shortcut Declarative API", function()
             assert.has_error(function()
                     lualog.logger({
                         dispatcher = "console",
-                        formatter = "text",
+                        presenter = "text",
                         level = "invalid_level"
                     })
                 end,
@@ -229,7 +229,7 @@ describe("Shortcut Declarative API", function()
             assert.has_error(function()
                 lualog.logger({
                     dispatcher = "console",
-                    formatter = "text",
+                    presenter = "text",
                     name = 123
                 })
             end, "Invalid shortcut config: Config.name must be a string")
@@ -239,7 +239,7 @@ describe("Shortcut Declarative API", function()
             assert.has_error(function()
                 lualog.logger({
                     dispatcher = "console",
-                    formatter = "text",
+                    presenter = "text",
                     propagate = "yes"
                 })
             end, "Invalid shortcut config: Config.propagate must be a boolean")
@@ -251,7 +251,7 @@ describe("Shortcut Declarative API", function()
             local shortcut = {
                 name = "test",
                 dispatcher = "console",
-                formatter = "text",
+                presenter = "text",
                 level = "debug",
                 propagate = false
             }
@@ -263,7 +263,7 @@ describe("Shortcut Declarative API", function()
             assert.is_false(standard.propagate)
             assert.are.same(1, #standard.dispatchers)
             assert.are.same("console", standard.dispatchers[1].type)
-            assert.are.same("text", standard.dispatchers[1].formatter)
+            assert.are.same("text", standard.dispatchers[1].presenter)
         end)
 
         it("should transform file shortcut to standard declarative format", function()
@@ -271,7 +271,7 @@ describe("Shortcut Declarative API", function()
                 name = "test",
                 dispatcher = "file",
                 path = "app.log",
-                formatter = "color"
+                presenter = "color"
             }
 
             local standard = config.shortcut_to_declarative_config(shortcut)
@@ -279,14 +279,14 @@ describe("Shortcut Declarative API", function()
             assert.are.same("test", standard.name)
             assert.are.same(1, #standard.dispatchers)
             assert.are.same("file", standard.dispatchers[1].type)
-            assert.are.same("color", standard.dispatchers[1].formatter)
+            assert.are.same("color", standard.dispatchers[1].presenter)
             assert.are.same("app.log", standard.dispatchers[1].path)
         end)
 
         it("should transform console shortcut with stream to standard format", function()
             local shortcut = {
                 dispatcher = "console",
-                formatter = "color",
+                presenter = "color",
                 stream = io.stderr
             }
 
@@ -294,7 +294,7 @@ describe("Shortcut Declarative API", function()
 
             assert.are.same(1, #standard.dispatchers)
             assert.are.same("console", standard.dispatchers[1].type)
-            assert.are.same("color", standard.dispatchers[1].formatter)
+            assert.are.same("color", standard.dispatchers[1].presenter)
             assert.are.same(io.stderr, standard.dispatchers[1].stream)
         end)
     end)
@@ -304,7 +304,7 @@ describe("Shortcut Declarative API", function()
             local logger = lualog.logger({
                 name = "test.shortcut.integration",
                 dispatcher = "console",
-                formatter = "text",
+                presenter = "text",
                 level = "debug"
             })
 
@@ -321,7 +321,7 @@ describe("Shortcut Declarative API", function()
         it("should work with level checking", function()
             local logger = lualog.logger({
                 dispatcher = "console",
-                formatter = "text",
+                presenter = "text",
                 level = "warning"
             })
 
@@ -335,7 +335,7 @@ describe("Shortcut Declarative API", function()
         it("should work with imperative API methods", function()
             local logger = lualog.logger({
                 dispatcher = "console",
-                formatter = "text",
+                presenter = "text",
                 level = "info"
             })
 
@@ -354,7 +354,7 @@ describe("Shortcut Declarative API", function()
             local logger = lualog.logger({
                 name = "app.database.connection",
                 dispatcher = "console",
-                formatter = "text"
+                presenter = "text"
             })
 
             assert.is_not_nil(logger.parent)
@@ -369,13 +369,13 @@ describe("Shortcut Declarative API", function()
             local logger1 = lualog.logger({
                 name = "test.shortcut.cache",
                 dispatcher = "console",
-                formatter = "text"
+                presenter = "text"
             })
             local logger2 = lualog.logger({
                 name = "test.shortcut.cache",
                 dispatcher = "file",
                 path = "different.log",
-                formatter = "color"
+                presenter = "color"
             })
 
             -- Should return the same cached instance (first one wins)
@@ -406,7 +406,7 @@ describe("Shortcut Declarative API", function()
                 local logger = lualog.logger({
                     name = "test.shortcut.level." .. case.input,
                     dispatcher = "console",
-                    formatter = "text",
+                    presenter = "text",
                     level = case.input
                 })
                 assert.are.same(case.expected, logger.level, "Failed for level: " .. case.input)
@@ -417,7 +417,7 @@ describe("Shortcut Declarative API", function()
             local logger = lualog.logger({
                 name = "test.shortcut.numeric.level",
                 dispatcher = "console",
-                formatter = "text",
+                presenter = "text",
                 level = lualog.levels.WARNING
             })
             assert.are.same(lualog.levels.WARNING, logger.level)
@@ -426,11 +426,11 @@ describe("Shortcut Declarative API", function()
 
     describe("Examples from API proposal", function()
         it("should support the exact example from the API proposal", function()
-            -- Example from api.txt: {dispatcher = "console", level = "debug", formatter = "color"}
+            -- Example from api.txt: {dispatcher = "console", level = "debug", presenter = "color"}
             local logger = lualog.logger({
                 dispatcher = "console",
                 level = "debug",
-                formatter = "color"
+                presenter = "color"
             })
 
             assert.is_not_nil(logger)
@@ -440,7 +440,7 @@ describe("Shortcut Declarative API", function()
 
             local dispatcher = logger.dispatchers[1]
             assert.is_function(dispatcher.dispatcher_func)
-            assert.is_true(is_callable(dispatcher.formatter_func))
+            assert.is_true(is_callable(dispatcher.presenter_func))
         end)
 
         it("should work with named logger using shortcut syntax", function()
@@ -448,7 +448,7 @@ describe("Shortcut Declarative API", function()
                 name = "app.database",
                 dispatcher = "console",
                 level = "debug",
-                formatter = "color"
+                presenter = "color"
             })
 
             assert.are.same("app.database", logger.name)

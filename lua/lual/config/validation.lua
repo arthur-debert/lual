@@ -24,7 +24,7 @@ function M.validate_and_merge_config(user_config, default_config)
         -- Convert first error to old format (single error string)
         for field, error_msg in pairs(result._errors) do
             if type(error_msg) == "table" then
-                -- Handle nested errors (like dispatchers[1].formatter)
+                -- Handle nested errors (like dispatchers[1].presenter)
                 for sub_field, sub_error in pairs(error_msg) do
                     return nil, sub_error
                 end
@@ -38,17 +38,17 @@ function M.validate_and_merge_config(user_config, default_config)
     local validated_config = result.data
     if validated_config.dispatchers then
         local all_dispatchers = require("lual.dispatchers.init")
-        local all_formatters = require("lual.formatters.init")
+        local all_presenters = require("lual.presenters.init")
 
         for i, dispatcher in ipairs(validated_config.dispatchers) do
-            -- Convert string formatter to function if it's still a string
-            if type(dispatcher.formatter) == "string" then
-                if dispatcher.formatter == "text" then
-                    dispatcher.formatter_func = all_formatters.text
-                elseif dispatcher.formatter == "color" then
-                    dispatcher.formatter_func = all_formatters.color
-                elseif dispatcher.formatter == "json" then
-                    dispatcher.formatter_func = all_formatters.json
+            -- Convert string presenter to function if it's still a string
+            if type(dispatcher.presenter) == "string" then
+                if dispatcher.presenter == "text" then
+                    dispatcher.presenter_func = all_presenters.text
+                elseif dispatcher.presenter == "color" then
+                    dispatcher.presenter_func = all_presenters.color
+                elseif dispatcher.presenter == "json" then
+                    dispatcher.presenter_func = all_presenters.json
                 end
                 -- Keep the original string for reference but add the function
             end
@@ -62,7 +62,7 @@ function M.validate_and_merge_config(user_config, default_config)
                     local config = { path = dispatcher.path }
                     -- Copy other file-specific config
                     for k, v in pairs(dispatcher) do
-                        if k ~= "type" and k ~= "formatter" and k ~= "path" and k ~= "formatter_func" and k ~= "dispatcher_func" then
+                        if k ~= "type" and k ~= "presenter" and k ~= "path" and k ~= "presenter_func" and k ~= "dispatcher_func" then
                             config[k] = v
                         end
                     end
@@ -95,16 +95,16 @@ function M.validate_single_dispatcher(dispatcher)
     local validated_dispatcher = result.data
     if validated_dispatcher then
         local all_dispatchers = require("lual.dispatchers.init")
-        local all_formatters = require("lual.formatters.init")
+        local all_presenters = require("lual.presenters.init")
 
-        -- Convert string formatter to function if it's still a string
-        if type(validated_dispatcher.formatter) == "string" then
-            if validated_dispatcher.formatter == "text" then
-                validated_dispatcher.formatter_func = all_formatters.text
-            elseif validated_dispatcher.formatter == "color" then
-                validated_dispatcher.formatter_func = all_formatters.color
-            elseif validated_dispatcher.formatter == "json" then
-                validated_dispatcher.formatter_func = all_formatters.json
+        -- Convert string presenter to function if it's still a string
+        if type(validated_dispatcher.presenter) == "string" then
+            if validated_dispatcher.presenter == "text" then
+                validated_dispatcher.presenter_func = all_presenters.text
+            elseif validated_dispatcher.presenter == "color" then
+                validated_dispatcher.presenter_func = all_presenters.color
+            elseif validated_dispatcher.presenter == "json" then
+                validated_dispatcher.presenter_func = all_presenters.json
             end
         end
 
@@ -117,7 +117,7 @@ function M.validate_single_dispatcher(dispatcher)
                 local config = { path = validated_dispatcher.path }
                 -- Copy other file-specific config
                 for k, v in pairs(validated_dispatcher) do
-                    if k ~= "type" and k ~= "formatter" and k ~= "path" and k ~= "formatter_func" and k ~= "dispatcher_func" then
+                    if k ~= "type" and k ~= "presenter" and k ~= "path" and k ~= "presenter_func" and k ~= "dispatcher_func" then
                         config[k] = v
                     end
                 end
@@ -177,8 +177,8 @@ function M.validate_canonical_config(config)
             if not dispatcher.dispatcher_func or type(dispatcher.dispatcher_func) ~= "function" then
                 return false, "Each dispatcher must have an dispatcher_func function"
             end
-            if not dispatcher.formatter_func or (type(dispatcher.formatter_func) ~= "function" and not (type(dispatcher.formatter_func) == "table" and getmetatable(dispatcher.formatter_func) and getmetatable(dispatcher.formatter_func).__call)) then
-                return false, "Each dispatcher must have a formatter_func function"
+            if not dispatcher.presenter_func or (type(dispatcher.presenter_func) ~= "function" and not (type(dispatcher.presenter_func) == "table" and getmetatable(dispatcher.presenter_func) and getmetatable(dispatcher.presenter_func).__call)) then
+                return false, "Each dispatcher must have a presenter_func function"
             end
         end
     end

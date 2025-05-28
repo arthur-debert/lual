@@ -57,7 +57,7 @@ describe("Validation Functions", function()
         it("should accept valid console dispatcher", function()
             local result = config.process_config({
                 dispatchers = {
-                    { type = "console", formatter = "text" }
+                    { type = "console", presenter = "text" }
                 }
             })
             assert.is_not_nil(result)
@@ -66,7 +66,7 @@ describe("Validation Functions", function()
         it("should accept valid file dispatcher", function()
             local result = config.process_config({
                 dispatchers = {
-                    { type = "file", formatter = "color", path = "test.log" }
+                    { type = "file", presenter = "color", path = "test.log" }
                 }
             })
             assert.is_not_nil(result)
@@ -75,7 +75,7 @@ describe("Validation Functions", function()
         it("should accept console dispatcher with valid stream", function()
             local result = config.process_config({
                 dispatchers = {
-                    { type = "console", formatter = "text", stream = io.stderr }
+                    { type = "console", presenter = "text", stream = io.stderr }
                 }
             })
             assert.is_not_nil(result)
@@ -85,13 +85,13 @@ describe("Validation Functions", function()
             assert.has_error(function()
                 config.process_config({
                     dispatchers = {
-                        { formatter = "text" }
+                        { presenter = "text" }
                     }
                 })
             end)
         end)
 
-        it("should reject dispatcher without formatter", function()
+        it("should reject dispatcher without presenter", function()
             assert.has_error(function()
                 config.process_config({
                     dispatchers = {
@@ -105,7 +105,7 @@ describe("Validation Functions", function()
             assert.has_error(function()
                 config.process_config({
                     dispatchers = {
-                        { type = "file", formatter = "text" }
+                        { type = "file", presenter = "text" }
                     }
                 })
             end)
@@ -115,7 +115,7 @@ describe("Validation Functions", function()
             assert.has_error(function()
                 config.process_config({
                     dispatchers = {
-                        { type = "console", formatter = "text", stream = "invalid" }
+                        { type = "console", presenter = "text", stream = "invalid" }
                     }
                 })
             end)
@@ -136,8 +136,8 @@ describe("Validation Functions", function()
         it("should accept valid dispatchers array", function()
             local result = config.process_config({
                 dispatchers = {
-                    { type = "console", formatter = "text" },
-                    { type = "file",    formatter = "color", path = "test.log" }
+                    { type = "console", presenter = "text" },
+                    { type = "file",    presenter = "color", path = "test.log" }
                 }
             })
             assert.is_not_nil(result)
@@ -153,8 +153,8 @@ describe("Validation Functions", function()
             assert.has_error(function()
                 config.process_config({
                     dispatchers = {
-                        { type = "console", formatter = "text" },
-                        { type = "invalid", formatter = "text" }
+                        { type = "console", presenter = "text" },
+                        { type = "invalid", presenter = "text" }
                     }
                 })
             end)
@@ -268,14 +268,14 @@ describe("Validation Functions", function()
 
     describe("Shortcut API validation", function()
         it("should detect shortcut config", function()
-            assert.is_true(config.is_shortcut_config({ dispatcher = "console", formatter = "text" }))
+            assert.is_true(config.is_shortcut_config({ dispatcher = "console", presenter = "text" }))
             assert.is_false(config.is_shortcut_config({ dispatchers = {} }))
         end)
 
         it("should validate shortcut config", function()
             local result = config.process_config({
                 dispatcher = "console",
-                formatter = "text"
+                presenter = "text"
             })
             assert.is_not_nil(result)
         end)
@@ -284,7 +284,7 @@ describe("Validation Functions", function()
             assert.has_error(function()
                 config.process_config({
                     dispatcher = "console"
-                    -- missing formatter
+                    -- missing presenter
                 })
             end)
         end)
@@ -293,20 +293,20 @@ describe("Validation Functions", function()
             local shortcut = {
                 name = "test",
                 dispatcher = "console",
-                formatter = "text"
+                presenter = "text"
             }
             local declarative = config.shortcut_to_declarative_config(shortcut)
             assert.are.same("test", declarative.name)
             assert.are.same(1, #declarative.dispatchers)
             assert.are.same("console", declarative.dispatchers[1].type)
-            assert.are.same("text", declarative.dispatchers[1].formatter)
+            assert.are.same("text", declarative.dispatchers[1].presenter)
         end)
 
         it("should transform shortcut to declarative with timezone", function()
             local shortcut = {
                 name = "test",
                 dispatcher = "console",
-                formatter = "text",
+                presenter = "text",
                 timezone = "utc"
             }
             local declarative = config.shortcut_to_declarative_config(shortcut)
@@ -314,13 +314,13 @@ describe("Validation Functions", function()
             assert.are.same("utc", declarative.timezone)
             assert.are.same(1, #declarative.dispatchers)
             assert.are.same("console", declarative.dispatchers[1].type)
-            assert.are.same("text", declarative.dispatchers[1].formatter)
+            assert.are.same("text", declarative.dispatchers[1].presenter)
         end)
 
         it("should validate shortcut config with timezone", function()
             local result = config.process_config({
                 dispatcher = "console",
-                formatter = "text",
+                presenter = "text",
                 timezone = "utc"
             })
             assert.is_not_nil(result)

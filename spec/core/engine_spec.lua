@@ -181,20 +181,20 @@ describe("lual.core.logging", function()
 		test_log_method("error", C_LEVELS_DEF.ERROR, "ERROR", C_LEVELS_DEF)
 		test_log_method("critical", C_LEVELS_DEF.CRITICAL, "CRITICAL", C_LEVELS_DEF)
 
-		it("logger:add_dispatcher(dispatcher_func, formatter_func, dispatcher_config) should add dispatcher correctly",
+		it("logger:add_dispatcher(dispatcher_func, presenter_func, dispatcher_config) should add dispatcher correctly",
 			function()
 				local mock_dispatcher_fn = function() end
-				local mock_formatter_fn = function() end
+				local mock_presenter_fn = function() end
 				local mock_cfg = { type = "test" }
 
-				test_logger:add_dispatcher(mock_dispatcher_fn, mock_formatter_fn, mock_cfg)
+				test_logger:add_dispatcher(mock_dispatcher_fn, mock_presenter_fn, mock_cfg)
 				assert.are.same(1, #test_logger.dispatchers)
 				local entry = test_logger.dispatchers[1]
 				assert.are.same(mock_dispatcher_fn, entry.dispatcher_func)
-				assert.are.same(mock_formatter_fn, entry.formatter_func)
+				assert.are.same(mock_presenter_fn, entry.presenter_func)
 				assert.are.same(mock_cfg, entry.dispatcher_config)
 
-				test_logger:add_dispatcher(mock_dispatcher_fn, mock_formatter_fn, nil)
+				test_logger:add_dispatcher(mock_dispatcher_fn, mock_presenter_fn, nil)
 				assert.are.same(2, #test_logger.dispatchers)
 				local entry_nil_config = test_logger.dispatchers[2]
 				assert.is_table(entry_nil_config.dispatcher_config)

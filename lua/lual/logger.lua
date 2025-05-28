@@ -13,25 +13,25 @@ local log = {}
 local core_levels = require("lual.core.levels")
 local engine = require("lual.core.logging")
 local all_dispatchers = require("lual.dispatchers.init") -- Require the new dispatchers init
-local all_formatters = require("lual.formatters.init")   -- Require the new formatters init
+local all_presenters = require("lual.presenters.init")   -- Require the new presenters init
 
 log.levels = core_levels.definition
 log.logger = engine.logger        -- Primary API for creating loggers
 log.logger = engine.logger        -- Backward compatibility alias
 log.dispatchers = all_dispatchers -- Assign the dispatchers table
-log.formatters = all_formatters   -- Assign the formatters table
+log.presenters = all_presenters   -- Assign the presenters table
 
--- Add convenient shortcuts for dispatchers and formatters
+-- Add convenient shortcuts for dispatchers and presenters
 log.lib = {
   -- dispatcher shortcuts
   console = all_dispatchers.console_dispatcher,
   file = all_dispatchers.file_dispatcher,
   syslog = all_dispatchers.syslog_dispatcher,
 
-  -- Formatter shortcuts (call factories with default config for backward compatibility)
-  text = all_formatters.text(),
-  color = all_formatters.color(),
-  json = all_formatters.json()
+  -- PRESENTER shortcuts (call factories with default config for backward compatibility)
+  text = all_presenters.text(),
+  color = all_presenters.color(),
+  json = all_presenters.json()
 }
 
 -- Add LEVELS mapping for external validation and use
@@ -75,10 +75,10 @@ end
 -- All function log.dispatchers.console_dispatcher(...) etc. are removed.
 
 -- =============================================================================
--- 5. Formatter Definitions (Function Signatures) - REMOVED
+-- 5. PRESENTER Definitions (Function Signatures) - REMOVED
 -- =============================================================================
--- log.formatters = {} -- This line is removed
--- All function log.formatters.text(...) etc. are removed.
+-- log.presenters = {} -- This line is removed
+-- All function log.presenters.text(...) etc. are removed.
 
 -- =============================================================================
 -- Initialization (Example: Set up a default root logger)
@@ -90,10 +90,10 @@ function log.init_default_config()
     if root_logger.set_level then
       root_logger:set_level(log.levels.INFO)
     end
-    if root_logger.add_dispatcher and log.dispatchers and log.dispatchers.console_dispatcher and log.formatters and log.formatters.text then
+    if root_logger.add_dispatcher and log.dispatchers and log.dispatchers.console_dispatcher and log.presenters and log.presenters.text then
       root_logger:add_dispatcher(
         log.dispatchers.console_dispatcher,
-        log.formatters.text,
+        log.presenters.text,
         { stream = io.stdout }
       )
     end

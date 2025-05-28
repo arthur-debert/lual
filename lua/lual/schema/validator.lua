@@ -24,8 +24,8 @@ local function generate_error_message(field_name, value, field_schema)
                 return "Level must be a string or number"
             elseif field_name == "dispatcher" then -- For shortcut API
                 return "dispatcher type must be a string"
-            elseif field_name == "formatter" then
-                return "Formatter type must be a string"
+            elseif field_name == "presenter" then
+                return "PRESENTER type must be a string"
             end
         end
 
@@ -36,8 +36,8 @@ local function generate_error_message(field_name, value, field_schema)
         elseif field_name == "dispatcher" then -- For shortcut API
             return string.format("Invalid dispatcher type: %s. Valid values are: %s",
                 tostring(value), table.concat(valid_values, ", "))
-        elseif field_name == "formatter" then
-            return string.format("Invalid formatter type: %s. Valid values are: %s",
+        elseif field_name == "presenter" then
+            return string.format("Invalid presenter type: %s. Valid values are: %s",
                 tostring(value), table.concat(valid_values, ", "))
         else
             return string.format("Invalid %s: %s. Valid values are: %s",
@@ -84,11 +84,11 @@ local function validate_field(field_name, value, field_schema, data, is_shortcut
                 return false, "Each dispatcher must have a 'type' string field"
             elseif field_name == "dispatcher" then -- For shortcut API
                 return false, "Shortcut config must have an 'dispatcher' field"
-            elseif field_name == "formatter" then
+            elseif field_name == "presenter" then
                 if is_shortcut then
-                    return false, "Shortcut config must have a 'formatter' field"
+                    return false, "Shortcut config must have a 'presenter' field"
                 else
-                    return false, "Each dispatcher must have a 'formatter' string field"
+                    return false, "Each dispatcher must have a 'presenter' string field"
                 end
             else
                 return false, string.format("%s is required", string.gsub(field_name, "^%l", string.upper))

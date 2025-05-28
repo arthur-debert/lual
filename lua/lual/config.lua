@@ -35,7 +35,7 @@ local function clone_config(config)
             for i, dispatcher in ipairs(v) do
                 cloned[k][i] = {
                     dispatcher_func = dispatcher.dispatcher_func,
-                    formatter_func = dispatcher.formatter_func,
+                    presenter_func = dispatcher.presenter_func,
                     dispatcher_config = dispatcher.dispatcher_config or {}
                 }
             end
@@ -147,8 +147,8 @@ local function validate_canonical_config(config)
             if not dispatcher.dispatcher_func or type(dispatcher.dispatcher_func) ~= "function" then
                 return false, "Each dispatcher must have an dispatcher_func function"
             end
-            if not dispatcher.formatter_func or (type(dispatcher.formatter_func) ~= "function" and not (type(dispatcher.formatter_func) == "table" and getmetatable(dispatcher.formatter_func) and getmetatable(dispatcher.formatter_func).__call)) then
-                return false, "Each dispatcher must have a formatter_func function"
+            if not dispatcher.presenter_func or (type(dispatcher.presenter_func) ~= "function" and not (type(dispatcher.presenter_func) == "table" and getmetatable(dispatcher.presenter_func) and getmetatable(dispatcher.presenter_func).__call)) then
+                return false, "Each dispatcher must have a presenter_func function"
             end
         end
     end
@@ -185,7 +185,7 @@ end
 -- @param config table The config to check
 -- @return boolean True if it's a shortcut format
 local function is_shortcut_config(config)
-    return config.dispatcher ~= nil or config.formatter ~= nil
+    return config.dispatcher ~= nil or config.presenter ~= nil
 end
 
 --- Validates shortcut config fields
@@ -197,8 +197,8 @@ local function validate_shortcut_fields(config)
         return false, "Shortcut config must have an 'dispatcher' field"
     end
 
-    if not config.formatter then
-        return false, "Shortcut config must have a 'formatter' field"
+    if not config.presenter then
+        return false, "Shortcut config must have a 'presenter' field"
     end
 
     -- Validate dispatcher type
@@ -208,8 +208,8 @@ local function validate_shortcut_fields(config)
         return false, err
     end
 
-    -- Validate formatter type
-    valid, err = constants.validate_against_constants(config.formatter, constants.VALID_FORMATTER_TYPES, false, "string")
+    -- Validate presenter type
+    valid, err = constants.validate_against_constants(config.presenter, constants.VALID_PRESENTER_TYPES, false, "string")
     if not valid then
         return false, err
     end
@@ -239,7 +239,7 @@ local function validate_shortcut_known_keys(config)
         name = true,
         level = true,
         dispatcher = true,
-        formatter = true,
+        presenter = true,
         propagate = true,
         timezone = true,
         -- File-specific fields
@@ -307,7 +307,7 @@ local function shortcut_to_declarative_config(shortcut_config)
     -- Create the single dispatcher entry
     local dispatcher_entry = {
         type = shortcut_config.dispatcher,
-        formatter = shortcut_config.formatter
+        presenter = shortcut_config.presenter
     }
 
     -- Add type-specific fields
@@ -339,8 +339,8 @@ local function validate_single_dispatcher(dispatcher, index)
         return false, "Each dispatcher must have a 'type' string field"
     end
 
-    if not dispatcher.formatter or type(dispatcher.formatter) ~= "string" then
-        return false, "Each dispatcher must have a 'formatter' string field"
+    if not dispatcher.presenter or type(dispatcher.presenter) ~= "string" then
+        return false, "Each dispatcher must have a 'presenter' string field"
     end
 
     -- Validate known dispatcher types
@@ -350,8 +350,8 @@ local function validate_single_dispatcher(dispatcher, index)
         return false, err
     end
 
-    -- Validate known formatter types
-    valid, err = constants.validate_against_constants(dispatcher.formatter, constants.VALID_FORMATTER_TYPES, false,
+    -- Validate known presenter types
+    valid, err = constants.validate_against_constants(dispatcher.presenter, constants.VALID_PRESENTER_TYPES, false,
         "string")
     if not valid then
         return false, err
@@ -458,7 +458,7 @@ end
 -- @return table The canonical config
 local function declarative_to_canonical_config(declarative_config)
     local all_dispatchers = require("lual.dispatchers.init")
-    local all_formatters = require("lual.formatters.init")
+    local all_presenters = require("lual.presenters.init")
 
     local canonical = {
         name = declarative_config.name,
@@ -488,7 +488,7 @@ local function declarative_to_canonical_config(declarative_config)
     if declarative_config.dispatchers then
         for _, dispatcher_config in ipairs(declarative_config.dispatchers) do
             local dispatcher_func
-            local formatter_func
+            local presenter_func
             local config = {}
 
             -- Get dispatcher function
@@ -503,25 +503,25 @@ local function declarative_to_canonical_config(declarative_config)
                 config.path = dispatcher_config.path
                 -- Copy other file-specific config
                 for k, v in pairs(dispatcher_config) do
-                    if k ~= "type" and k ~= "formatter" and k ~= "path" then
+                    if k ~= "type" and k ~= "presenter" and k ~= "path" then
                         config[k] = v
                     end
                 end
                 dispatcher_func = file_factory(config)
             end
 
-            -- Get formatter function
-            if dispatcher_config.formatter == "text" then
-                formatter_func = all_formatters.text
-            elseif dispatcher_config.formatter == "color" then
-                formatter_func = all_formatters.color
-            elseif dispatcher_config.formatter == "json" then
-                formatter_func = all_formatters.json
+            -- Get presenter function
+            if dispatcher_config.presenter == "text" then
+                presenter_func = all_presenters.text
+            elseif dispatcher_config.presenter == "color" then
+                presenter_func = all_presenters.color
+            elseif dispatcher_config.presenter == "json" then
+                presenter_func = all_presenters.json
             end
 
             table.insert(canonical.dispatchers, {
                 dispatcher_func = dispatcher_func,
-                formatter_func = formatter_func,
+                presenter_func = presenter_func,
                 dispatcher_config = config
             })
         end

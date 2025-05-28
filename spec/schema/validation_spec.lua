@@ -11,8 +11,8 @@ describe("Schema Validation", function()
                 propagate = true,
                 timezone = "utc",
                 dispatchers = {
-                    { type = "console", formatter = "text" },
-                    { type = "file",    formatter = "json", path = "test.log" }
+                    { type = "console", presenter = "text" },
+                    { type = "file",    presenter = "json", path = "test.log" }
                 }
             }
 
@@ -86,20 +86,20 @@ describe("Schema Validation", function()
         it("should validate a valid console dispatcher", function()
             local dispatcher = {
                 type = "console",
-                formatter = "text"
+                presenter = "text"
             }
 
             local result = schema.validate_dispatcher(dispatcher)
 
             assert.is_true(next(result._errors) == nil, "Should have no errors")
             assert.are.same(dispatcher.type, result.data.type)
-            assert.are.same(dispatcher.formatter, result.data.formatter)
+            assert.are.same(dispatcher.presenter, result.data.presenter)
         end)
 
         it("should validate a valid file dispatcher", function()
             local dispatcher = {
                 type = "file",
-                formatter = "json",
+                presenter = "json",
                 path = "test.log"
             }
 
@@ -111,7 +111,7 @@ describe("Schema Validation", function()
 
         it("should require type field", function()
             local dispatcher = {
-                formatter = "text"
+                presenter = "text"
             }
 
             local result = schema.validate_dispatcher(dispatcher)
@@ -121,22 +121,22 @@ describe("Schema Validation", function()
             assert.are.equal(expected_error, result._errors.type)
         end)
 
-        it("should require formatter field", function()
+        it("should require presenter field", function()
             local dispatcher = {
                 type = "console"
             }
 
             local result = schema.validate_dispatcher(dispatcher)
 
-            assert.is_not_nil(result._errors.formatter)
-            local expected_error = config_schema.generate_expected_error("dispatcherschema", "formatter", "required")
-            assert.are.equal(expected_error, result._errors.formatter)
+            assert.is_not_nil(result._errors.presenter)
+            local expected_error = config_schema.generate_expected_error("dispatcherschema", "presenter", "required")
+            assert.are.equal(expected_error, result._errors.presenter)
         end)
 
         it("should require path for file dispatchers", function()
             local dispatcher = {
                 type = "file",
-                formatter = "text"
+                presenter = "text"
             }
 
             local result = schema.validate_dispatcher(dispatcher)
@@ -149,7 +149,7 @@ describe("Schema Validation", function()
         it("should reject invalid dispatcher type", function()
             local dispatcher = {
                 type = "invalid",
-                formatter = "text"
+                presenter = "text"
             }
 
             local result = schema.validate_dispatcher(dispatcher)
@@ -160,18 +160,18 @@ describe("Schema Validation", function()
             assert.are.equal(expected_error, result._errors.type)
         end)
 
-        it("should reject invalid formatter type", function()
+        it("should reject invalid presenter type", function()
             local dispatcher = {
                 type = "console",
-                formatter = "invalid"
+                presenter = "invalid"
             }
 
             local result = schema.validate_dispatcher(dispatcher)
 
-            assert.is_not_nil(result._errors.formatter)
-            local expected_error = config_schema.generate_expected_error("dispatcherschema", "formatter", "invalid_value",
+            assert.is_not_nil(result._errors.presenter)
+            local expected_error = config_schema.generate_expected_error("dispatcherschema", "presenter", "invalid_value",
                 "invalid")
-            assert.are.equal(expected_error, result._errors.formatter)
+            assert.are.equal(expected_error, result._errors.presenter)
         end)
     end)
 
@@ -179,8 +179,8 @@ describe("Schema Validation", function()
         it("should validate nested dispatchers array", function()
             local config = {
                 dispatchers = {
-                    { type = "console", formatter = "text" },
-                    { type = "file",    formatter = "json", path = "test.log" }
+                    { type = "console", presenter = "text" },
+                    { type = "file",    presenter = "json", path = "test.log" }
                 }
             }
 
@@ -193,8 +193,8 @@ describe("Schema Validation", function()
         it("should report errors in nested dispatchers", function()
             local config = {
                 dispatchers = {
-                    { type = "console", formatter = "text" },
-                    { type = "invalid", formatter = "text" }
+                    { type = "console", presenter = "text" },
+                    { type = "invalid", presenter = "text" }
                 }
             }
 

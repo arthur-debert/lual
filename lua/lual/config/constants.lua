@@ -10,8 +10,8 @@ M.VALID_dispatcher_TYPES = {
     file = true
 }
 
--- Valid formatter types
-M.VALID_FORMATTER_TYPES = {
+-- Valid presenter types
+M.VALID_PRESENTER_TYPES = {
     _meta = { name = "Formatter type", case_sensitive = false },
     text = true,
     color = true,
@@ -41,7 +41,7 @@ M.VALID_SHORTCUT_KEYS = {
     name = true,
     level = true,
     dispatcher = true,
-    formatter = true,
+    presenter = true,
     propagate = true,
     timezone = true,
     -- File-specific fields

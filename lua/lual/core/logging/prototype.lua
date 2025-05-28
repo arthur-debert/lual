@@ -122,7 +122,7 @@ function M.logger_prototype:get_effective_dispatchers()
         for _, dispatcher_item in ipairs(current_logger.dispatchers or {}) do
             table.insert(effective_dispatchers, {
                 dispatcher_func = dispatcher_item.dispatcher_func,
-                formatter_func = dispatcher_item.formatter_func,
+                presenter_func = dispatcher_item.presenter_func,
                 dispatcher_config = dispatcher_item.dispatcher_config,
                 owner_logger_name = current_logger.name,
                 owner_logger_level = current_logger.level,

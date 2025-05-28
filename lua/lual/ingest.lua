@@ -3,36 +3,36 @@ local ingest = {}
 -- Compatibility for Lua 5.2+ which moved unpack to table.unpack
 local unpack = unpack or table.unpack -- Ensure unpack is available
 
---- Safely calls the formatter function.
--- @param formatter_func The formatter function.
--- @param base_record_for_formatter The record for the formatter.
+--- Safely calls the presenter function.
+-- @param presenter_func The presenter function.
+-- @param base_record_for_presenter The record for the presenter.
 -- @return string The formatted message or a fallback error message.
-local function call_formatter(formatter_func, base_record_for_formatter)
-    local ok, result = pcall(formatter_func, base_record_for_formatter)
+local function call_presenter(presenter_func, base_record_for_presenter)
+    local ok, result = pcall(presenter_func, base_record_for_presenter)
     if not ok then
         io.stderr:write(string.format(
-            "Logging system error: Formatter for logger '%s' failed: %s\n",
-            tostring(base_record_for_formatter.logger_name), tostring(result) -- Added tostring for safety
+            "Logging system error: PRESENTER for logger '%s' failed: %s\n",
+            tostring(base_record_for_presenter.logger_name), tostring(result) -- Added tostring for safety
         ))
         -- Create a detailed fallback message
         local raw_msg_fallback
         xpcall(
             function()
-                raw_msg_fallback = string.format(base_record_for_formatter.message_fmt,
-                    unpack(base_record_for_formatter.args or {}))
+                raw_msg_fallback = string.format(base_record_for_presenter.message_fmt,
+                    unpack(base_record_for_presenter.args or {}))
             end,
             function(err)
-                raw_msg_fallback = base_record_for_formatter.message_fmt ..
+                raw_msg_fallback = base_record_for_presenter.message_fmt ..
                     " (formatting args failed: " .. tostring(err) .. ")"
             end)
 
         return string.format(
-            "%s %s [%s] %s:%s - %s (FORMATTER ERROR: %s)",                                   -- Changed %d to %s for lineno
-            os.date("!%Y-%m-%d %H:%M:%S", base_record_for_formatter.timestamp or os.time()), -- UTC timestamp, fallback for timestamp
-            base_record_for_formatter.level_name or "UNKNOWN_LVL",
-            base_record_for_formatter.logger_name or "UNKNOWN_LGR",
-            base_record_for_formatter.filename or "unknown_file",
-            tostring(base_record_for_formatter.lineno or 0), -- tostring for lineno
+            "%s %s [%s] %s:%s - %s (PRESENTER ERROR: %s)",                                   -- Changed %d to %s for lineno
+            os.date("!%Y-%m-%d %H:%M:%S", base_record_for_presenter.timestamp or os.time()), -- UTC timestamp, fallback for timestamp
+            base_record_for_presenter.level_name or "UNKNOWN_LVL",
+            base_record_for_presenter.logger_name or "UNKNOWN_LGR",
+            base_record_for_presenter.filename or "unknown_file",
+            tostring(base_record_for_presenter.lineno or 0), -- tostring for lineno
             raw_msg_fallback,
             tostring(result)
         )
@@ -86,14 +86,14 @@ function ingest.dispatch_log_event(log_record, logger_func, _log_levels) -- Rena
     -- The source_logger:get_effective_dispatchers() method is responsible for collecting
     -- all relevant dispatchers according to propagation rules and individual logger levels.
     -- It should return a list of dispatcher entries, where each entry includes
-    -- the dispatcher_func, formatter_func, dispatcher_config, owner_logger_name, and owner_logger_level.
+    -- the dispatcher_func, presenter_func, dispatcher_config, owner_logger_name, and owner_logger_level.
     local effective_dispatchers = source_logger:get_effective_dispatchers()
 
     for _, dispatcher_entry in ipairs(effective_dispatchers) do
         --[[ Expected dispatcher_entry structure from get_effective_dispatchers:
         {
           dispatcher_func = h.dispatcher_func,
-          formatter_func = h.formatter_func,
+          presenter_func = h.presenter_func,
           dispatcher_config = h.dispatcher_config,
           owner_logger_name = logger_that_owns_this_dispatcher.name,
           owner_logger_level = logger_that_owns_this_dispatcher.level
@@ -102,20 +102,20 @@ function ingest.dispatch_log_event(log_record, logger_func, _log_levels) -- Rena
 
         -- Process only if the log record's level is sufficient for THIS dispatcher's owning logger's level.
         if log_record.level_no >= dispatcher_entry.owner_logger_level then
-            -- Construct base record for the formatter, specific to this dispatcher's owning logger context
-            local base_record_for_formatter = {
+            -- Construct base record for the presenter, specific to this dispatcher's owning logger context
+            local base_record_for_presenter = {
                 level_name         = log_record.level_name,
                 level_no           = log_record.level_no,
                 logger_name        = dispatcher_entry.owner_logger_name, -- Use the dispatcher's owner logger name
                 message_fmt        = log_record.message_fmt,
                 args               = log_record.args,                    -- args are already packed by logger:log
-                context            = log_record.context,                 -- Pass context to formatter
+                context            = log_record.context,                 -- Pass context to presenter
                 timestamp          = log_record.timestamp,
                 filename           = log_record.filename,
                 lineno             = log_record.lineno,
                 source_logger_name = log_record.source_logger_name -- Original emitter
             }
-            local formatted_message = call_formatter(dispatcher_entry.formatter_func, base_record_for_formatter)
+            local formatted_message = call_presenter(dispatcher_entry.presenter_func, base_record_for_presenter)
 
             -- Construct record for the dispatcher itself
             local record_for_dispatcher = {

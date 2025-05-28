@@ -1,19 +1,19 @@
 local dkjson = require("dkjson")
 local time_utils = require("lual.utils.time")
 
---- Factory that creates a JSON formatter function
--- @param config (table, optional) Configuration for the JSON formatter
--- @return function The formatter function with schema attached
-local function json_formatter_factory(config)
+--- Factory that creates a JSON presenter function
+-- @param config (table, optional) Configuration for the JSON presenter
+-- @return function The presenter function with schema attached
+local function json_presenter_factory(config)
     config = config or {}
 
     -- Validate pretty option if provided
     if config.pretty ~= nil and type(config.pretty) ~= "boolean" then
-        error("JSON formatter 'pretty' option must be a boolean")
+        error("JSON presenter 'pretty' option must be a boolean")
     end
 
-    -- Create the actual formatter function
-    local function formatter_func(record)
+    -- Create the actual presenter function
+    local function presenter_func(record)
         -- Prepare the JSON object
         local json_record = {
             timestamp = record.timestamp,
@@ -77,7 +77,7 @@ local function json_formatter_factory(config)
     end
 
     -- Create a callable table with schema
-    local formatter_with_schema = {
+    local presenter_with_schema = {
         schema = {
             pretty = {
                 type = "boolean",
@@ -88,13 +88,13 @@ local function json_formatter_factory(config)
     }
 
     -- Make it callable
-    setmetatable(formatter_with_schema, {
+    setmetatable(presenter_with_schema, {
         __call = function(_, record)
-            return formatter_func(record)
+            return presenter_func(record)
         end
     })
 
-    return formatter_with_schema
+    return presenter_with_schema
 end
 
-return json_formatter_factory
+return json_presenter_factory
