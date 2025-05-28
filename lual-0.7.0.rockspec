@@ -1,6 +1,6 @@
 rockspec_format = "3.0"
 package = "lual"
-version = "0.1.0-1"
+version = "0.7.0"
 source = {
    url = "."
 }
