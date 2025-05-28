@@ -36,6 +36,7 @@ local function clone_config(config)
                 cloned[k][i] = {
                     dispatcher_func = dispatcher.dispatcher_func,
                     presenter_func = dispatcher.presenter_func,
+                    transformer_funcs = dispatcher.transformer_funcs or {},
                     dispatcher_config = dispatcher.dispatcher_config or {}
                 }
             end
@@ -149,6 +150,17 @@ local function validate_canonical_config(config)
             end
             if not dispatcher.presenter_func or (type(dispatcher.presenter_func) ~= "function" and not (type(dispatcher.presenter_func) == "table" and getmetatable(dispatcher.presenter_func) and getmetatable(dispatcher.presenter_func).__call)) then
                 return false, "Each dispatcher must have a presenter_func function"
+            end
+            -- Validate transformer_funcs if present
+            if dispatcher.transformer_funcs then
+                if type(dispatcher.transformer_funcs) ~= "table" then
+                    return false, "Each dispatcher transformer_funcs must be a table"
+                end
+                for j, transformer_func in ipairs(dispatcher.transformer_funcs) do
+                    if not (type(transformer_func) == "function" or (type(transformer_func) == "table" and getmetatable(transformer_func) and getmetatable(transformer_func).__call)) then
+                        return false, "Each transformer must be a function or callable table"
+                    end
+                end
             end
         end
     end
@@ -326,6 +338,29 @@ end
 -- DECLARATIVE API FUNCTIONS
 -- =============================================================================
 
+--- Validates a single transformer configuration
+-- @param transformer table The transformer config to validate
+-- @param index number The index of the transformer (for error messages)
+-- @return boolean, string True if valid, or false with error message
+local function validate_single_transformer(transformer, index)
+    if type(transformer) ~= "table" then
+        return false, "Each transformer must be a table"
+    end
+
+    if not transformer.type or type(transformer.type) ~= "string" then
+        return false, "Each transformer must have a 'type' string field"
+    end
+
+    -- Validate known transformer types
+    local valid, err = constants.validate_against_constants(transformer.type, constants.VALID_TRANSFORMER_TYPES, false,
+        "string")
+    if not valid then
+        return false, err
+    end
+
+    return true
+end
+
 --- Validates a single dispatcher configuration
 -- @param dispatcher table The dispatcher config to validate
 -- @param index number The index of the dispatcher (for error messages)
@@ -355,6 +390,20 @@ local function validate_single_dispatcher(dispatcher, index)
         "string")
     if not valid then
         return false, err
+    end
+
+    -- Validate transformers if present
+    if dispatcher.transformers then
+        if type(dispatcher.transformers) ~= "table" then
+            return false, "Dispatcher transformers must be a table"
+        end
+
+        for i, transformer in ipairs(dispatcher.transformers) do
+            local valid, err = validate_single_transformer(transformer, i)
+            if not valid then
+                return false, err
+            end
+        end
     end
 
     -- Validate type-specific fields
@@ -459,6 +508,7 @@ end
 local function declarative_to_canonical_config(declarative_config)
     local all_dispatchers = require("lual.dispatchers.init")
     local all_presenters = require("lual.presenters.init")
+    local all_transformers = require("lual.transformers.init")
 
     local canonical = {
         name = declarative_config.name,
@@ -489,6 +539,7 @@ local function declarative_to_canonical_config(declarative_config)
         for _, dispatcher_config in ipairs(declarative_config.dispatchers) do
             local dispatcher_func
             local presenter_func
+            local transformer_funcs = {}
             local config = {}
 
             -- Get dispatcher function
@@ -503,7 +554,7 @@ local function declarative_to_canonical_config(declarative_config)
                 config.path = dispatcher_config.path
                 -- Copy other file-specific config
                 for k, v in pairs(dispatcher_config) do
-                    if k ~= "type" and k ~= "presenter" and k ~= "path" then
+                    if k ~= "type" and k ~= "presenter" and k ~= "path" and k ~= "transformers" then
                         config[k] = v
                     end
                 end
@@ -519,9 +570,19 @@ local function declarative_to_canonical_config(declarative_config)
                 presenter_func = all_presenters.json()
             end
 
+            -- Get transformer functions
+            if dispatcher_config.transformers then
+                for _, transformer_config in ipairs(dispatcher_config.transformers) do
+                    if transformer_config.type == "noop" then
+                        table.insert(transformer_funcs, all_transformers.noop_transformer())
+                    end
+                end
+            end
+
             table.insert(canonical.dispatchers, {
                 dispatcher_func = dispatcher_func,
                 presenter_func = presenter_func,
+                transformer_funcs = transformer_funcs,
                 dispatcher_config = config
             })
         end

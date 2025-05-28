@@ -10,6 +10,7 @@ local M = {}
 local schema_registry = {
     ConfigSchema = config_schema.ConfigSchema,
     dispatcherschema = config_schema.dispatcherschema,
+    transformerschema = config_schema.transformerschema,
     ShortcutSchema = config_schema.ShortcutSchema
 }
 
@@ -25,6 +26,13 @@ end
 -- @return table Result with data and _errors keys
 function M.validate_dispatcher(data)
     return validator.validate(data, schema_registry.dispatcherschema, schema_registry)
+end
+
+--- Validate transformer data
+-- @param data table The transformer data to validate
+-- @return table Result with data and _errors keys
+function M.validate_transformer(data)
+    return validator.validate(data, schema_registry.transformerschema, schema_registry)
 end
 
 --- Validate shortcut config data

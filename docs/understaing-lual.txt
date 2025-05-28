@@ -1,0 +1,28 @@
+Understanding lual
+
+
+If you're familiar with logging libs, nothing here should be a surprise, in
+which case just read the renaming footnotes at the end of this file.
+
+Lual strives to find a good balance between simplicity and flexibility, between
+pre established expectations and coherence. As such it probably nags your
+senses at places.
+
+
+The Logging Pipeline
+
+When you code runs: 
+
+    logger.debug("Hey guys, I'm debugging")
+
+This is what happens: 
+
+    1. The main logger is called. 
+    2. It replaces the debug call with a log call and appends the level
+       and message to the log queue. (those are just shortcuts to log)
+    3. This triggers the ingest pieline.
+        a. The first question is: which (if any) of your loggers should see the
+        message? 
+        b. It goes through loggers, finds the one you that cares about this level
+        and that shares a name (if you haven't changed much it will hit your
+        root logger).
