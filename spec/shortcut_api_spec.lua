@@ -142,7 +142,7 @@ describe("Shortcut Declarative API", function()
 
         it("should reject unknown output types", function()
             local expected_error = "Invalid shortcut config: " ..
-                validation.generate_expected_error_message("unknown", constants.VALID_OUTPUT_TYPES)
+                constants.generate_expected_error_message("unknown", constants.VALID_OUTPUT_TYPES)
             assert.has_error(function()
                 lualog.logger({
                     output = "unknown",
@@ -153,7 +153,7 @@ describe("Shortcut Declarative API", function()
 
         it("should reject unknown formatter types", function()
             local expected_error = "Invalid shortcut config: " ..
-                validation.generate_expected_error_message("unknown", constants.VALID_FORMATTER_TYPES)
+                constants.generate_expected_error_message("unknown", constants.VALID_FORMATTER_TYPES)
             assert.has_error(function()
                 lualog.logger({
                     output = "console",
@@ -203,7 +203,7 @@ describe("Shortcut Declarative API", function()
 
         it("should reject invalid level in shortcut config", function()
             local expected_error = "Invalid shortcut config: " ..
-                validation.generate_expected_error_message("invalid_level", constants.VALID_LEVEL_STRINGS)
+                constants.generate_expected_error_message("invalid_level", constants.VALID_LEVEL_STRINGS)
             assert.has_error(function()
                     lualog.logger({
                         output = "console",
