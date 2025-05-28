@@ -99,8 +99,12 @@ fi
 print_status "Updating dependencies with fresh install..."
 if [ -z "$DRY_RUN" ]; then
     ./bin/update-deps.sh
+    # Rebuild local module after dependency refresh
+    print_status "Rebuilding local module..."
+    luarocks --tree ./.luarocks make "$CURRENT_ROCKSPEC"
 else
     print_status "Would run: ./bin/update-deps.sh"
+    print_status "Would rebuild local module"
 fi
 
 # Create new version using luarocks
