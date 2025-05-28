@@ -512,11 +512,11 @@ local function declarative_to_canonical_config(declarative_config)
 
             -- Get presenter function
             if dispatcher_config.presenter == "text" then
-                presenter_func = all_presenters.text
+                presenter_func = all_presenters.text()
             elseif dispatcher_config.presenter == "color" then
-                presenter_func = all_presenters.color
+                presenter_func = all_presenters.color()
             elseif dispatcher_config.presenter == "json" then
-                presenter_func = all_presenters.json
+                presenter_func = all_presenters.json()
             end
 
             table.insert(canonical.dispatchers, {
