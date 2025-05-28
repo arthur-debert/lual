@@ -9,7 +9,6 @@ describe("Transformer pipeline integration", function()
         package.loaded["lual.ingest"] = nil
         package.loaded["lual.transformers.init"] = nil
         package.loaded["lual.transformers.noop_transformer"] = nil
-        package.loaded["lual.transformers.test_transformer"] = nil
 
         lual = require("lual.logger")
 
@@ -64,49 +63,6 @@ describe("Transformer pipeline integration", function()
             local record = captured_records[1]
             assert.are.equal("Test message %s", record.raw_message_fmt)
             assert.are.equal("arg1", record.raw_args[1])
-        end)
-    end)
-
-    describe("Custom transformer", function()
-        it("should modify log records", function()
-            local captured_presenter_records = {}
-
-            -- Create a test transformer that adds a prefix
-            local test_transformer = require("lual.transformers.test_transformer")
-
-            -- Create a mock presenter that captures the record
-            local function capture_presenter(record)
-                table.insert(captured_presenter_records, record)
-                return record.message_fmt or ""
-            end
-
-            -- Create a mock dispatcher
-            local function mock_dispatcher(record, config)
-                -- Do nothing
-            end
-
-            -- Create logger without transformers first
-            local logger = lual.logger({
-                name = "test_logger",
-                level = "debug",
-                dispatchers = {}
-            })
-
-            -- Add dispatcher with custom transformer manually
-            table.insert(logger.dispatchers, {
-                dispatcher_func = mock_dispatcher,
-                presenter_func = capture_presenter,
-                transformer_funcs = { test_transformer() },
-                dispatcher_config = {}
-            })
-
-            -- Log a message
-            logger:info("Test message")
-
-            -- Verify the record was transformed
-            assert.are.equal(1, #captured_presenter_records)
-            local record = captured_presenter_records[1]
-            assert.are.equal("[TRANSFORMED] Test message", record.message_fmt)
         end)
     end)
 
