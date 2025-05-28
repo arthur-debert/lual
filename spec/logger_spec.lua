@@ -134,7 +134,7 @@ describe("lualog Logger Object", function()
 
 					local all_calls = ingest.dispatch_log_event.calls
 					assert.are.same(1, #all_calls)
-					
+
 					local record = all_calls[1].vals[1] -- New way based on luassert spy structure for module functions
 
 					assert.are.same(level_enum, record.level_no)
@@ -190,7 +190,8 @@ describe("lualog Logger Object", function()
 
 				test_logger:info(msg_format, user_arg, action_arg, value_arg)
 
-				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(), match.is_table())
+				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(),
+					match.is_table())
 				local all_calls = ingest.dispatch_log_event.calls
 				assert.are.same(1, #all_calls)
 				local record = all_calls[1].vals[1]
@@ -217,7 +218,8 @@ describe("lualog Logger Object", function()
 
 				test_logger:info(msg_format_no_args)
 
-				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(), match.is_table())
+				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(),
+					match.is_table())
 				local all_calls = ingest.dispatch_log_event.calls
 				assert.are.same(1, #all_calls)
 				local record = all_calls[1].vals[1]
@@ -238,7 +240,8 @@ describe("lualog Logger Object", function()
 
 				-- Test with number
 				test_logger:info(number_arg)
-				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(), match.is_table())
+				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(),
+					match.is_table())
 				local all_calls = ingest.dispatch_log_event.calls
 				assert.are.same(1, #all_calls)
 				local record = all_calls[1].vals[1]
@@ -269,7 +272,8 @@ describe("lualog Logger Object", function()
 
 				test_logger:info() -- No arguments
 
-				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(), match.is_table())
+				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(),
+					match.is_table())
 				local all_calls = ingest.dispatch_log_event.calls
 				assert.are.same(1, #all_calls)
 				local record = all_calls[1].vals[1]
@@ -294,7 +298,8 @@ describe("lualog Logger Object", function()
 
 				test_logger:info(context_data, msg_format, action_arg)
 
-				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(), match.is_table())
+				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(),
+					match.is_table())
 				local all_calls = ingest.dispatch_log_event.calls
 				assert.are.same(1, #all_calls)
 				local record = all_calls[1].vals[1]
@@ -319,7 +324,8 @@ describe("lualog Logger Object", function()
 
 				test_logger:info(context_only_data)
 
-				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(), match.is_table())
+				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(),
+					match.is_table())
 				local all_calls = ingest.dispatch_log_event.calls
 				assert.are.same(1, #all_calls)
 				local record = all_calls[1].vals[1]
@@ -339,7 +345,8 @@ describe("lualog Logger Object", function()
 				local msg_format_no_args = "Request received"
 
 				test_logger:info(context_data, msg_format_no_args)
-				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(), match.is_table())
+				assert.spy(ingest.dispatch_log_event).was.called_with(match.is_table(), match.is_function(),
+					match.is_table())
 				local all_calls = ingest.dispatch_log_event.calls
 				assert.are.same(1, #all_calls)
 				local record = all_calls[1].vals[1]
@@ -560,6 +567,54 @@ describe("lual.logger (Facade)", function()
 			assert.is_true(pcall(function()
 				test_logger:debug("Instance debug test")
 			end))
+		end)
+	end)
+
+	describe("Timezone Configuration", function()
+		it("should preserve timezone in logger config", function()
+			local fresh_lualog = require("lual.logger")
+			local utc_logger = fresh_lualog.logger({
+				name = "config_test",
+				timezone = "UTC", -- Test case insensitive
+				output = "console",
+				formatter = "text"
+			})
+
+			local config = utc_logger:get_config()
+			assert.are.equal("UTC", config.timezone)
+		end)
+
+		it("should create loggers with timezone configuration", function()
+			local fresh_lualog = require("lual.logger")
+
+			-- Test UTC logger creation
+			local utc_logger = fresh_lualog.logger({
+				name = "utc_test",
+				timezone = "utc",
+				output = "console",
+				formatter = "text"
+			})
+			assert.are.equal("utc", utc_logger.timezone)
+
+			-- Test local logger creation
+			local local_logger = fresh_lualog.logger({
+				name = "local_test",
+				timezone = "local",
+				output = "console",
+				formatter = "text"
+			})
+			assert.are.equal("local", local_logger.timezone)
+		end)
+
+		it("should handle timezone in shortcut API", function()
+			local fresh_lualog = require("lual.logger")
+			local shortcut_logger = fresh_lualog.logger({
+				output = "console",
+				formatter = "text",
+				timezone = "utc"
+			})
+
+			assert.are.equal("utc", shortcut_logger.timezone)
 		end)
 	end)
 end)

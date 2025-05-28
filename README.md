@@ -18,16 +18,18 @@ logger:info("User %s logged in from IP %s", "jane.doe", "192.168.1.100") -- Stri
 -- The usual stuff
 logger:set_level("debug")
 
--- Configure a more involved logger:
+-- Configure a more involved logger with UTC timestamps:
 local logger = lual.logger({
     output = lual.lib.console,
     level = lual.levels.DEBUG,
-    formatter = lual.lib.color
+    formatter = lual.lib.color,
+    timezone = "utc"
 })
 
 local bigLogging = require("lual").logger({
     name = "app.database",
     level = "debug",
+    timezone = "utc",
     outputs = {
         {type = "console", formatter = "color"},
         {type = "file", path = "app.log", formatter = "text"}
@@ -85,11 +87,13 @@ luarocks install lual
 - **File Output:** `lualog.lib.file` writes log messages to files with
   configurable paths and rotation options.
 - **Text Formatter:** `lualog.lib.text` formats messages by default as:
-  `YYYY-MM-DD HH:MM:S LEVEL [LoggerName] Message` (Timestamp is in UTC).
+  `YYYY-MM-DD HH:MM:S LEVEL [LoggerName] Message`.
 - **Color Formatter:** `lualog.lib.color` formats messages with ANSI color codes
   for enhanced terminal readability.
 - **JSON Formatter:** `lualog.lib.json` formats messages as JSON for structured
   logging and easy parsing by log aggregation systems.
+- **Timezone Support:** Configurable timezone for timestamps - supports both UTC
+  and local time formatting (defaults to local time).
   - **String Formatting:** Supports `printf`-style string formatting (e.g.,
     `logger:info("Hello %s", name)`).
   - **Structured Logging:** Supports logging rich, structured data.

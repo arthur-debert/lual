@@ -17,7 +17,8 @@ local function create_canonical_config(config)
         level = config.level or core_levels.definition.INFO,
         outputs = config.outputs or {},
         propagate = config.propagate ~= false, -- Default to true unless explicitly false
-        parent = config.parent or nil
+        parent = config.parent or nil,
+        timezone = config.timezone or "local"  -- Default to local time
     }
 end
 
@@ -68,48 +69,6 @@ end
 -- VALIDATION FUNCTIONS
 -- =============================================================================
 
---- Validates a canonical config table
--- @param config (table) The config to validate
--- @return boolean, string True if valid, or false with error message
-local function validate_canonical_config(config)
-    if type(config) ~= "table" then
-        return false, "Config must be a table"
-    end
-
-    if config.name and type(config.name) ~= "string" then
-        return false, "Config.name must be a string"
-    end
-
-    if config.level and type(config.level) ~= "number" then
-        return false, "Config.level must be a number"
-    end
-
-    if config.outputs and type(config.outputs) ~= "table" then
-        return false, "Config.outputs must be a table"
-    end
-
-    if config.propagate ~= nil and type(config.propagate) ~= "boolean" then
-        return false, "Config.propagate must be a boolean"
-    end
-
-    -- Validate outputs structure
-    if config.outputs then
-        for i, output in ipairs(config.outputs) do
-            if type(output) ~= "table" then
-                return false, "Each output must be a table"
-            end
-            if not output.output_func or type(output.output_func) ~= "function" then
-                return false, "Each output must have an output_func function"
-            end
-            if not output.formatter_func or type(output.formatter_func) ~= "function" then
-                return false, "Each output must have a formatter_func function"
-            end
-        end
-    end
-
-    return true
-end
-
 --- Validates a level value (string or number)
 -- @param level The level to validate
 -- @return boolean, string True if valid, or false with error message
@@ -140,7 +99,79 @@ local function validate_level(level)
     return true
 end
 
---- Validates basic config fields (name, propagate)
+--- Validates a timezone value
+-- @param timezone The timezone to validate
+-- @return boolean, string True if valid, or false with error message
+local function validate_timezone(timezone)
+    if timezone == nil then
+        return true -- Timezone is optional
+    end
+
+    if type(timezone) ~= "string" then
+        return false, "Timezone must be a string"
+    end
+
+    local valid_timezones = {
+        ["local"] = true,
+        utc = true
+    }
+
+    if not valid_timezones[string.lower(timezone)] then
+        return false, "Invalid timezone: " .. timezone .. ". Valid timezones are: local, utc"
+    end
+
+    return true
+end
+
+--- Validates a canonical config table
+-- @param config (table) The config to validate
+-- @return boolean, string True if valid, or false with error message
+local function validate_canonical_config(config)
+    if type(config) ~= "table" then
+        return false, "Config must be a table"
+    end
+
+    if config.name and type(config.name) ~= "string" then
+        return false, "Config.name must be a string"
+    end
+
+    if config.level and type(config.level) ~= "number" then
+        return false, "Config.level must be a number"
+    end
+
+    if config.outputs and type(config.outputs) ~= "table" then
+        return false, "Config.outputs must be a table"
+    end
+
+    if config.propagate ~= nil and type(config.propagate) ~= "boolean" then
+        return false, "Config.propagate must be a boolean"
+    end
+
+    -- Validate timezone
+    local valid, err = validate_timezone(config.timezone)
+    if not valid then
+        return false, err
+    end
+
+    -- Validate outputs structure
+    if config.outputs then
+        for i, output in ipairs(config.outputs) do
+            if type(output) ~= "table" then
+                return false, "Each output must be a table"
+            end
+            if not output.output_func or type(output.output_func) ~= "function" then
+                return false, "Each output must have an output_func function"
+            end
+            if not output.formatter_func or type(output.formatter_func) ~= "function" then
+                return false, "Each output must have a formatter_func function"
+            end
+        end
+    end
+
+    return true
+end
+
+--- Validates basic config fields (name, propagate, timezone)
 -- @param config table The config to validate
 -- @return boolean, string True if valid, or false with error message
 local function validate_basic_fields(config)
@@ -150,6 +181,12 @@ local function validate_basic_fields(config)
 
     if config.propagate ~= nil and type(config.propagate) ~= "boolean" then
         return false, "Config.propagate must be a boolean"
+    end
+
+    -- Validate timezone
+    local valid, err = validate_timezone(config.timezone)
+    if not valid then
+        return false, err
     end
 
     return true
@@ -228,6 +265,7 @@ local function validate_shortcut_known_keys(config)
         output = true,
         formatter = true,
         propagate = true,
+        timezone = true,
         -- File-specific fields
         path = true,
         -- Console-specific fields
@@ -286,6 +324,7 @@ local function shortcut_to_declarative_config(shortcut_config)
         name = shortcut_config.name,
         level = shortcut_config.level,
         propagate = shortcut_config.propagate,
+        timezone = shortcut_config.timezone,
         outputs = {}
     }
 
@@ -388,7 +427,8 @@ local function validate_declarative_known_keys(config)
         name = true,
         level = true,
         outputs = true,
-        propagate = true
+        propagate = true,
+        timezone = true
     }
 
     for key, _ in pairs(config) do
@@ -445,6 +485,7 @@ local function declarative_to_canonical_config(declarative_config)
     local canonical = {
         name = declarative_config.name,
         propagate = declarative_config.propagate,
+        timezone = declarative_config.timezone,
         outputs = {}
     }
 

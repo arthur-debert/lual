@@ -58,6 +58,7 @@ create_logger_from_config = function(config)
     new_logger.outputs = canonical_config.outputs
     new_logger.propagate = canonical_config.propagate
     new_logger.parent = canonical_config.parent
+    new_logger.timezone = canonical_config.timezone
 
     return new_logger
 end
@@ -85,12 +86,12 @@ function logger:log(level_no, ...)
             if packed_varargs.n >= 3 then
                 args_val = table.pack(select(3, ...)) -- Args from 3rd element of original '...'
             else
-                args_val = table.pack()   -- No further args for formatting
+                args_val = table.pack()               -- No further args for formatting
             end
         else
             -- Context only (Pattern 2b), or context + non-string second arg.
             -- message_fmt might be extracted from context_val.msg later if desired.
-            msg_fmt_val = nil -- Or extract from context_val.msg
+            msg_fmt_val = nil       -- Or extract from context_val.msg
             args_val = table.pack() -- No args for formatting
             if msg_fmt_val == nil and context_val and context_val.msg and type(context_val.msg) == "string" then
                 -- Attempt to extract message_fmt from context.msg for Pattern 2b
@@ -106,12 +107,12 @@ function logger:log(level_no, ...)
             if packed_varargs.n >= 2 then
                 args_val = table.pack(select(2, ...)) -- Args from 2nd element of original '...'
             else
-                args_val = table.pack()   -- No further args for formatting
+                args_val = table.pack()               -- No further args for formatting
             end
-        elseif packed_varargs.n == 0 then -- No arguments after level_no
-            msg_fmt_val = ""              -- Default to empty string if no message/context
+        elseif packed_varargs.n == 0 then             -- No arguments after level_no
+            msg_fmt_val = ""                          -- Default to empty string if no message/context
             args_val = table.pack()
-        else                              -- First argument is not a table and not a string (e.g. a number or boolean)
+        else                                          -- First argument is not a table and not a string (e.g. a number or boolean)
             -- Treat as a single message to be stringified, no further args.
             msg_fmt_val = tostring(packed_varargs[1])
             args_val = table.pack()
@@ -123,10 +124,11 @@ function logger:log(level_no, ...)
         level_name = core_levels.get_level_name(level_no),
         message_fmt = msg_fmt_val,
         args = args_val,
-        context = context_val, -- Add the new context field
+        context = context_val,               -- Add the new context field
         timestamp = os.time(),
+        timezone = self.timezone or "local", -- Add timezone configuration
         logger_name = self.name,
-        source_logger_name = self.name, -- Initially the same as logger_name
+        source_logger_name = self.name,      -- Initially the same as logger_name
         filename = filename,
         lineno = lineno,
     }
@@ -198,6 +200,7 @@ function logger:get_config()
         outputs = self.outputs or {},
         propagate = self.propagate,
         parent = self.parent,
+        timezone = self.timezone,
     })
 end
 
@@ -272,6 +275,7 @@ function M.get_logger(name)
         outputs = {},
         propagate = true,
         parent = parent_logger,
+        timezone = "local", -- Default to local time
     }
 
     local new_logger = create_logger_from_config(config)
@@ -296,14 +300,28 @@ function M.logger(input_config)
         level = "info",
         outputs = {},
         propagate = true,
+        timezone = "local", -- Default to local time
     }
 
     -- Use the config module to process the input config (handles shortcut, declarative, validation, etc.)
     local canonical_config = config_module.process_config(input_config, default_config)
 
-    -- Check if logger already exists in cache
+    -- Check if logger already exists in cache and if its configuration matches
     if canonical_config.name and _loggers_cache[canonical_config.name] then
-        return _loggers_cache[canonical_config.name]
+        local cached_logger = _loggers_cache[canonical_config.name]
+        local cached_config = cached_logger:get_config()
+
+        -- Compare key configuration fields to see if we can reuse the cached logger
+        if cached_config.level == canonical_config.level and
+            cached_config.timezone == canonical_config.timezone and
+            cached_config.propagate == canonical_config.propagate then
+            -- For outputs, we'll do a simple length check for now
+            -- A more sophisticated comparison could be added later if needed
+            if #(cached_config.outputs or {}) == #(canonical_config.outputs or {}) then
+                return cached_logger
+            end
+        end
+        -- If configuration doesn't match, we'll create a new logger and update the cache
     end
 
     -- Handle parent logger creation if needed

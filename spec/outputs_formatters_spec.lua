@@ -8,6 +8,7 @@ describe("lualog.lib.text", function()
 	it("should format a basic log record", function()
 		local record = {
 			timestamp = 1678886400, -- 2023-03-15 10:00:00 UTC
+			timezone = "utc", -- Explicitly set timezone for predictable test
 			level_name = "INFO",
 			logger_name = "test.logger",
 			message_fmt = "User %s logged in from %s",
@@ -21,6 +22,7 @@ describe("lualog.lib.text", function()
 	it("should handle nil arguments gracefully", function()
 		local record = {
 			timestamp = 1678886401, -- 2023-03-15 10:00:01 UTC
+			timezone = "utc", -- Explicitly set timezone for predictable test
 			level_name = "DEBUG",
 			logger_name = "nil.args.test",
 			message_fmt = "Test message with no args",
@@ -34,6 +36,7 @@ describe("lualog.lib.text", function()
 	it("should handle empty arguments table", function()
 		local record = {
 			timestamp = 1678886402, -- 2023-03-15 10:00:02 UTC
+			timezone = "utc", -- Explicitly set timezone for predictable test
 			level_name = "WARNING",
 			logger_name = "empty.args.test",
 			message_fmt = "Test message with empty args",
@@ -50,6 +53,7 @@ describe("lualog.lib.text", function()
 
 		local record1 = {
 			timestamp = ts,
+			timezone = "utc", -- Explicitly set timezone for predictable test
 			level_name = nil, -- Missing level_name
 			logger_name = "test.missing.level",
 			message_fmt = "Message with nil level",
@@ -60,6 +64,7 @@ describe("lualog.lib.text", function()
 
 		local record2 = {
 			timestamp = ts,
+			timezone = "utc", -- Explicitly set timezone for predictable test
 			level_name = "ERROR",
 			logger_name = nil, -- Missing logger_name
 			message_fmt = "Message with nil logger name",
@@ -70,6 +75,7 @@ describe("lualog.lib.text", function()
 
 		local record3 = {
 			timestamp = ts,
+			timezone = "utc", -- Explicitly set timezone for predictable test
 			level_name = "CRITICAL",
 			logger_name = "test.missing.args",
 			message_fmt = "Message with missing args",

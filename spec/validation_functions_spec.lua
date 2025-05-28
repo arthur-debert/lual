@@ -189,13 +189,59 @@ describe("Validation Functions", function()
         end)
     end)
 
+    describe("validate_timezone", function()
+        it("should accept nil timezone", function()
+            local result = config.process_config({ outputs = {} })
+            assert.is_not_nil(result)
+        end)
+
+        it("should accept valid timezone 'local'", function()
+            local result = config.process_config({ timezone = "local", outputs = {} })
+            assert.is_not_nil(result)
+        end)
+
+        it("should accept valid timezone 'utc'", function()
+            local result = config.process_config({ timezone = "utc", outputs = {} })
+            assert.is_not_nil(result)
+        end)
+
+        it("should accept valid timezone 'UTC' (case insensitive)", function()
+            local result = config.process_config({ timezone = "UTC", outputs = {} })
+            assert.is_not_nil(result)
+        end)
+
+        it("should accept valid timezone 'LOCAL' (case insensitive)", function()
+            local result = config.process_config({ timezone = "LOCAL", outputs = {} })
+            assert.is_not_nil(result)
+        end)
+
+        it("should reject invalid timezone string", function()
+            assert.has_error(function()
+                config.process_config({ timezone = "invalid", outputs = {} })
+            end)
+        end)
+
+        it("should reject invalid timezone type", function()
+            assert.has_error(function()
+                config.process_config({ timezone = 123, outputs = {} })
+            end)
+        end)
+
+        it("should reject boolean timezone", function()
+            assert.has_error(function()
+                config.process_config({ timezone = true, outputs = {} })
+            end)
+        end)
+    end)
+
     describe("validate_known_keys", function()
         it("should accept config with valid keys", function()
             local result = config.process_config({
                 name = "test",
                 level = "info",
                 outputs = {},
-                propagate = true
+                propagate = true,
+                timezone = "utc"
             })
             assert.is_not_nil(result)
         end)
@@ -254,6 +300,30 @@ describe("Validation Functions", function()
             assert.are.same(1, #declarative.outputs)
             assert.are.same("console", declarative.outputs[1].type)
             assert.are.same("text", declarative.outputs[1].formatter)
+        end)
+
+        it("should transform shortcut to declarative with timezone", function()
+            local shortcut = {
+                name = "test",
+                output = "console",
+                formatter = "text",
+                timezone = "utc"
+            }
+            local declarative = config.shortcut_to_declarative_config(shortcut)
+            assert.are.same("test", declarative.name)
+            assert.are.same("utc", declarative.timezone)
+            assert.are.same(1, #declarative.outputs)
+            assert.are.same("console", declarative.outputs[1].type)
+            assert.are.same("text", declarative.outputs[1].formatter)
+        end)
+
+        it("should validate shortcut config with timezone", function()
+            local result = config.process_config({
+                output = "console",
+                formatter = "text",
+                timezone = "utc"
+            })
+            assert.is_not_nil(result)
         end)
     end)
 
