@@ -100,6 +100,14 @@ if [ -z "$DRY_RUN" ]; then
     print_success "Rockspec validation passed"
 fi
 
+# Update dependencies to ensure fresh environment
+print_status "Updating dependencies with fresh install..."
+if [ -z "$DRY_RUN" ]; then
+    ./bin/update-deps.sh
+else
+    print_status "Would run: ./bin/update-deps.sh"
+fi
+
 # Check if the version tag exists in git
 TAG_VERSION=$(echo "$VERSION" | sed 's/-[0-9]*$//') # Remove rockspec revision
 GIT_TAG="v$TAG_VERSION"

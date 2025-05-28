@@ -95,6 +95,14 @@ if [ -z "$DRY_RUN" ]; then
     luarocks lint "$CURRENT_ROCKSPEC"
 fi
 
+# Update dependencies to ensure fresh environment
+print_status "Updating dependencies with fresh install..."
+if [ -z "$DRY_RUN" ]; then
+    ./bin/update-deps.sh
+else
+    print_status "Would run: ./bin/update-deps.sh"
+fi
+
 # Create new version using luarocks
 print_status "Creating new rockspec version..."
 if [ -z "$DRY_RUN" ]; then
