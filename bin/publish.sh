@@ -117,7 +117,7 @@ fi
 # Build the rock locally to test
 print_status "Building rock locally for testing..."
 if [ -z "$DRY_RUN" ]; then
-    luarocks build "$ROCKSPEC"
+    luarocks --tree ./.luarocks make "$ROCKSPEC"
     print_success "Local build successful"
 fi
 

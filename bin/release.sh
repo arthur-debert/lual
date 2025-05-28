@@ -159,7 +159,7 @@ fi
 # Build and test the rock
 print_status "Building rock..."
 if [ -z "$DRY_RUN" ]; then
-    luarocks build "$NEW_ROCKSPEC"
+    luarocks --tree ./.luarocks make "$NEW_ROCKSPEC"
 fi
 
 # Pack the rock
