@@ -16,7 +16,7 @@ function M.process_config(input_config, default_config)
         input_config = {}
     end
 
-    local final_declarative_config = input_config
+    local final_declarative_config
 
     -- Check if this is a shortcut config and transform it if needed
     if transformation.is_shortcut_config(input_config) then
@@ -29,16 +29,24 @@ function M.process_config(input_config, default_config)
         -- Transform shortcut to standard declarative format
         final_declarative_config = transformation.shortcut_to_declarative_config(input_config)
     else
-        -- Validate the standard declarative config
-        local valid, err = validation.validate_declarative_config(input_config)
-        if not valid then
-            error("Invalid declarative config: " .. err)
-        end
+        -- For standard declarative config, just use it as-is
+        final_declarative_config = input_config
     end
 
-    -- Apply defaults if provided
+    -- Merge with defaults and validate in one step
     if default_config then
-        final_declarative_config = transformation.merge_configs(final_declarative_config, default_config)
+        local merged_config, err = validation.validate_and_merge_config(final_declarative_config, default_config)
+        if not merged_config then
+            error("Invalid declarative config: " .. err)
+        end
+        final_declarative_config = merged_config
+    else
+        -- If no defaults, still need to validate for unknown fields
+        local merged_config, err = validation.validate_and_merge_config(final_declarative_config, {})
+        if not merged_config then
+            error("Invalid declarative config: " .. err)
+        end
+        final_declarative_config = merged_config
     end
 
     -- Convert to canonical format
