@@ -128,7 +128,7 @@ describe("Shortcut Declarative API", function()
                     output = 123,
                     formatter = "text"
                 })
-            end, "Invalid shortcut config: Shortcut config 'output' field must be a string")
+            end, "Invalid shortcut config: Output type must be a string")
         end)
 
         it("should reject non-string formatter field", function()
@@ -137,7 +137,7 @@ describe("Shortcut Declarative API", function()
                     output = "console",
                     formatter = 456
                 })
-            end, "Invalid shortcut config: Shortcut config 'formatter' field must be a string")
+            end, "Invalid shortcut config: Formatter type must be a string")
         end)
 
         it("should reject unknown output types", function()

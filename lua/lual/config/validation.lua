@@ -36,12 +36,20 @@ end
 -- @param value The value to validate
 -- @param constant_table The constant table with _meta property
 -- @param allow_nil boolean Whether nil values are allowed (default: true)
+-- @param expected_type string Optional type to validate (e.g., "string", "number")
 -- @return boolean, string True if valid, or false with error message
-function M.validate_against_constants(value, constant_table, allow_nil)
+function M.validate_against_constants(value, constant_table, allow_nil, expected_type)
     if allow_nil == nil then allow_nil = true end
 
     if value == nil then
         return allow_nil, allow_nil and nil or ("Value cannot be nil")
+    end
+
+    -- Type validation if specified
+    if expected_type and type(value) ~= expected_type then
+        local meta = constant_table._meta
+        local field_name = meta and meta.name or "value"
+        return false, string.format("%s must be a %s", string.gsub(field_name, "^%l", string.upper), expected_type)
     end
 
     local meta = constant_table._meta
@@ -67,24 +75,46 @@ function M.validate_against_constants(value, constant_table, allow_nil)
     return false, error_msg
 end
 
+--- Validates multiple fields against their respective constant tables
+-- @param field_validations table Array of {value, constant_table, allow_nil, expected_type, custom_validator} tuples
+-- @return boolean, string True if all valid, or false with first error message
+function M.validate_fields(field_validations)
+    for _, validation in ipairs(field_validations) do
+        local value = validation[1]
+        local constant_table = validation[2]
+        local allow_nil = validation[3]
+        local expected_type = validation[4]    -- Optional type validation
+        local custom_validator = validation[5] -- Optional custom validation function
+
+        -- Apply custom validation first if provided
+        if custom_validator then
+            local valid, err = custom_validator(value)
+            if not valid then
+                return false, err
+            end
+        end
+
+        -- Apply constant table validation
+        if constant_table then
+            local valid, err = M.validate_against_constants(value, constant_table, allow_nil, expected_type)
+            if not valid then
+                return false, err
+            end
+        end
+    end
+
+    return true
+end
+
 --- Validates output and formatter types
 -- @param output_type string The output type to validate
 -- @param formatter_type string The formatter type to validate
 -- @return boolean, string True if valid, or false with error message
 function M.validate_output_formatter_types(output_type, formatter_type)
-    -- Validate output type
-    local valid, err = M.validate_against_constants(output_type, constants.VALID_OUTPUT_TYPES, false)
-    if not valid then
-        return false, err
-    end
-
-    -- Validate formatter type
-    valid, err = M.validate_against_constants(formatter_type, constants.VALID_FORMATTER_TYPES, false)
-    if not valid then
-        return false, err
-    end
-
-    return true
+    return M.validate_fields({
+        { output_type,    constants.VALID_OUTPUT_TYPES,    false, "string" },
+        { formatter_type, constants.VALID_FORMATTER_TYPES, false, "string" }
+    })
 end
 
 --- Validates a level value (string or number)
@@ -96,9 +126,10 @@ function M.validate_level(level)
     end
 
     if type(level) == "string" then
+        -- Validate string levels against constants
         return M.validate_against_constants(level, constants.VALID_LEVEL_STRINGS, false)
     elseif type(level) == "number" then
-        -- Allow numeric levels
+        -- Allow numeric levels without validation against string constants
         return true
     else
         return false, "Level must be a string or number"
@@ -109,36 +140,29 @@ end
 -- @param timezone The timezone to validate
 -- @return boolean, string True if valid, or false with error message
 function M.validate_timezone(timezone)
-    if timezone == nil then
-        return true -- Timezone is optional
-    end
-
-    if type(timezone) ~= "string" then
-        return false, "Timezone must be a string"
-    end
-
-    return M.validate_against_constants(timezone, constants.VALID_TIMEZONES, false)
+    return M.validate_against_constants(timezone, constants.VALID_TIMEZONES, true, "string")
 end
 
 --- Validates basic config fields (name, propagate, timezone)
 -- @param config table The config to validate
 -- @return boolean, string True if valid, or false with error message
 function M.validate_basic_fields(config)
-    if config.name and type(config.name) ~= "string" then
-        return false, "Config.name must be a string"
+    -- Validate name (optional string)
+    if config.name ~= nil then
+        if type(config.name) ~= "string" then
+            return false, "Config.name must be a string"
+        end
     end
 
-    if config.propagate ~= nil and type(config.propagate) ~= "boolean" then
-        return false, "Config.propagate must be a boolean"
+    -- Validate propagate (optional boolean)
+    if config.propagate ~= nil then
+        if type(config.propagate) ~= "boolean" then
+            return false, "Config.propagate must be a boolean"
+        end
     end
 
-    -- Validate timezone
-    local valid, err = M.validate_timezone(config.timezone)
-    if not valid then
-        return false, err
-    end
-
-    return true
+    -- Validate timezone using generic validator
+    return M.validate_timezone(config.timezone)
 end
 
 --- Validates a canonical config table
@@ -317,23 +341,12 @@ end
 -- @param config table The shortcut config to validate
 -- @return boolean, string True if valid, or false with error message
 function M.validate_shortcut_fields(config)
-    -- Check for required fields in shortcut format
+    -- Check for required fields
     if not config.output then
         return false, "Shortcut config must have an 'output' field"
     end
-
     if not config.formatter then
         return false, "Shortcut config must have a 'formatter' field"
-    end
-
-    -- Validate output type
-    if type(config.output) ~= "string" then
-        return false, "Shortcut config 'output' field must be a string"
-    end
-
-    -- Validate formatter type
-    if type(config.formatter) ~= "string" then
-        return false, "Shortcut config 'formatter' field must be a string"
     end
 
     -- Validate output and formatter types
