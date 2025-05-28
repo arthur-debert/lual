@@ -2,6 +2,7 @@
 -- Provides colored terminal output using ANSI color codes
 
 local unpack = unpack or table.unpack -- Ensure unpack is available
+local time_utils = require("lual.utils.time")
 
 -- Define a table with ANSI color codes
 local colors = {
@@ -58,7 +59,7 @@ end
 local function color(record, config)
     config = config or {}
     local level_colors = config.level_colors or default_level_colors
-    local timestamp_str = os.date("!%Y-%m-%d %H:%M:%S", record.timestamp)
+    local timestamp_str = time_utils.format_timestamp(record.timestamp, record.timezone)
     local msg_args = record.args or {}
     -- Make sure msg_args is a table for string.format to use
     if type(msg_args) ~= "table" then msg_args = {} end

@@ -1,4 +1,5 @@
 local dkjson = require("dkjson")
+local time_utils = require("lual.utils.time")
 
 --- Formatter that returns a JSON representation of the log record.
 -- @param record (table) A table containing log record details
@@ -10,7 +11,8 @@ local function json(record, config)
     -- Prepare the JSON object
     local json_record = {
         timestamp = record.timestamp,
-        timestamp_iso = os.date("!%Y-%m-%dT%H:%M:%SZ", record.timestamp),
+        timestamp_iso = time_utils.format_iso_timestamp(record.timestamp, record.timezone),
+        timezone = record.timezone or "local",
         level = record.level_name or "UNKNOWN_LEVEL",
         logger = record.logger_name or "UNKNOWN_LOGGER",
         message_fmt = record.message_fmt,

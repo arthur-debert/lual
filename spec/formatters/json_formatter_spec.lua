@@ -7,6 +7,7 @@ describe("lual.formatters.json", function()
         it("should format a basic log record as JSON", function()
             local record = {
                 timestamp = 1678886400, -- 2023-03-15 10:00:00 UTC
+                timezone = "utc",       -- Explicitly set timezone to UTC for predictable test
                 level_name = "INFO",
                 logger_name = "test.logger",
                 message_fmt = "User %s logged in from %s",
@@ -18,8 +19,9 @@ describe("lual.formatters.json", function()
 
             assert.is_not_nil(parsed)
             assert.are.same(1678886400, parsed.timestamp)
-            local expected_iso = os.date("!%Y-%m-%dT%H:%M:%SZ", record.timestamp)
-            assert.are.same(expected_iso, parsed.timestamp_iso)
+            -- Check that it's a valid UTC ISO format with Z suffix
+            assert.matches("%d%d%d%d%-%d%d%-%d%dT%d%d:%d%d:%d%dZ", parsed.timestamp_iso)
+            assert.are.same("utc", parsed.timezone)
             assert.are.same("INFO", parsed.level)
             assert.are.same("test.logger", parsed.logger)
             assert.are.same("User %s logged in from %s", parsed.message_fmt)
@@ -328,6 +330,82 @@ describe("lual.formatters.json", function()
             assert.is_true(parsed.mixed_data.boolean_val)
             assert.is_nil(parsed.mixed_data.null_val) -- dkjson.null becomes nil when decoded
             assert.are.same({ 1, 2, 3, "four", true }, parsed.mixed_data.array_val)
+        end)
+    end)
+
+    describe("Timezone handling", function()
+        it("should format timestamp in UTC when timezone is 'utc'", function()
+            local record = {
+                timestamp = 1609459200, -- 2021-01-01 00:00:00 UTC
+                timezone = "utc",
+                level_name = "INFO",
+                logger_name = "test.utc",
+                message_fmt = "UTC test message",
+                args = {},
+            }
+
+            local formatted = json_formatter(record)
+            local parsed = dkjson.decode(formatted)
+
+            assert.is_not_nil(parsed)
+            assert.are.same("utc", parsed.timezone)
+            assert.are.same("2021-01-01T00:00:00Z", parsed.timestamp_iso)
+        end)
+
+        it("should format timestamp in local time when timezone is 'local'", function()
+            local record = {
+                timestamp = 1609459200, -- 2021-01-01 00:00:00 UTC
+                timezone = "local",
+                level_name = "INFO",
+                logger_name = "test.local",
+                message_fmt = "Local test message",
+                args = {},
+            }
+
+            local formatted = json_formatter(record)
+            local parsed = dkjson.decode(formatted)
+
+            assert.is_not_nil(parsed)
+            assert.are.same("local", parsed.timezone)
+            -- For local time, should not end with Z
+            assert.is_not.matches("Z$", parsed.timestamp_iso)
+            -- Should match ISO format
+            assert.matches("%d%d%d%d%-%d%d%-%d%dT%d%d:%d%d:%d%d", parsed.timestamp_iso)
+        end)
+
+        it("should default to local timezone when timezone is nil", function()
+            local record = {
+                timestamp = 1609459200,
+                timezone = nil,
+                level_name = "INFO",
+                logger_name = "test.default",
+                message_fmt = "Default timezone test",
+                args = {},
+            }
+
+            local formatted = json_formatter(record)
+            local parsed = dkjson.decode(formatted)
+
+            assert.is_not_nil(parsed)
+            assert.are.same("local", parsed.timezone)
+        end)
+
+        it("should handle case insensitive timezone values", function()
+            local record = {
+                timestamp = 1609459200,
+                timezone = "UTC", -- Uppercase
+                level_name = "INFO",
+                logger_name = "test.case",
+                message_fmt = "Case test message",
+                args = {},
+            }
+
+            local formatted = json_formatter(record)
+            local parsed = dkjson.decode(formatted)
+
+            assert.is_not_nil(parsed)
+            assert.are.same("UTC", parsed.timezone)
+            assert.are.same("2021-01-01T00:00:00Z", parsed.timestamp_iso)
         end)
     end)
 

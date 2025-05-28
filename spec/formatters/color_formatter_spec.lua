@@ -18,6 +18,7 @@ describe("lual.formatters.color", function()
 	it("should format a basic log record with colors", function()
 		local record = {
 			timestamp = 1678886400, -- 2023-03-15 10:00:00 UTC
+			timezone = "utc", -- Explicitly set timezone for predictable test
 			level_name = "INFO",
 			logger_name = "test.logger",
 			message_fmt = "User %s logged in from %s",
@@ -117,5 +118,71 @@ describe("lual.formatters.color", function()
 			formatted:find(colors.bright_red .. "INFO" .. colors.reset, 1, true),
 			"INFO level should use custom bright_red color"
 		)
+	end)
+
+	describe("Timezone handling", function()
+		it("should format timestamp in UTC when timezone is 'utc'", function()
+			local record = {
+				timestamp = 1609459200, -- 2021-01-01 00:00:00 UTC
+				timezone = "utc",
+				level_name = "INFO",
+				logger_name = "test.utc",
+				message_fmt = "UTC test message",
+				args = {},
+			}
+
+			local formatted = color(record)
+
+			-- Should contain UTC formatted timestamp
+			assert.truthy(formatted:find("2021%-01%-01 00:00:00", 1, false), "Should contain UTC timestamp")
+		end)
+
+		it("should format timestamp in local time when timezone is 'local'", function()
+			local record = {
+				timestamp = 1609459200, -- 2021-01-01 00:00:00 UTC
+				timezone = "local",
+				level_name = "INFO",
+				logger_name = "test.local",
+				message_fmt = "Local test message",
+				args = {},
+			}
+
+			local formatted = color(record)
+
+			-- Should contain a valid timestamp format (can't predict exact local time)
+			assert.matches("%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d", formatted)
+		end)
+
+		it("should default to local timezone when timezone is nil", function()
+			local record = {
+				timestamp = 1609459200,
+				timezone = nil,
+				level_name = "INFO",
+				logger_name = "test.default",
+				message_fmt = "Default timezone test",
+				args = {},
+			}
+
+			local formatted = color(record)
+
+			-- Should contain a valid timestamp format
+			assert.matches("%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d", formatted)
+		end)
+
+		it("should handle case insensitive timezone values", function()
+			local record = {
+				timestamp = 1609459200,
+				timezone = "UTC", -- Uppercase
+				level_name = "INFO",
+				logger_name = "test.case",
+				message_fmt = "Case test message",
+				args = {},
+			}
+
+			local formatted = color(record)
+
+			-- Should contain UTC formatted timestamp
+			assert.truthy(formatted:find("2021%-01%-01 00:00:00", 1, false), "Should contain UTC timestamp")
+		end)
 	end)
 end)
