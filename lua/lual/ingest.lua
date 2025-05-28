@@ -3,6 +3,32 @@ local ingest = {}
 -- Compatibility for Lua 5.2+ which moved unpack to table.unpack
 local unpack = unpack or table.unpack -- Ensure unpack is available
 
+--- Safely applies transformer functions to a record.
+-- @param transformer_funcs table Array of transformer functions
+-- @param record table The record to transform
+-- @return table The transformed record
+local function apply_transformers(transformer_funcs, record)
+    if not transformer_funcs or #transformer_funcs == 0 then
+        return record
+    end
+
+    local transformed_record = record
+    for i, transformer_func in ipairs(transformer_funcs) do
+        local ok, result = pcall(transformer_func, transformed_record)
+        if not ok then
+            io.stderr:write(string.format(
+                "Logging system error: TRANSFORMER %d for logger '%s' failed: %s\n",
+                i, tostring(record.logger_name), tostring(result)
+            ))
+            -- Continue with the original record if transformation fails
+        else
+            transformed_record = result
+        end
+    end
+
+    return transformed_record
+end
+
 --- Safely calls the presenter function.
 -- @param presenter_func The presenter function.
 -- @param base_record_for_presenter The record for the presenter.
@@ -115,7 +141,8 @@ function ingest.dispatch_log_event(log_record, logger_func, _log_levels) -- Rena
                 lineno             = log_record.lineno,
                 source_logger_name = log_record.source_logger_name -- Original emitter
             }
-            local formatted_message = call_presenter(dispatcher_entry.presenter_func, base_record_for_presenter)
+            local transformed_record = apply_transformers(dispatcher_entry.transformer_funcs, base_record_for_presenter)
+            local formatted_message = call_presenter(dispatcher_entry.presenter_func, transformed_record)
 
             -- Construct record for the dispatcher itself
             local record_for_dispatcher = {

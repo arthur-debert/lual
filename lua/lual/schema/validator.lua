@@ -9,8 +9,9 @@ local M = {}
 -- @param field_name string The name of the field
 -- @param value any The invalid value
 -- @param field_schema table The schema definition for the field
+-- @param schema_context string Optional context (e.g., "transformer", "dispatcher")
 -- @return string The error message
-local function generate_error_message(field_name, value, field_schema)
+local function generate_error_message(field_name, value, field_schema, schema_context)
     if field_schema.values then
         local valid_values = {}
         for key, _ in pairs(field_schema.values) do
@@ -31,8 +32,13 @@ local function generate_error_message(field_name, value, field_schema)
 
         -- Generate more specific error messages for certain fields
         if field_name == "type" then
-            return string.format("Invalid dispatcher type: %s. Valid values are: %s",
-                tostring(value), table.concat(valid_values, ", "))
+            if schema_context == "transformer" then
+                return string.format("Invalid transformer type: %s. Valid values are: %s",
+                    tostring(value), table.concat(valid_values, ", "))
+            else
+                return string.format("Invalid dispatcher type: %s. Valid values are: %s",
+                    tostring(value), table.concat(valid_values, ", "))
+            end
         elseif field_name == "dispatcher" then -- For shortcut API
             return string.format("Invalid dispatcher type: %s. Valid values are: %s",
                 tostring(value), table.concat(valid_values, ", "))
@@ -55,6 +61,8 @@ local function generate_error_message(field_name, value, field_schema)
             return "Config.propagate must be a boolean"
         elseif field_name == "dispatchers" then
             return "Config.dispatchers must be a table"
+        elseif field_name == "transformers" then
+            return "Config.transformers must be a table"
         elseif field_name == "stream" then
             return "Console dispatcher 'stream' field must be a file handle"
         elseif field_name == "path" then
@@ -74,14 +82,19 @@ end
 -- @param field_schema table The schema definition for the field
 -- @param data table The full data object (for conditional validation)
 -- @param is_shortcut boolean Whether this is shortcut config validation
+-- @param schema_context string Optional context (e.g., "transformer", "dispatcher")
 -- @return boolean, string True if valid, or false with error message
-local function validate_field(field_name, value, field_schema, data, is_shortcut)
+local function validate_field(field_name, value, field_schema, data, is_shortcut, schema_context)
     -- Check if field is required
     if value == nil then
         if field_schema.required then
             -- Generate specific required field messages
             if field_name == "type" then
-                return false, "Each dispatcher must have a 'type' string field"
+                if schema_context == "transformer" then
+                    return false, "Each transformer must have a 'type' string field"
+                else
+                    return false, "Each dispatcher must have a 'type' string field"
+                end
             elseif field_name == "dispatcher" then -- For shortcut API
                 return false, "Shortcut config must have an 'dispatcher' field"
             elseif field_name == "presenter" then
@@ -122,7 +135,7 @@ local function validate_field(field_name, value, field_schema, data, is_shortcut
         end
 
         if not valid_type then
-            return false, generate_error_message(field_name, value, field_schema)
+            return false, generate_error_message(field_name, value, field_schema, schema_context)
         end
     end
 
@@ -131,7 +144,7 @@ local function validate_field(field_name, value, field_schema, data, is_shortcut
         -- Case-insensitive lookup
         local lookup_value = string.lower(value)
         if not field_schema.values[lookup_value] then
-            return false, generate_error_message(field_name, value, field_schema)
+            return false, generate_error_message(field_name, value, field_schema, schema_context)
         end
     end
 
@@ -156,13 +169,19 @@ function M.validate(data, schema, schema_registry)
 
     schema_registry = schema_registry or {}
 
-    -- Detect if this is shortcut schema validation
+    -- Detect schema context
     local is_shortcut = schema == schema_registry.ShortcutSchema
+    local schema_context = nil
+    if schema == schema_registry.transformerschema then
+        schema_context = "transformer"
+    elseif schema == schema_registry.dispatcherschema then
+        schema_context = "dispatcher"
+    end
 
     -- Validate known fields
     for field_name, field_schema in pairs(schema) do
         local value = data[field_name]
-        local valid, error_msg = validate_field(field_name, value, field_schema, data, is_shortcut)
+        local valid, error_msg = validate_field(field_name, value, field_schema, data, is_shortcut, schema_context)
 
         if not valid then
             result._errors[field_name] = error_msg

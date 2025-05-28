@@ -27,7 +27,11 @@ function M.generate_expected_error(schema_name, field_name, error_type, value)
 
     if error_type == "required" then
         if field_name == "type" then
-            return "Each dispatcher must have a 'type' string field"
+            if schema_name == "transformerschema" then
+                return "Each transformer must have a 'type' string field"
+            else
+                return "Each dispatcher must have a 'type' string field"
+            end
         elseif field_name == "presenter" then
             return "Each dispatcher must have a 'presenter' string field"
         else
@@ -40,6 +44,8 @@ function M.generate_expected_error(schema_name, field_name, error_type, value)
             return "Config.propagate must be a boolean"
         elseif field_name == "dispatchers" then
             return "Config.dispatchers must be a table"
+        elseif field_name == "transformers" then
+            return "Config.transformers must be a table"
         elseif field_name == "stream" then
             return "Console dispatcher 'stream' field must be a file handle"
         else
@@ -58,8 +64,13 @@ function M.generate_expected_error(schema_name, field_name, error_type, value)
             table.sort(valid_values)
 
             if field_name == "type" then
-                return string.format("Invalid dispatcher type: %s. Valid values are: %s",
-                    tostring(value), table.concat(valid_values, ", "))
+                if schema_name == "transformerschema" then
+                    return string.format("Invalid transformer type: %s. Valid values are: %s",
+                        tostring(value), table.concat(valid_values, ", "))
+                else
+                    return string.format("Invalid dispatcher type: %s. Valid values are: %s",
+                        tostring(value), table.concat(valid_values, ", "))
+                end
             elseif field_name == "presenter" then
                 return string.format("Invalid presenter type: %s. Valid values are: %s",
                     tostring(value), table.concat(valid_values, ", "))
@@ -138,6 +149,14 @@ M.dispatcherschema = {
         description = "The presenter type to use for this dispatcher."
     },
 
+    transformers = {
+        multiple = true,
+        type = "table",
+        required = false,
+        description = "Array of transformer configurations.",
+        schema = "transformerschema" -- Reference to transformer schema
+    },
+
     path = {
         multiple = false,
         type = "string",
@@ -155,6 +174,17 @@ M.dispatcherschema = {
         type = "userdata", -- file handle
         required = false,
         description = "Stream for console dispatchers."
+    }
+}
+
+-- transformer schema definition
+M.transformerschema = {
+    type = {
+        multiple = false,
+        type = "string",
+        values = extract_valid_values(constants.VALID_TRANSFORMER_TYPES),
+        required = true,
+        description = "The type of transformer (noop, etc.)."
     }
 }
 

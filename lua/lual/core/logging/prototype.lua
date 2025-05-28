@@ -123,6 +123,7 @@ function M.logger_prototype:get_effective_dispatchers()
             table.insert(effective_dispatchers, {
                 dispatcher_func = dispatcher_item.dispatcher_func,
                 presenter_func = dispatcher_item.presenter_func,
+                transformer_funcs = dispatcher_item.transformer_funcs or {},
                 dispatcher_config = dispatcher_item.dispatcher_config,
                 owner_logger_name = current_logger.name,
                 owner_logger_level = current_logger.level,

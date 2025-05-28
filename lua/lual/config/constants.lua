@@ -18,6 +18,12 @@ M.VALID_PRESENTER_TYPES = {
     json = true
 }
 
+-- Valid transformer types
+M.VALID_TRANSFORMER_TYPES = {
+    _meta = { name = "transformer type", case_sensitive = false },
+    noop = true
+}
+
 -- Valid timezone values
 M.VALID_TIMEZONES = {
     _meta = { name = "timezone", case_sensitive = false },
