@@ -71,7 +71,7 @@ describe("ingest.dispatch_log_event", function()
 	end
 
 	local function mock_erroring_presenter_func(base_record)
-		error("Formatter error")
+		error("Presenter error")
 	end
 
 	local function get_presenter_calls()
@@ -200,7 +200,7 @@ describe("ingest.dispatch_log_event", function()
 		end
 		if #logger.dispatchers > 0 then
 			print("dispatcher func is mock_dispatcher_func: " ..
-			tostring(logger.dispatchers[1].dispatcher_func == mock_dispatcher_func))
+				tostring(logger.dispatchers[1].dispatcher_func == mock_dispatcher_func))
 		end
 
 		ingest.dispatch_log_event(event_details, mock_logger_internal, mock_log_levels)
@@ -577,9 +577,9 @@ describe("ingest.dispatch_log_event", function()
 		local stderr_list = get_stderr_messages()
 		assert.are.same(1, #stderr_list)
 		if #stderr_list > 0 then
-			assert.is_true(string.find(stderr_list[1], "Logging system error: Formatter", 1, true) ~= nil)
+			assert.is_true(string.find(stderr_list[1], "Logging system error: PRESENTER", 1, true) ~= nil)
 			assert.is_true(string.find(stderr_list[1], "error_logger", 1, true) ~= nil)
-			assert.is_true(string.find(stderr_list[1], "Formatter error", 1, true) ~= nil) -- The error from mock_erroring_presenter_func
+			assert.is_true(string.find(stderr_list[1], "Presenter error", 1, true) ~= nil) -- The error from mock_erroring_presenter_func
 		end
 	end)
 
