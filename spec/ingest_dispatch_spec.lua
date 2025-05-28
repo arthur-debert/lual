@@ -59,7 +59,7 @@ describe("ingest.dispatch_log_event", function()
 		registered_mock_loggers = loggers_map
 	end
 
-	local function mock_get_logger_internal(logger_name)
+	local function mock_logger_internal(logger_name)
 		return registered_mock_loggers[logger_name]
 	end
 
@@ -134,7 +134,8 @@ describe("ingest.dispatch_log_event", function()
 	-- Setup global log object
 	_G.log = {}
 	_G.log.levels = mock_log_levels
-	_G.log.get_logger_internal = mock_get_logger_internal -- Retain for other potential internal uses or direct logger method tests.
+	_G.log.logger_internal =
+	mock_logger_internal                       -- Retain for other potential internal uses or direct logger method tests.
 
 	-- Require the ingest module
 	local ingest_module_status, ingest = pcall(require, "lual.ingest")
@@ -157,9 +158,9 @@ describe("ingest.dispatch_log_event", function()
 		end
 	end)
 
-	it("should load ingest module and mock get_logger_internal", function()
+	it("should load ingest module and mock logger_internal", function()
 		assert.is_function(ingest.dispatch_log_event)
-		assert.is_function(mock_get_logger_internal)
+		assert.is_function(mock_logger_internal)
 	end)
 
 	it("should call output and formatter for a single logger", function()
@@ -187,21 +188,21 @@ describe("ingest.dispatch_log_event", function()
 
 		print("Event Level No: " .. tostring(event_details.level_no))
 		print("Event Source Logger: " .. tostring(event_details.source_logger_name))
-		local logger = _G.log.get_logger_internal("main_logger")
+		local logger = _G.log.logger_internal("main_logger")
 		print("Logger Name: " .. tostring(logger.name))
 		print("Logger Level: " .. tostring(logger.level))
 		print("Logger Outputs Count: " .. tostring(#logger.outputs))
 		if #logger.outputs > 0 then
 			print(
 				"Formatter func is mock_formatter_func: "
-					.. tostring(logger.outputs[1].formatter_func == mock_formatter_func)
+				.. tostring(logger.outputs[1].formatter_func == mock_formatter_func)
 			)
 		end
 		if #logger.outputs > 0 then
 			print("Output func is mock_output_func: " .. tostring(logger.outputs[1].output_func == mock_output_func))
 		end
 
-		ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
+		ingest.dispatch_log_event(event_details, mock_logger_internal, mock_log_levels)
 
 		print("#formatter_calls after dispatch: " .. tostring(#get_formatter_calls()))
 		print("#output_calls after dispatch: " .. tostring(#get_output_calls()))
@@ -265,7 +266,7 @@ describe("ingest.dispatch_log_event", function()
 			context = nil,
 		}
 
-		ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
+		ingest.dispatch_log_event(event_details, mock_logger_internal, mock_log_levels)
 
 		assert.are.same(0, #get_formatter_calls())
 		assert.are.same(0, #get_output_calls())
@@ -291,7 +292,7 @@ describe("ingest.dispatch_log_event", function()
 			context = nil,
 		}
 
-		ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
+		ingest.dispatch_log_event(event_details, mock_logger_internal, mock_log_levels)
 
 		local fc_list_eq = get_formatter_calls()
 		assert.are.same(1, #fc_list_eq)
@@ -321,7 +322,7 @@ describe("ingest.dispatch_log_event", function()
 			context = nil,
 		}
 
-		ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
+		ingest.dispatch_log_event(event_details, mock_logger_internal, mock_log_levels)
 
 		local formatter_calls_list = get_formatter_calls()
 		assert.are.same(1, #formatter_calls_list)
@@ -367,7 +368,7 @@ describe("ingest.dispatch_log_event", function()
 			source_logger_name = "child_logger",
 			context = nil,
 		}
-		ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
+		ingest.dispatch_log_event(event_details, mock_logger_internal, mock_log_levels)
 
 		local fc_list = get_formatter_calls()
 		local hc_list = get_output_calls()
@@ -418,7 +419,7 @@ describe("ingest.dispatch_log_event", function()
 			source_logger_name = "child_logger_no_prop",
 			context = nil,
 		}
-		ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
+		ingest.dispatch_log_event(event_details, mock_logger_internal, mock_log_levels)
 
 		assert.are.same(1, #get_formatter_calls())
 		assert.are.same(1, #get_output_calls())
@@ -455,7 +456,7 @@ describe("ingest.dispatch_log_event", function()
 			source_logger_name = "leaf_logger",
 			context = nil,
 		}
-		ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
+		ingest.dispatch_log_event(event_details, mock_logger_internal, mock_log_levels)
 
 		local fc_list = get_formatter_calls()
 		local hc_list = get_output_calls()
@@ -504,7 +505,7 @@ describe("ingest.dispatch_log_event", function()
 			source_logger_name = "child_source_logger",
 			context = nil,
 		}
-		ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
+		ingest.dispatch_log_event(event_details, mock_logger_internal, mock_log_levels)
 
 		local fc_list = get_formatter_calls()
 		local hc_list = get_output_calls()
@@ -543,7 +544,7 @@ describe("ingest.dispatch_log_event", function()
 			lineno = 50,
 			source_logger_name = "error_logger",
 		}
-		ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
+		ingest.dispatch_log_event(event_details, mock_logger_internal, mock_log_levels)
 
 		assert.are.same(0, #get_formatter_calls()) -- Formatter errored, so no call recorded by mock_formatter_func
 
@@ -598,7 +599,7 @@ describe("ingest.dispatch_log_event", function()
 			lineno = 60,
 			source_logger_name = "error_logger",
 		}
-		ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
+		ingest.dispatch_log_event(event_details, mock_logger_internal, mock_log_levels)
 
 		assert.are.same(1, #get_formatter_calls()) -- Formatter should have been called
 		assert.are.same(0, #get_output_calls()) -- Erroring output does not record its call
@@ -638,7 +639,7 @@ describe("ingest.dispatch_log_event", function()
 			lineno = 70,
 			source_logger_name = "multi_output_logger",
 		}
-		ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
+		ingest.dispatch_log_event(event_details, mock_logger_internal, mock_log_levels)
 
 		assert.are.same(2, #get_formatter_calls()) -- Both formatters should be called
 		assert.are.same(0, #get_output_calls()) -- Erroring output does not record
@@ -690,7 +691,7 @@ describe("ingest.dispatch_log_event", function()
 			lineno = 80,
 			source_logger_name = "child_logger_prop_error",
 		}
-		ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
+		ingest.dispatch_log_event(event_details, mock_logger_internal, mock_log_levels)
 
 		local fc_list = get_formatter_calls()
 		assert.are.same(2, #fc_list) -- Child's formatter, then Parent's formatter
@@ -703,7 +704,7 @@ describe("ingest.dispatch_log_event", function()
 
 		assert.are.same(0, #get_output_calls()) -- Child's erroring output does not record
 		local hc_ok_list = get_output_calls_ok()
-		assert.are.same(1, #hc_ok_list) -- Parent's OK output should be called
+		assert.are.same(1, #hc_ok_list)   -- Parent's OK output should be called
 		if #hc_ok_list == 1 then
 			assert.are.same("parent_logger_prop", hc_ok_list[1].params.logger_name)
 			assert.are.same(event_details.context, hc_ok_list[1].params.context)
@@ -752,7 +753,7 @@ describe("ingest.dispatch_log_event", function()
 			source_logger_name = "emitter_logger", -- Different from passthrough_logger
 		}
 
-		ingest.dispatch_log_event(event_details, mock_get_logger_internal, mock_log_levels)
+		ingest.dispatch_log_event(event_details, mock_logger_internal, mock_log_levels)
 
 		local formatter_calls_list = get_formatter_calls()
 		assert.are.same(1, #formatter_calls_list)

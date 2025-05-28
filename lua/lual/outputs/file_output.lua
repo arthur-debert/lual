@@ -10,7 +10,7 @@
 -- local lual = require("lual")
 -- local file_output_factory = require("lual.outputs.file_output")
 --
--- local logger = lual.get_logger("my_app")
+-- local logger = lual.logger("my_app")
 -- logger:add_output(file_output_factory({ path = "app.log" }), lual.levels.INFO)
 -- logger:info("This will be written to app.log after rotation.")
 

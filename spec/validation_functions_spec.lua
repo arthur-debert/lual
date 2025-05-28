@@ -6,7 +6,7 @@ describe("Validation Functions", function()
     before_each(function()
         -- Reset modules for clean state
         package.loaded["lual.logger"] = nil
-        package.loaded["lual.core.engine"] = nil
+        package.loaded["lual.core.logging"] = nil
         package.loaded["lual.config"] = nil
         config = require("lual.config")
         lualog = require("lual.logger")

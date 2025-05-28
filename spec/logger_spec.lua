@@ -21,21 +21,21 @@ describe("lualog Logger Object", function()
     end
   end) --]]
 
-	describe("lualog.get_logger(name)", function()
+	describe("lualog.logger(name)", function()
 		it("should create a logger with auto-generated name when no name provided", function()
 			-- Use a unique name for root to avoid cache from other tests if any test used "root" explicitly
-			-- However, get_logger() or get_logger("root") should always return the canonical root.
+			-- However, logger() or logger("root") should always return the canonical root.
 			-- Forcing a reload for pristine cache is complex here. Assuming "root" is testable.
 			package.loaded["lual.logger"] = nil -- Attempt to reset cache by reloading module
 			local fresh_lualog = require("lual.logger")
 
-			local auto_logger = fresh_lualog.get_logger()
+			local auto_logger = fresh_lualog.logger()
 			-- Should use the test filename (without .lua extension)
 			assert.truthy(string.find(auto_logger.name, "logger_spec", 1, true))
 			assert.is_false(string.find(auto_logger.name, ".lua", 1, true) ~= nil)
 			assert.are.same(fresh_lualog.levels.INFO, auto_logger.level) -- Default level
 
-			local root_logger_named = fresh_lualog.get_logger("root")
+			local root_logger_named = fresh_lualog.logger("root")
 			assert.are.same("root", root_logger_named.name)
 			assert.is_nil(root_logger_named.parent)
 		end)
@@ -44,7 +44,7 @@ describe("lualog Logger Object", function()
 			package.loaded["lual.logger"] = nil
 			local fresh_lualog = require("lual.logger")
 
-			local logger_a_b = fresh_lualog.get_logger("spec_a.spec_b")
+			local logger_a_b = fresh_lualog.logger("spec_a.spec_b")
 			assert.are.same("spec_a.spec_b", logger_a_b.name)
 			assert.is_not_nil(logger_a_b.parent)
 			assert.are.same("spec_a", logger_a_b.parent.name)
@@ -57,15 +57,15 @@ describe("lualog Logger Object", function()
 			package.loaded["lual.logger"] = nil
 			local fresh_lualog = require("lual.logger")
 
-			local logger1 = fresh_lualog.get_logger("spec_cache_test")
-			local logger2 = fresh_lualog.get_logger("spec_cache_test")
+			local logger1 = fresh_lualog.logger("spec_cache_test")
+			local logger2 = fresh_lualog.logger("spec_cache_test")
 			assert.are.same(logger1, logger2)
 		end)
 
 		it("should have propagation enabled by default", function()
 			package.loaded["lual.logger"] = nil
 			local fresh_lualog = require("lual.logger")
-			local logger = fresh_lualog.get_logger("spec_prop_test")
+			local logger = fresh_lualog.logger("spec_prop_test")
 			assert.is_true(logger.propagate)
 		end)
 	end)
@@ -77,7 +77,7 @@ describe("lualog Logger Object", function()
 		before_each(function()
 			package.loaded["lual.logger"] = nil
 			local fresh_lualog_for_method_tests = require("lual.logger")
-			test_logger = fresh_lualog_for_method_tests.get_logger("suite_logger_methods")
+			test_logger = fresh_lualog_for_method_tests.logger("suite_logger_methods")
 			-- Reset spy on ingest for method tests if already a spy, then apply new one
 			if type(ingest.dispatch_log_event) == "table" and ingest.dispatch_log_event.revert then
 				ingest.dispatch_log_event:revert()
@@ -388,9 +388,9 @@ describe("lualog Logger Object", function()
 				package.loaded["lual.logger"] = nil
 				fresh_lualog_for_outputs = require("lual.logger")
 				-- Use unique names for this test block to ensure clean hierarchy
-				logger_root = fresh_lualog_for_outputs.get_logger("eff_root")
-				logger_p = fresh_lualog_for_outputs.get_logger("eff_root.p")
-				logger_c = fresh_lualog_for_outputs.get_logger("eff_root.p.c")
+				logger_root = fresh_lualog_for_outputs.logger("eff_root")
+				logger_p = fresh_lualog_for_outputs.logger("eff_root.p")
+				logger_c = fresh_lualog_for_outputs.logger("eff_root.p.c")
 
 				-- Reset levels and outputs for these specific loggers
 				logger_root:set_level(fresh_lualog_for_outputs.levels.DEBUG)
@@ -426,9 +426,9 @@ describe("lualog Logger Object", function()
 				fresh_lualog_for_outputs.reset_config()
 
 				-- Re-get the loggers after reset
-				logger_root = fresh_lualog_for_outputs.get_logger("eff_root")
-				logger_p = fresh_lualog_for_outputs.get_logger("eff_root.p")
-				logger_c = fresh_lualog_for_outputs.get_logger("eff_root.p.c")
+				logger_root = fresh_lualog_for_outputs.logger("eff_root")
+				logger_p = fresh_lualog_for_outputs.logger("eff_root.p")
+				logger_c = fresh_lualog_for_outputs.logger("eff_root.p.c")
 
 				-- Reset levels and outputs for these specific loggers
 				logger_root:set_level(fresh_lualog_for_outputs.levels.DEBUG)
@@ -456,9 +456,9 @@ describe("lualog Logger Object", function()
 				fresh_lualog_for_outputs.reset_config()
 
 				-- Re-get the loggers after reset
-				logger_root = fresh_lualog_for_outputs.get_logger("eff_root")
-				logger_p = fresh_lualog_for_outputs.get_logger("eff_root.p")
-				logger_c = fresh_lualog_for_outputs.get_logger("eff_root.p.c")
+				logger_root = fresh_lualog_for_outputs.logger("eff_root")
+				logger_p = fresh_lualog_for_outputs.logger("eff_root.p")
+				logger_c = fresh_lualog_for_outputs.logger("eff_root.p.c")
 
 				-- Reset levels and outputs for these specific loggers
 				logger_root:set_level(fresh_lualog_for_outputs.levels.DEBUG)
@@ -489,7 +489,7 @@ describe("lual.logger (Facade)", function()
 	before_each(function()
 		-- Ensure a clean state for lualog and its components for each facade test
 		package.loaded["lual.logger"] = nil
-		package.loaded["lual.core.engine"] = nil
+		package.loaded["lual.core.logging"] = nil
 		package.loaded["lual.core.levels"] = nil
 		package.loaded["lual.outputs.init"] = nil
 		package.loaded["lual.formatters.init"] = nil
@@ -501,7 +501,7 @@ describe("lual.logger (Facade)", function()
 
 	describe("log.init_default_config()", function()
 		it("should add one default output to the root logger", function()
-			local root_logger = lualog.get_logger("root")
+			local root_logger = lualog.logger("root")
 			assert.is_not_nil(root_logger)
 			assert.are.same(1, #root_logger.outputs, "Root logger should have 1 output after init.")
 			if #root_logger.outputs == 1 then
@@ -515,30 +515,30 @@ describe("lual.logger (Facade)", function()
 			lualog.init_default_config() -- Call again
 			lualog.init_default_config() -- Call yet again
 
-			local root_logger = lualog.get_logger("root")
+			local root_logger = lualog.logger("root")
 			assert.are.same(1, #root_logger.outputs, "Root logger should still have 1 output after multiple inits.")
 		end)
 	end)
 
 	describe("log.reset_config()", function()
 		it("should clear logger cache and re-initialize default config", function()
-			local logger1 = lualog.get_logger("testcache.reset")
+			local logger1 = lualog.logger("testcache.reset")
 			logger1:set_level(lualog.levels.DEBUG)
 
 			lualog.reset_config()
 
-			local logger2 = lualog.get_logger("testcache.reset")
+			local logger2 = lualog.logger("testcache.reset")
 			assert.are_not_same(logger1, logger2, "Logger instance should be new after reset.")
 			assert.are.same(lualog.levels.INFO, logger2.level, "Logger level should be default INFO after reset.")
 
-			local root_logger = lualog.get_logger("root")
+			local root_logger = lualog.logger("root")
 			assert.are.same(1, #root_logger.outputs, "Root logger should have 1 default output after reset.")
 		end)
 	end)
 
 	describe("Proper logger instance usage (non-facade)", function()
 		it("logger instance methods should work correctly", function()
-			local test_logger = lualog.get_logger("test_proper_usage")
+			local test_logger = lualog.logger("test_proper_usage")
 
 			-- Test setting level directly on logger instance
 			test_logger:set_level(lualog.levels.ERROR)
@@ -557,7 +557,7 @@ describe("lual.logger (Facade)", function()
 		end)
 
 		it("logger instance logging methods should execute without error", function()
-			local test_logger = lualog.get_logger("test_logging_methods")
+			local test_logger = lualog.logger("test_logging_methods")
 
 			-- Test that logging methods work on logger instances
 			assert.is_true(pcall(function()

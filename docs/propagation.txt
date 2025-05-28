@@ -17,18 +17,18 @@ propagate upward by default, allowing centralized handling.
 
 AUTOMATIC LOGGER NAMING
 
-When you call get_logger() without providing a name, lual automatically
+When you call logger() without providing a name, lual automatically
 generates a logger name based on the calling file's path:
 
     -- In file: src/database/connection.lua
     local lual = require("lual")
-    local logger = lual.get_logger()  -- Creates logger named "src.database.connection"
+    local logger = lual.logger()  -- Creates logger named "src.database.connection"
     
     -- In file: app.lua  
-    local logger = lual.get_logger()  -- Creates logger named "app"
+    local logger = lual.logger()  -- Creates logger named "app"
     
     -- In file: /home/user/project/utils/parser.lua
-    local logger = lual.get_logger()  -- Creates logger named "home.user.project.utils.parser"
+    local logger = lual.logger()  -- Creates logger named "home.user.project.utils.parser"
 
 The automatic naming process:
 1. Uses debug.getinfo() to find the calling file
@@ -46,12 +46,12 @@ BASIC USAGE
     local lual = require("lual")
     
     -- Automatic naming (uses filename)
-    local logger = lual.get_logger()  -- Name derived from current file
+    local logger = lual.logger()  -- Name derived from current file
     
     -- Explicit naming creates hierarchy automatically
-    local app_logger = lual.get_logger("app")
-    local db_logger = lual.get_logger("app.database")
-    local conn_logger = lual.get_logger("app.database.connection")
+    local app_logger = lual.logger("app")
+    local db_logger = lual.logger("app.database")
+    local conn_logger = lual.logger("app.database.connection")
     
     -- conn_logger's parent is db_logger
     -- db_logger's parent is app_logger  
@@ -66,15 +66,15 @@ You can configure different parts of your application independently:
     local lual = require("lual")
     
     -- Configure the entire app namespace
-    local app_logger = lual.get_logger("app")
+    local app_logger = lual.logger("app")
     app_logger:set_level(lual.levels.INFO)
     
     -- More verbose logging for database operations
-    local db_logger = lual.get_logger("app.database")
+    local db_logger = lual.logger("app.database")
     db_logger:set_level(lual.levels.DEBUG)
     
     -- Critical-only for authentication
-    local auth_logger = lual.get_logger("app.auth")
+    local auth_logger = lual.logger("app.auth")
     auth_logger:set_level(lual.levels.ERROR)
     -- lua
 
@@ -93,14 +93,14 @@ and so on up to the root.
     -- Root logger writes everything to console (default)
     
     -- App logger also writes to a file
-    local app_logger = lual.get_logger("app")
+    local app_logger = lual.logger("app")
     app_logger:add_output(
         lualog.lib.file({ path = "app.log" }),
         lualog.lib.text
     )
     
     -- Database logger has no outputs of its own
-    local db_logger = lual.get_logger("app.database")
+    local db_logger = lual.logger("app.database")
     
     -- This message will be written to:
     -- 1. app.log (via app_logger's file output)
@@ -115,7 +115,7 @@ You can disable propagation to stop messages from flowing upward:
 
     local lual = require("lual")
     
-    local sensitive_logger = lual.get_logger("app.security.audit")
+    local sensitive_logger = lual.logger("app.security.audit")
     sensitive_logger:add_output(
         lualog.lib.file({ path = "audit.log" }),
         lualog.lib.text
@@ -137,15 +137,15 @@ pass the level check at each step to continue propagating:
     local lual = require("lual")
     
     -- Root logger only shows warnings and above
-    local root_logger = lual.get_logger()
+    local root_logger = lual.logger()
     root_logger:set_level(lual.levels.WARNING)
     
     -- App logger shows info and above
-    local app_logger = lual.get_logger("app")
+    local app_logger = lual.logger("app")
     app_logger:set_level(lual.levels.INFO)
     
     -- Debug logger shows everything
-    local debug_logger = lual.get_logger("app.debug")
+    local debug_logger = lual.logger("app.debug")
     debug_logger:set_level(lual.levels.DEBUG)
     
     -- This message is processed by debug_logger and app_logger,
@@ -159,29 +159,29 @@ EXAMPLE: WEB APPLICATION HIERARCHY
     local lual = require("lual")
     
     -- Root: console output for all messages
-    local root = lual.get_logger("root")  -- Explicit root
+    local root = lual.logger("root")  -- Explicit root
     root:set_level(lual.levels.INFO)
     
     -- App-wide file logging
-    local app = lual.get_logger("webapp")
+    local app = lual.logger("webapp")
     app:add_output(
         lualog.lib.file({ path = "webapp.log" }),
         lualog.lib.text
     )
     
     -- HTTP requests: separate file, info level
-    local http = lual.get_logger("webapp.http")
+    local http = lual.logger("webapp.http")
     http:add_output(
         lualog.lib.file({ path = "requests.log" }),
         lualog.lib.text
     )
     
     -- Database: debug level, shared with app file
-    local db = lual.get_logger("webapp.database")
+    local db = lual.logger("webapp.database")
     db:set_level(lual.levels.DEBUG)
     
     -- Security: separate file, no propagation
-    local security = lual.get_logger("webapp.security")
+    local security = lual.logger("webapp.security")
     security:add_output(
         lualog.lib.file({ path = "security.log" }),
         lualog.lib.text
@@ -201,7 +201,7 @@ Automatic naming is ideal for simple cases where you want one logger per file:
 
     -- In file: src/models/user.lua
     local lual = require("lual")
-    local logger = lual.get_logger()  -- Creates "src.models.user" logger
+    local logger = lual.logger()  -- Creates "src.models.user" logger
     
     logger:info("User model loaded")
     logger:debug("Validating user data")
@@ -210,8 +210,8 @@ Explicit naming gives you full control over the hierarchy:
 
     -- In file: src/models/user.lua  
     local lual = require("lual")
-    local logger = lual.get_logger("models.user.validation")  -- Custom hierarchy
-    local db_logger = lual.get_logger("models.user.database")  -- Separate concerns
+    local logger = lual.logger("models.user.validation")  -- Custom hierarchy
+    local db_logger = lual.logger("models.user.database")  -- Separate concerns
     
     logger:info("Validation rules loaded")
     db_logger:debug("User table schema verified")

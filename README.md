@@ -11,7 +11,7 @@ design is done over functions and tables, look ma, no classes.
 
 ```lua
 local lual = require("lual")
-local logger = lual.get_logger()
+local logger = lual.logger()
 logger:info("This is an info message")
 logger:info("User %s logged in from IP %s", "jane.doe", "192.168.1.100") -- String formatting
 
@@ -74,6 +74,31 @@ Lual is available as a LuaRocks module, so you can install it with:
 ```bash
 luarocks install lual
 ```
+
+## API
+
+The main API is `lual.logger()` which creates or retrieves a logger:
+
+```lua
+local lual = require("lual")
+
+-- Simple logger creation (recommended)
+local logger = lual.logger()           -- Auto-named from filename
+local logger = lual.logger("myapp")    -- Named logger
+
+-- Declarative configuration
+local logger = lual.logger({
+    name = "app.database",
+    level = "debug",
+    outputs = {
+        {type = "console", formatter = "color"},
+        {type = "file", path = "app.log", formatter = "text"}
+    }
+})
+```
+
+**Note:** `lual.logger()` is still available for backward compatibility, but
+`lual.logger()` is now the official API.
 
 ## Features (v1)
 

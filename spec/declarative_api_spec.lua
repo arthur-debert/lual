@@ -1,6 +1,6 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 local lualog = require("lual.logger")
-local engine = require("lual.core.engine")
+local engine = require("lual.core.logging")
 local spy = require("luassert.spy")
 local match = require("luassert.match")
 
@@ -8,9 +8,9 @@ describe("Declarative API", function()
     before_each(function()
         -- Reset the logger system for each test
         package.loaded["lual.logger"] = nil
-        package.loaded["lual.core.engine"] = nil
+        package.loaded["lual.core.logging"] = nil
         lualog = require("lual.logger")
-        engine = require("lual.core.engine")
+        engine = require("lual.core.logging")
 
         -- Reset the logger cache
         engine.reset_cache()
@@ -225,10 +225,18 @@ describe("Declarative API", function()
     end)
 
     describe("Validation", function()
-        it("should reject non-table config", function()
+        it("should accept string names for simple logger creation", function()
+            local logger = lualog.logger("test.string.name")
+            assert.is_not_nil(logger)
+            assert.are.same("test.string.name", logger.name)
+            assert.are.same(lualog.levels.INFO, logger.level) -- Default level
+            assert.is_true(logger.propagate)                  -- Default propagate
+        end)
+
+        it("should reject invalid config types (non-string, non-table)", function()
             assert.has_error(function()
-                lualog.logger("not a table")
-            end, "Invalid declarative config: Config must be a table")
+                lualog.logger(123)
+            end, "logger() expects nil, string, or table argument, got number")
         end)
 
         it("should reject unknown config keys", function()
@@ -441,6 +449,7 @@ describe("Declarative API", function()
             assert.is_true(found_parent_output)
         end)
     end)
+
 
     describe("Edge cases", function()
         it("should handle empty outputs array", function()

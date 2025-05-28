@@ -18,19 +18,31 @@ local function is_lual_internal_file(filename)
         basename = string.sub(basename, 2)
     end
 
+    -- Check if the full path contains lual internal directories
+    local is_internal_path = string.find(filename, "/lual/") or
+        string.find(filename, "\\lual\\") or
+        string.find(filename, "%.luarocks/") or
+        string.find(filename, "\\.luarocks\\")
+
+    if is_internal_path then
+        return true
+    end
+
     -- Extract just the filename part (remove directory path)
     basename = string.match(basename, "([^/\\]+)$") or basename
 
-    -- Check if it's a lual internal file
-    -- Only filter files that are actually part of the lual library structure
-    local is_internal = basename == "caller_info.lua" or
+    -- Check if it's a lual internal file by name
+    local is_internal_file = basename == "caller_info.lua" or
         basename == "engine.lua" or
+        basename == "init.lua" or
         basename == "ingest.lua" or
+        basename == "factory.lua" or
+        basename == "management.lua" or
+        basename == "prototype.lua" or
+        basename == "logger.lua" or
         string.match(basename, "^lual%.") ~= nil -- Files starting with "lual." (like lual.logger)
 
-
-
-    return is_internal
+    return is_internal_file
 end
 
 --- Extracts caller information from the debug stack.

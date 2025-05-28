@@ -12,7 +12,7 @@ describe("Logger Propagation", function()
     before_each(function()
         -- Reset the logger system for each test
         package.loaded["lual.logger"] = nil
-        package.loaded["lual.core.engine"] = nil
+        package.loaded["lual.core.logging"] = nil
         package.loaded["lual.ingest"] = nil
         lual = require("lual.logger")
 
@@ -21,7 +21,7 @@ describe("Logger Propagation", function()
         mock_formatter_calls = {}
 
         -- Clear any default outputs that might be set up
-        local root_logger = lual.get_logger("root")
+        local root_logger = lual.logger("root")
         -- Clear outputs directly for test setup (this is acceptable for tests)
         root_logger.outputs = {}
     end)
@@ -53,9 +53,9 @@ describe("Logger Propagation", function()
 
     describe("Basic Propagation", function()
         it("should propagate messages from child to parent loggers", function()
-            local root_logger = lual.get_logger("root")
-            local app_logger = lual.get_logger("app")
-            local db_logger = lual.get_logger("app.database")
+            local root_logger = lual.logger("root")
+            local app_logger = lual.logger("app")
+            local db_logger = lual.logger("app.database")
 
             -- Add outputs to different levels
             root_logger:add_output(create_mock_output("root_output"), create_mock_formatter("root_formatter"))
@@ -93,8 +93,8 @@ describe("Logger Propagation", function()
         end)
 
         it("should include logger's own outputs when propagating", function()
-            local app_logger = lual.get_logger("app")
-            local db_logger = lual.get_logger("app.database")
+            local app_logger = lual.logger("app")
+            local db_logger = lual.logger("app.database")
 
             app_logger:add_output(create_mock_output("app_output"), create_mock_formatter("app_formatter"))
             db_logger:add_output(create_mock_output("db_output"), create_mock_formatter("db_formatter"))
@@ -125,9 +125,9 @@ describe("Logger Propagation", function()
 
     describe("Propagation Control", function()
         it("should stop propagation when propagate is false", function()
-            local root_logger = lual.get_logger("root")
-            local app_logger = lual.get_logger("app")
-            local security_logger = lual.get_logger("app.security")
+            local root_logger = lual.logger("root")
+            local app_logger = lual.logger("app")
+            local security_logger = lual.logger("app.security")
 
             root_logger:add_output(create_mock_output("root_output"), create_mock_formatter("root_formatter"))
             app_logger:add_output(create_mock_output("app_output"), create_mock_formatter("app_formatter"))
@@ -146,10 +146,10 @@ describe("Logger Propagation", function()
         end)
 
         it("should stop propagation at the logger where propagate is false", function()
-            local root_logger = lual.get_logger("root")
-            local app_logger = lual.get_logger("app")
-            local db_logger = lual.get_logger("app.database")
-            local conn_logger = lual.get_logger("app.database.connection")
+            local root_logger = lual.logger("root")
+            local app_logger = lual.logger("app")
+            local db_logger = lual.logger("app.database")
+            local conn_logger = lual.logger("app.database.connection")
 
             root_logger:add_output(create_mock_output("root_output"), create_mock_formatter("root_formatter"))
             app_logger:add_output(create_mock_output("app_output"), create_mock_formatter("app_formatter"))
@@ -180,9 +180,9 @@ describe("Logger Propagation", function()
 
     describe("Level Filtering in Propagation", function()
         it("should apply level filtering at each logger in the hierarchy", function()
-            local root_logger = lual.get_logger("root")
-            local app_logger = lual.get_logger("app")
-            local debug_logger = lual.get_logger("app.debug")
+            local root_logger = lual.logger("root")
+            local app_logger = lual.logger("app")
+            local debug_logger = lual.logger("app.debug")
 
             -- Set different levels
             root_logger:set_level(lual.levels.WARNING) -- Only warnings and above
@@ -212,8 +212,8 @@ describe("Logger Propagation", function()
         end)
 
         it("should not propagate if the originating logger filters the message", function()
-            local app_logger = lual.get_logger("app")
-            local db_logger = lual.get_logger("app.database")
+            local app_logger = lual.logger("app")
+            local db_logger = lual.logger("app.database")
 
             app_logger:add_output(create_mock_output("app_output"), create_mock_formatter("app_formatter"))
             db_logger:add_output(create_mock_output("db_output"), create_mock_formatter("db_formatter"))
@@ -233,12 +233,12 @@ describe("Logger Propagation", function()
     describe("Complex Hierarchy Propagation", function()
         it("should handle deep hierarchies correctly", function()
             local loggers = {
-                lual.get_logger("root"),
-                lual.get_logger("webapp"),
-                lual.get_logger("webapp.api"),
-                lual.get_logger("webapp.api.v1"),
-                lual.get_logger("webapp.api.v1.users"),
-                lual.get_logger("webapp.api.v1.users.auth")
+                lual.logger("root"),
+                lual.logger("webapp"),
+                lual.logger("webapp.api"),
+                lual.logger("webapp.api.v1"),
+                lual.logger("webapp.api.v1.users"),
+                lual.logger("webapp.api.v1.users.auth")
             }
 
             -- Add outputs to each logger
@@ -267,8 +267,8 @@ describe("Logger Propagation", function()
         end)
 
         it("should handle multiple outputs per logger", function()
-            local app_logger = lual.get_logger("app")
-            local db_logger = lual.get_logger("app.database")
+            local app_logger = lual.logger("app")
+            local db_logger = lual.logger("app.database")
 
             -- Add multiple outputs to app logger
             app_logger:add_output(create_mock_output("app_console"), create_mock_formatter("app_console_fmt"))
@@ -297,9 +297,9 @@ describe("Logger Propagation", function()
 
     describe("Edge Cases", function()
         it("should handle logger with no outputs but propagating parents", function()
-            local root_logger = lual.get_logger("root")
-            local app_logger = lual.get_logger("app")
-            local db_logger = lual.get_logger("app.database")
+            local root_logger = lual.logger("root")
+            local app_logger = lual.logger("app")
+            local db_logger = lual.logger("app.database")
 
             -- Only root has outputs
             root_logger:add_output(create_mock_output("root_output"), create_mock_formatter("root_formatter"))
@@ -316,8 +316,8 @@ describe("Logger Propagation", function()
         end)
 
         it("should handle root logger with propagate=false", function()
-            local root_logger = lual.get_logger("root")
-            local app_logger = lual.get_logger("app")
+            local root_logger = lual.logger("root")
+            local app_logger = lual.logger("app")
 
             root_logger:add_output(create_mock_output("root_output"), create_mock_formatter("root_formatter"))
             app_logger:add_output(create_mock_output("app_output"), create_mock_formatter("app_formatter"))
@@ -337,8 +337,8 @@ describe("Logger Propagation", function()
 
         it("should handle logger with same name as parent", function()
             -- This tests the edge case where someone might try to create conflicting names
-            local app_logger = lual.get_logger("app")
-            local app_sub_logger = lual.get_logger("app.app") -- Confusing but valid
+            local app_logger = lual.logger("app")
+            local app_sub_logger = lual.logger("app.app") -- Confusing but valid
 
             app_logger:add_output(create_mock_output("app_output"), create_mock_formatter("app_formatter"))
             app_sub_logger:add_output(create_mock_output("app_sub_output"), create_mock_formatter("app_sub_formatter"))

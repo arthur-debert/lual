@@ -8,7 +8,7 @@ lual gives various ways to construct your logger:
         -- example
 
             local lual = require("lual")
-            local logger = lualog.get_logger("app.database")
+            local logger = lualog.logger("app.database")
             logger:set_level("debug")
 
             logger:add_output(
