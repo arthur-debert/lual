@@ -1,6 +1,19 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 local lualog = require("lual.logger")
 local config = require("lual.config")
+local validation = require("lual.config.validation")
+local constants = require("lual.config.constants")
+
+-- Helper function to check if something is callable (function or callable table)
+local function is_callable(obj)
+    if type(obj) == "function" then
+        return true
+    elseif type(obj) == "table" then
+        local mt = getmetatable(obj)
+        return mt and type(mt.__call) == "function"
+    end
+    return false
+end
 
 describe("Shortcut Declarative API", function()
     before_each(function()
@@ -52,7 +65,7 @@ describe("Shortcut Declarative API", function()
 
             local output = logger.outputs[1]
             assert.is_function(output.output_func)
-            assert.is_function(output.formatter_func)
+            assert.is_true(is_callable(output.formatter_func))
             assert.is_table(output.output_config)
         end)
 
@@ -72,7 +85,7 @@ describe("Shortcut Declarative API", function()
 
             local output = logger.outputs[1]
             assert.is_function(output.output_func)
-            assert.is_function(output.formatter_func)
+            assert.is_true(is_callable(output.formatter_func))
             assert.are.same("test.log", output.output_config.path)
         end)
 
@@ -126,7 +139,7 @@ describe("Shortcut Declarative API", function()
                     output = 123,
                     formatter = "text"
                 })
-            end, "Invalid shortcut config: Shortcut config 'output' field must be a string")
+            end, "Invalid shortcut config: Output type must be a string")
         end)
 
         it("should reject non-string formatter field", function()
@@ -135,25 +148,29 @@ describe("Shortcut Declarative API", function()
                     output = "console",
                     formatter = 456
                 })
-            end, "Invalid shortcut config: Shortcut config 'formatter' field must be a string")
+            end, "Invalid shortcut config: Formatter type must be a string")
         end)
 
         it("should reject unknown output types", function()
+            local expected_error = "Invalid shortcut config: " ..
+                constants.generate_expected_error_message("unknown", constants.VALID_OUTPUT_TYPES)
             assert.has_error(function()
                 lualog.logger({
                     output = "unknown",
                     formatter = "text"
                 })
-            end, "Invalid shortcut config: Unknown output type: unknown. Valid types are: console, file")
+            end, expected_error)
         end)
 
         it("should reject unknown formatter types", function()
+            local expected_error = "Invalid shortcut config: " ..
+                constants.generate_expected_error_message("unknown", constants.VALID_FORMATTER_TYPES)
             assert.has_error(function()
                 lualog.logger({
                     output = "console",
                     formatter = "unknown"
                 })
-            end, "Invalid shortcut config: Unknown formatter type: unknown. Valid types are: color, json, text")
+            end, expected_error)
         end)
 
         it("should reject file output without path", function()
@@ -162,7 +179,7 @@ describe("Shortcut Declarative API", function()
                     output = "file",
                     formatter = "text"
                 })
-            end, "Invalid shortcut config: File output in shortcut config must have a 'path' string field")
+            end, "Invalid shortcut config: File output must have a 'path' string field")
         end)
 
         it("should reject file output with non-string path", function()
@@ -172,7 +189,7 @@ describe("Shortcut Declarative API", function()
                     formatter = "text",
                     path = 123
                 })
-            end, "Invalid shortcut config: File output in shortcut config must have a 'path' string field")
+            end, "Invalid shortcut config: File output must have a 'path' string field")
         end)
 
         it("should reject console output with invalid stream type", function()
@@ -196,6 +213,8 @@ describe("Shortcut Declarative API", function()
         end)
 
         it("should reject invalid level in shortcut config", function()
+            local expected_error = "Invalid shortcut config: " ..
+                constants.generate_expected_error_message("invalid_level", constants.VALID_LEVEL_STRINGS)
             assert.has_error(function()
                     lualog.logger({
                         output = "console",
@@ -203,7 +222,7 @@ describe("Shortcut Declarative API", function()
                         level = "invalid_level"
                     })
                 end,
-                "Invalid shortcut config: Invalid level string: invalid_level. Valid levels are: critical, debug, error, info, none, warning")
+                expected_error)
         end)
 
         it("should reject invalid name type in shortcut config", function()
@@ -421,7 +440,7 @@ describe("Shortcut Declarative API", function()
 
             local output = logger.outputs[1]
             assert.is_function(output.output_func)
-            assert.is_function(output.formatter_func)
+            assert.is_true(is_callable(output.formatter_func))
         end)
 
         it("should work with named logger using shortcut syntax", function()

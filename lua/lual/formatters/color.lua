@@ -52,39 +52,70 @@ local function colorize(text, color_name)
     return colors[color_name] .. text .. colors.reset
 end
 
--- Formatter that returns a colored text representation of the log record.
--- @param record (table) A table containing log record details
--- @param config (table) Configuration options for the formatter
--- @return (string) The formatted log message string with ANSI color codes.
-local function color(record, config)
+--- Factory that creates a color formatter function
+-- @param config (table, optional) Configuration for the color formatter
+-- @return function The formatter function with schema attached
+local function color_formatter_factory(config)
     config = config or {}
-    local level_colors = config.level_colors or default_level_colors
-    local timestamp_str = time_utils.format_timestamp(record.timestamp, record.timezone)
-    local msg_args = record.args or {}
-    -- Make sure msg_args is a table for string.format to use
-    if type(msg_args) ~= "table" then msg_args = {} end
-    -- Use pcall to safely format the message
-    local message
-    local status, result = pcall(function()
-        return string.format(record.message_fmt, unpack(msg_args))
-    end)
-    if status then
-        message = result
-    else
-        -- If formatting fails, just use the message format as-is
-        message = record.message_fmt
+
+    -- Validate level_colors if provided
+    if config.level_colors then
+        if type(config.level_colors) ~= "table" then
+            error("Color formatter 'level_colors' must be a table")
+        end
     end
-    -- Get the appropriate color for this level
-    local level_name = record.level_name or "UNKNOWN_LEVEL"
-    local level_color = level_colors[level_name] or level_colors.default
-    -- Colorize the logger name with a different color for visual separation
-    local logger_name = record.logger_name or "UNKNOWN_LOGGER"
-    return string.format("%s %s [%s] %s",
-        colorize(timestamp_str, "dim"),
-        colorize(level_name, level_color),
-        colorize(logger_name, "cyan"),
-        message
-    )
+
+    local level_colors = config.level_colors or default_level_colors
+
+    -- Create the actual formatter function
+    local function formatter_func(record)
+        local timestamp_str = time_utils.format_timestamp(record.timestamp, record.timezone)
+        local msg_args = record.args or {}
+        -- Make sure msg_args is a table for string.format to use
+        if type(msg_args) ~= "table" then msg_args = {} end
+        -- Use pcall to safely format the message
+        local message
+        local status, result = pcall(function()
+            return string.format(record.message_fmt, unpack(msg_args))
+        end)
+        if status then
+            message = result
+        else
+            -- If formatting fails, just use the message format as-is
+            message = record.message_fmt
+        end
+        -- Get the appropriate color for this level
+        local level_name = record.level_name or "UNKNOWN_LEVEL"
+        local level_color = level_colors[level_name] or level_colors.default
+        -- Colorize the logger name with a different color for visual separation
+        local logger_name = record.logger_name or "UNKNOWN_LOGGER"
+        return string.format("%s %s [%s] %s",
+            colorize(timestamp_str, "dim"),
+            colorize(level_name, level_color),
+            colorize(logger_name, "cyan"),
+            message
+        )
+    end
+
+    -- Create a callable table with schema
+    local formatter_with_schema = {
+        schema = {
+            level_colors = {
+                type = "table",
+                required = false,
+                description = "Custom color mapping for log levels"
+            }
+        }
+    }
+
+    -- Make it callable
+    setmetatable(formatter_with_schema, {
+        __call = function(_, record)
+            return formatter_func(record)
+        end
+    })
+
+    return formatter_with_schema
 end
 
-return color
+return color_formatter_factory

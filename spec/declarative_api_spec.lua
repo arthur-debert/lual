@@ -3,6 +3,19 @@ local lualog = require("lual.logger")
 local engine = require("lual.core.logging")
 local spy = require("luassert.spy")
 local match = require("luassert.match")
+local validation = require("lual.config.validation")
+local constants = require("lual.config.constants")
+
+-- Helper function to check if something is callable (function or callable table)
+local function is_callable(obj)
+    if type(obj) == "function" then
+        return true
+    elseif type(obj) == "table" then
+        local mt = getmetatable(obj)
+        return mt and type(mt.__call) == "function"
+    end
+    return false
+end
 
 describe("Declarative API", function()
     before_each(function()
@@ -49,13 +62,13 @@ describe("Declarative API", function()
             -- Check first output (console)
             local console_output = logger.outputs[1]
             assert.is_function(console_output.output_func)
-            assert.is_function(console_output.formatter_func)
+            assert.is_true(is_callable(console_output.formatter_func))
             assert.is_table(console_output.output_config)
 
             -- Check second output (file)
             local file_output = logger.outputs[2]
             assert.is_function(file_output.output_func)
-            assert.is_function(file_output.formatter_func)
+            assert.is_true(is_callable(file_output.formatter_func))
             assert.is_table(file_output.output_config)
             assert.are.same("test.log", file_output.output_config.path)
         end)
@@ -142,7 +155,7 @@ describe("Declarative API", function()
             assert.are.same(1, #logger.outputs)
             local output = logger.outputs[1]
             assert.is_function(output.output_func)
-            assert.is_function(output.formatter_func)
+            assert.is_true(is_callable(output.formatter_func))
             -- Default console config should be empty (uses io.stdout by default)
             assert.is_table(output.output_config)
         end)
@@ -171,7 +184,7 @@ describe("Declarative API", function()
             assert.are.same(1, #logger.outputs)
             local output = logger.outputs[1]
             assert.is_function(output.output_func)
-            assert.is_function(output.formatter_func)
+            assert.is_true(is_callable(output.formatter_func))
             assert.are.same("app.log", output.output_config.path)
         end)
 
@@ -190,7 +203,7 @@ describe("Declarative API", function()
             -- Check that each output is properly configured
             for i, output in ipairs(logger.outputs) do
                 assert.is_function(output.output_func, "Output " .. i .. " missing output_func")
-                assert.is_function(output.formatter_func, "Output " .. i .. " missing formatter_func")
+                assert.is_true(is_callable(output.formatter_func), "Output " .. i .. " missing formatter_func")
                 assert.is_table(output.output_config, "Output " .. i .. " missing output_config")
             end
 
@@ -214,7 +227,7 @@ describe("Declarative API", function()
             -- Check that both outputs are properly configured with JSON formatter
             for i, output in ipairs(logger.outputs) do
                 assert.is_function(output.output_func, "Output " .. i .. " missing output_func")
-                assert.is_function(output.formatter_func, "Output " .. i .. " missing formatter_func")
+                assert.is_true(is_callable(output.formatter_func), "Output " .. i .. " missing formatter_func")
                 assert.are.same(lualog.lib.json, output.formatter_func, "Output " .. i .. " should use JSON formatter")
                 assert.is_table(output.output_config, "Output " .. i .. " missing output_config")
             end
@@ -249,13 +262,15 @@ describe("Declarative API", function()
         end)
 
         it("should reject invalid level strings", function()
+            local expected_error = "Invalid declarative config: " ..
+                constants.generate_expected_error_message("invalid_level", constants.VALID_LEVEL_STRINGS)
             assert.has_error(function()
                     lualog.logger({
                         name = "test",
                         level = "invalid_level"
                     })
                 end,
-                "Invalid declarative config: Invalid level string: invalid_level. Valid levels are: critical, debug, error, info, none, warning")
+                expected_error)
         end)
 
         it("should reject invalid level types", function()
@@ -316,6 +331,8 @@ describe("Declarative API", function()
         end)
 
         it("should reject unknown output types", function()
+            local expected_error = "Invalid declarative config: " ..
+                constants.generate_expected_error_message("unknown", constants.VALID_OUTPUT_TYPES)
             assert.has_error(function()
                 lualog.logger({
                     name = "test",
@@ -323,10 +340,12 @@ describe("Declarative API", function()
                         { type = "unknown", formatter = "text" }
                     }
                 })
-            end, "Invalid declarative config: Unknown output type: unknown. Valid types are: console, file")
+            end, expected_error)
         end)
 
         it("should reject unknown formatter types", function()
+            local expected_error = "Invalid declarative config: " ..
+                constants.generate_expected_error_message("unknown", constants.VALID_FORMATTER_TYPES)
             assert.has_error(function()
                 lualog.logger({
                     name = "test",
@@ -334,7 +353,7 @@ describe("Declarative API", function()
                         { type = "console", formatter = "unknown" }
                     }
                 })
-            end, "Invalid declarative config: Unknown formatter type: unknown. Valid types are: color, json, text")
+            end, expected_error)
         end)
 
         it("should reject file output without path", function()

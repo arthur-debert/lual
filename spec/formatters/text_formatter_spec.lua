@@ -1,7 +1,13 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
-local text_formatter = require("lual.formatters.text")
+local text_formatter_factory = require("lual.formatters.text")
 
 describe("lual.formatters.text", function()
+    local text_formatter
+
+    before_each(function()
+        text_formatter = text_formatter_factory()
+    end)
+
     describe("Basic functionality", function()
         it("should format a basic log record as text", function()
             local record = {
@@ -152,7 +158,24 @@ describe("lual.formatters.text", function()
             local lualog = require("lual.logger")
 
             assert.is_not_nil(lualog.lib.text)
-            assert.are.same(text_formatter, lualog.lib.text)
+            -- lib.text should be a callable formatter object (created by calling the factory)
+            assert.is_table(lualog.lib.text)
+            assert.is_not_nil(getmetatable(lualog.lib.text))
+            assert.is_function(getmetatable(lualog.lib.text).__call)
+
+            -- Test that it actually works as a formatter
+            local test_record = {
+                timestamp = 1640995200,
+                timezone = "utc",
+                level_name = "INFO",
+                logger_name = "test",
+                message_fmt = "test message",
+                args = {}
+            }
+            local result = lualog.lib.text(test_record)
+            assert.is_string(result)
+            assert.truthy(result:find("INFO"))
+            assert.truthy(result:find("test message"))
         end)
     end)
 end)

@@ -1,6 +1,6 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 local unpack = unpack or table.unpack
-local color = require("lual.formatters.color")
+local color_factory = require("lual.formatters.color")
 
 describe("lual.formatters.color", function()
 	local colors = {
@@ -16,6 +16,7 @@ describe("lual.formatters.color", function()
 	}
 
 	it("should format a basic log record with colors", function()
+		local color = color_factory()
 		local record = {
 			timestamp = 1678886400, -- 2023-03-15 10:00:00 UTC
 			timezone = "utc", -- Explicitly set timezone for predictable test
@@ -49,6 +50,7 @@ describe("lual.formatters.color", function()
 	end)
 
 	it("should handle nil arguments gracefully", function()
+		local color = color_factory()
 		local record = {
 			timestamp = 1678886401, -- 2023-03-15 10:00:01 UTC
 			level_name = "DEBUG",
@@ -67,6 +69,7 @@ describe("lual.formatters.color", function()
 	end)
 
 	it("should use fallbacks for missing optional record fields", function()
+		local color = color_factory()
 		local ts = 1678886402 -- 2023-03-15 10:00:02 UTC
 
 		local record1 = {
@@ -113,7 +116,8 @@ describe("lual.formatters.color", function()
 			DEBUG = "cyan",
 			default = "yellow",
 		}
-		local formatted = color(record, { level_colors = custom_level_colors })
+		local color = color_factory({ level_colors = custom_level_colors })
+		local formatted = color(record)
 		assert.truthy(
 			formatted:find(colors.bright_red .. "INFO" .. colors.reset, 1, true),
 			"INFO level should use custom bright_red color"
@@ -122,6 +126,7 @@ describe("lual.formatters.color", function()
 
 	describe("Timezone handling", function()
 		it("should format timestamp in UTC when timezone is 'utc'", function()
+			local color = color_factory()
 			local record = {
 				timestamp = 1609459200, -- 2021-01-01 00:00:00 UTC
 				timezone = "utc",
@@ -138,6 +143,7 @@ describe("lual.formatters.color", function()
 		end)
 
 		it("should format timestamp in local time when timezone is 'local'", function()
+			local color = color_factory()
 			local record = {
 				timestamp = 1609459200, -- 2021-01-01 00:00:00 UTC
 				timezone = "local",
@@ -154,6 +160,7 @@ describe("lual.formatters.color", function()
 		end)
 
 		it("should default to local timezone when timezone is nil", function()
+			local color = color_factory()
 			local record = {
 				timestamp = 1609459200,
 				timezone = nil,
@@ -170,6 +177,7 @@ describe("lual.formatters.color", function()
 		end)
 
 		it("should handle case insensitive timezone values", function()
+			local color = color_factory()
 			local record = {
 				timestamp = 1609459200,
 				timezone = "UTC", -- Uppercase
