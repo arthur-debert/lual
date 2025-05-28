@@ -1,32 +1,42 @@
-Schema-based Validation for Outputs and Formatters
+Schema-based Validation for Outputs and Formatters - FULLY COMPLETED
 
-Problem: Current validation is hard-coded and doesn't support custom outputs/formatters.
 
-Solution: Make all outputs/formatters use factory pattern and inject schema into returned function.
+We have a half-way  there solution for validation now. 
 
-Current:
-- File output: factory pattern (file_output_factory(config) -> function)
-- Console output: direct function
-- Hard-coded validation in transformation.lua
+In lua/lual/config/constants.lua we define a the values for a given fied like
+this: 
 
-New approach:
-- All outputs/formatters become factories
-- Factory validates config and returns function with ._schema attached
-- Validation logic checks function._schema at runtime
-- No registry needed - schema travels with function
+ M.VALID_FORMATTER_TYPES = {
+    _meta = { name = "formatter type", case_sensitive = false },
+    text = true,
+    color = true,
+    json = true
+}
 
-Example:
-console_output_factory(config) -> function with function._schema = {stream = {type="userdata", required=false}}
+this is working but it has a few nags. 
+The first is that thing like name, required, etc are part of a schena, while
+this should just be a list of valid valies.
 
-Benefits:
-- No API changes for simple cases
-- Unified pattern for all outputs/formatters  
-- Schema self-documenting
-- Supports custom outputs/formatters
-- No global state/registry complexity
 
-Implementation:
-1. Convert formatters to factory pattern first (simpler, no config usually)
-2. Convert console output to factory pattern
-3. Update transformation logic to use schemas for validation
-4. Test with custom formatters/outputs
+Hence, what we want is to have a schema, like: 
+
+
+ConfigSchema = {
+    formatter_type = {
+
+        multiple: false
+        type = "string",
+        values = M.VALID_FORMATTER_TYPES,
+        required = true,
+        description = "The type of formatter to use for output."
+        error_message = "Invalid formatter type. Valid options are: text,
+        color, json."
+    },
+    ... other  values go here
+}
+
+then validation can be automated by the schema.
+
+
+Task: 
+lets implement thsi
