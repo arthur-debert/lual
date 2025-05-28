@@ -2,6 +2,7 @@
 -- This module contains all validation logic for different config formats
 
 local constants = require("lual.config.constants")
+local schema = require("lual.schema")
 
 local M = {}
 
@@ -15,71 +16,39 @@ function M.validate_and_merge_config(user_config, default_config)
     for k, v in pairs(default_config) do merged[k] = v end
     for k, v in pairs(user_config) do merged[k] = v end
 
-    -- 2. Check unknown keys
-    for key in pairs(merged) do
-        if not constants.VALID_DECLARATIVE_KEYS[key] then
-            return nil, "Unknown config key: " .. key
+    -- 2. Use schema validation
+    local result = schema.validate_config(merged)
+
+    -- 3. Check for errors and return in the old format
+    if next(result._errors) then
+        -- Convert first error to old format (single error string)
+        for field, error_msg in pairs(result._errors) do
+            if type(error_msg) == "table" then
+                -- Handle nested errors (like outputs[1].formatter)
+                for sub_field, sub_error in pairs(error_msg) do
+                    return nil, sub_error
+                end
+            else
+                return nil, error_msg
+            end
         end
     end
 
-    -- 3. Validate basic fields
-    if merged.name and type(merged.name) ~= "string" then return nil, "Config.name must be a string" end
-    if merged.propagate ~= nil and type(merged.propagate) ~= "boolean" then
-        return nil,
-            "Config.propagate must be a boolean"
-    end
-    if merged.level and type(merged.level) == "string" then
-        local ok, err = constants.validate_against_constants(merged.level, constants.VALID_LEVEL_STRINGS, false)
-        if not ok then return nil, err end
-    elseif merged.level and type(merged.level) ~= "number" then
-        return nil, "Level must be a string or number"
-    end
-    if merged.timezone then
-        local ok, err = constants.validate_against_constants(merged.timezone, constants.VALID_TIMEZONES, true, "string")
-        if not ok then return nil, err end
-    end
-
-    -- 4. Validate outputs array
-    if merged.outputs then
-        if type(merged.outputs) ~= "table" then return nil, "Config.outputs must be a table" end
-        for i, output in ipairs(merged.outputs) do
-            local err = M.validate_single_output(output)
-            if err then return nil, err end
-        end
-    end
-
-    return merged
+    return result.data
 end
 
 --- Validates a single output configuration
 -- @param output table The output config to validate
 -- @return string|nil Error message or nil if valid
 function M.validate_single_output(output)
-    if type(output) ~= "table" then return "Each output must be a table" end
+    -- Use schema validation for output
+    local result = schema.validate_output(output)
 
-    -- Check unknown keys
-    local valid_keys = { type = true, formatter = true, path = true, stream = true }
-    for key in pairs(output) do
-        if not valid_keys[key] then return "Unknown output key: " .. key end
-    end
-
-    -- Required fields
-    if not output.type then return "Each output must have a 'type' string field" end
-    if not output.formatter then return "Each output must have a 'formatter' string field" end
-
-    -- Validate types
-    local ok, err = constants.validate_against_constants(output.type, constants.VALID_OUTPUT_TYPES, false, "string")
-    if not ok then return err end
-    ok, err = constants.validate_against_constants(output.formatter, constants.VALID_FORMATTER_TYPES, false, "string")
-    if not ok then return err end
-
-    -- Type-specific validation
-    if output.type == "file" and (not output.path or type(output.path) ~= "string") then
-        return "File output must have a 'path' string field"
-    end
-    if output.type == "console" and output.stream then
-        if type(output.stream) == "string" or type(output.stream) == "number" or type(output.stream) == "boolean" then
-            return "Console output 'stream' field must be a file handle"
+    -- Check for errors and return in the old format
+    if next(result._errors) then
+        -- Return first error message
+        for field, error_msg in pairs(result._errors) do
+            return error_msg
         end
     end
 
@@ -110,16 +79,16 @@ function M.validate_canonical_config(config)
         return false, "Config.propagate must be a boolean"
     end
 
-    -- Validate timezone
+    -- Validate timezone using schema validation
     if config.timezone then
-        local valid, err = constants.validate_against_constants(config.timezone, constants.VALID_TIMEZONES, true,
-            "string")
-        if not valid then
-            return false, err
+        local temp_config = { timezone = config.timezone }
+        local result = schema.validate_config(temp_config)
+        if result._errors.timezone then
+            return false, result._errors.timezone
         end
     end
 
-    -- Validate outputs structure
+    -- Validate outputs structure (canonical format has functions)
     if config.outputs then
         for i, output in ipairs(config.outputs) do
             if type(output) ~= "table" then

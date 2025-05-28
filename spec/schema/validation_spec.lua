@@ -1,5 +1,6 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 local schema = require("lual.schema")
+local config_schema = require("lual.schema.config_schema")
 
 describe("Schema Validation", function()
     describe("Config validation", function()
@@ -43,6 +44,7 @@ describe("Schema Validation", function()
 
             assert.is_not_nil(result._errors.level)
             assert.matches("Invalid level", result._errors.level)
+            assert.matches("Valid values are:", result._errors.level)
         end)
 
         it("should reject invalid timezone", function()
@@ -64,7 +66,8 @@ describe("Schema Validation", function()
             local result = schema.validate_config(config)
 
             assert.is_not_nil(result._errors.name)
-            assert.matches("Name must be a string", result._errors.name)
+            local expected_error = config_schema.generate_expected_error("ConfigSchema", "name", "type")
+            assert.are.equal(expected_error, result._errors.name)
         end)
 
         it("should reject unknown fields", function()
@@ -75,7 +78,7 @@ describe("Schema Validation", function()
             local result = schema.validate_config(config)
 
             assert.is_not_nil(result._errors.unknown_field)
-            assert.matches("Unknown field", result._errors.unknown_field)
+            assert.matches("Unknown config key", result._errors.unknown_field)
         end)
     end)
 
@@ -114,7 +117,8 @@ describe("Schema Validation", function()
             local result = schema.validate_output(output)
 
             assert.is_not_nil(result._errors.type)
-            assert.matches("Type is required", result._errors.type)
+            local expected_error = config_schema.generate_expected_error("OutputSchema", "type", "required")
+            assert.are.equal(expected_error, result._errors.type)
         end)
 
         it("should require formatter field", function()
@@ -125,7 +129,8 @@ describe("Schema Validation", function()
             local result = schema.validate_output(output)
 
             assert.is_not_nil(result._errors.formatter)
-            assert.matches("Formatter is required", result._errors.formatter)
+            local expected_error = config_schema.generate_expected_error("OutputSchema", "formatter", "required")
+            assert.are.equal(expected_error, result._errors.formatter)
         end)
 
         it("should require path for file outputs", function()
@@ -137,7 +142,8 @@ describe("Schema Validation", function()
             local result = schema.validate_output(output)
 
             assert.is_not_nil(result._errors.path)
-            assert.matches("Path is required when type is file", result._errors.path)
+            local expected_error = config_schema.generate_expected_error("OutputSchema", "path", "conditional")
+            assert.are.equal(expected_error, result._errors.path)
         end)
 
         it("should reject invalid output type", function()
@@ -149,7 +155,9 @@ describe("Schema Validation", function()
             local result = schema.validate_output(output)
 
             assert.is_not_nil(result._errors.type)
-            assert.matches("Invalid type", result._errors.type)
+            local expected_error = config_schema.generate_expected_error("OutputSchema", "type", "invalid_value",
+                "invalid")
+            assert.are.equal(expected_error, result._errors.type)
         end)
 
         it("should reject invalid formatter type", function()
@@ -161,7 +169,9 @@ describe("Schema Validation", function()
             local result = schema.validate_output(output)
 
             assert.is_not_nil(result._errors.formatter)
-            assert.matches("Invalid formatter", result._errors.formatter)
+            local expected_error = config_schema.generate_expected_error("OutputSchema", "formatter", "invalid_value",
+                "invalid")
+            assert.are.equal(expected_error, result._errors.formatter)
         end)
     end)
 
@@ -192,6 +202,7 @@ describe("Schema Validation", function()
 
             assert.is_not_nil(result._errors["outputs[2]"])
             assert.is_not_nil(result._errors["outputs[2]"].type)
+            assert.matches("Invalid output type", result._errors["outputs[2]"].type)
         end)
     end)
 

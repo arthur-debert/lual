@@ -3,6 +3,7 @@
 
 local core_levels = require("lual.core.levels")
 local constants = require("lual.config.constants")
+local schema = require("lual.schema")
 
 local M = {}
 
@@ -79,41 +80,44 @@ end
 -- @param shortcut_config table The shortcut config
 -- @return table The standard declarative config
 function M.shortcut_to_declarative_config(shortcut_config)
-    -- Minimal validation: check required fields
-    if not shortcut_config.output then
-        error("Invalid shortcut config: Shortcut config must have an 'output' field")
-    end
-    if not shortcut_config.formatter then
-        error("Invalid shortcut config: Shortcut config must have a 'formatter' field")
-    end
+    -- Use schema validation instead of manual validation
+    local result = schema.validate_shortcut(shortcut_config)
 
-    -- Check for unknown keys
-    local valid_shortcut_keys = constants.VALID_SHORTCUT_KEYS
-    for key in pairs(shortcut_config) do
-        if not valid_shortcut_keys[key] then
-            error("Invalid shortcut config: Unknown shortcut config key: " .. key)
+    -- Check for errors and convert to old error format
+    if next(result._errors) then
+        -- Convert first error to old format (single error string)
+        for field, error_msg in pairs(result._errors) do
+            if type(error_msg) == "table" then
+                -- Handle nested errors
+                for sub_field, sub_error in pairs(error_msg) do
+                    error("Invalid shortcut config: " .. sub_error)
+                end
+            else
+                error("Invalid shortcut config: " .. error_msg)
+            end
         end
     end
 
+    local validated_config = result.data
     local declarative_config = {
-        name = shortcut_config.name,
-        level = shortcut_config.level,
-        propagate = shortcut_config.propagate,
-        timezone = shortcut_config.timezone,
+        name = validated_config.name,
+        level = validated_config.level,
+        propagate = validated_config.propagate,
+        timezone = validated_config.timezone,
         outputs = {}
     }
 
     -- Create the single output entry
     local output_entry = {
-        type = shortcut_config.output,
-        formatter = shortcut_config.formatter
+        type = validated_config.output,
+        formatter = validated_config.formatter
     }
 
     -- Add type-specific fields
-    if shortcut_config.output == "file" then
-        output_entry.path = shortcut_config.path
-    elseif shortcut_config.output == "console" and shortcut_config.stream then
-        output_entry.stream = shortcut_config.stream
+    if validated_config.output == "file" then
+        output_entry.path = validated_config.path
+    elseif validated_config.output == "console" and validated_config.stream then
+        output_entry.stream = validated_config.stream
     end
 
     table.insert(declarative_config.outputs, output_entry)

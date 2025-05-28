@@ -9,7 +9,8 @@ local M = {}
 -- Schema registry
 local schema_registry = {
     ConfigSchema = config_schema.ConfigSchema,
-    OutputSchema = config_schema.OutputSchema
+    OutputSchema = config_schema.OutputSchema,
+    ShortcutSchema = config_schema.ShortcutSchema
 }
 
 --- Validate configuration data
@@ -24,6 +25,13 @@ end
 -- @return table Result with data and _errors keys
 function M.validate_output(data)
     return validator.validate(data, schema_registry.OutputSchema, schema_registry)
+end
+
+--- Validate shortcut config data
+-- @param data table The shortcut config data to validate
+-- @return table Result with data and _errors keys
+function M.validate_shortcut(data)
+    return validator.validate(data, schema_registry.ShortcutSchema, schema_registry)
 end
 
 --- Generic validation function
