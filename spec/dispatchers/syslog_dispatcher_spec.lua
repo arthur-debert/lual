@@ -4,8 +4,8 @@ local assert = require("luassert")
 
 -- luacheck: globals describe it setup teardown before_each after_each
 
-describe("lual.outputs.syslog_output", function()
-    local syslog_output_factory
+describe("lual.dispatchers.syslog_dispatcher", function()
+    local syslog_dispatcher_factory
     local original_socket
     local mock_socket
     local mock_udp_socket
@@ -80,8 +80,8 @@ describe("lual.outputs.syslog_output", function()
         package.loaded["socket"] = mock_socket
 
         -- Clear lual's cache if it's already loaded to get fresh mocks
-        package.loaded["lual.outputs.syslog_output"] = nil
-        syslog_output_factory = require("lual.outputs.syslog_output")
+        package.loaded["lual.dispatchers.syslog_dispatcher"] = nil
+        syslog_dispatcher_factory = require("lua.lual.dispatchers.syslog_dispatcher")
     end)
 
     before_each(function()
@@ -128,58 +128,58 @@ describe("lual.outputs.syslog_output", function()
 
     describe("Configuration Validation", function()
         it("should require a config table", function()
-            local handler = syslog_output_factory()
+            local handler = syslog_dispatcher_factory()
             assert.are.equal(1, #mock_stderr_messages)
             assert.truthy(string.find(mock_stderr_messages[1], "requires a config table"))
         end)
 
         it("should accept valid string facilities", function()
-            local handler = syslog_output_factory({ facility = "LOCAL0" })
+            local handler = syslog_dispatcher_factory({ facility = "LOCAL0" })
             assert.are.equal(0, #mock_stderr_messages)
         end)
 
         it("should accept valid numeric facilities", function()
-            local handler = syslog_output_factory({ facility = 16 }) -- LOCAL0
+            local handler = syslog_dispatcher_factory({ facility = 16 }) -- LOCAL0
             assert.are.equal(0, #mock_stderr_messages)
         end)
 
         it("should reject invalid string facilities", function()
-            local handler = syslog_output_factory({ facility = "INVALID" })
+            local handler = syslog_dispatcher_factory({ facility = "INVALID" })
             assert.are.equal(1, #mock_stderr_messages)
             assert.truthy(string.find(mock_stderr_messages[1], "Unknown syslog facility"))
         end)
 
         it("should reject invalid numeric facilities", function()
-            local handler = syslog_output_factory({ facility = 999 })
+            local handler = syslog_dispatcher_factory({ facility = 999 })
             assert.are.equal(1, #mock_stderr_messages)
             assert.truthy(string.find(mock_stderr_messages[1], "Invalid syslog facility number"))
         end)
 
         it("should reject non-string hosts", function()
-            local handler = syslog_output_factory({ host = 123 })
+            local handler = syslog_dispatcher_factory({ host = 123 })
             assert.are.equal(1, #mock_stderr_messages)
             assert.truthy(string.find(mock_stderr_messages[1], "host must be a string"))
         end)
 
         it("should reject invalid ports", function()
-            local handler = syslog_output_factory({ port = 0 })
+            local handler = syslog_dispatcher_factory({ port = 0 })
             assert.are.equal(1, #mock_stderr_messages)
             assert.truthy(string.find(mock_stderr_messages[1], "port must be a number between 1 and 65535"))
 
             mock_stderr_messages = {}
-            local handler2 = syslog_output_factory({ port = 70000 })
+            local handler2 = syslog_dispatcher_factory({ port = 70000 })
             assert.are.equal(1, #mock_stderr_messages)
             assert.truthy(string.find(mock_stderr_messages[1], "port must be a number between 1 and 65535"))
         end)
 
         it("should reject non-string tags", function()
-            local handler = syslog_output_factory({ tag = 123 })
+            local handler = syslog_dispatcher_factory({ tag = 123 })
             assert.are.equal(1, #mock_stderr_messages)
             assert.truthy(string.find(mock_stderr_messages[1], "tag must be a string"))
         end)
 
         it("should reject non-string hostnames", function()
-            local handler = syslog_output_factory({ hostname = 123 })
+            local handler = syslog_dispatcher_factory({ hostname = 123 })
             assert.are.equal(1, #mock_stderr_messages)
             assert.truthy(string.find(mock_stderr_messages[1], "hostname must be a string"))
         end)
@@ -187,8 +187,8 @@ describe("lual.outputs.syslog_output", function()
 
     describe("Level Mapping", function()
         it("should map lual levels to correct syslog severities", function()
-            local map_func = syslog_output_factory._map_level_to_severity
-            local severities = syslog_output_factory._SEVERITIES
+            local map_func = syslog_dispatcher_factory._map_level_to_severity
+            local severities = syslog_dispatcher_factory._SEVERITIES
 
             assert.are.equal(severities.DEBUG, map_func(10))    -- DEBUG
             assert.are.equal(severities.INFO, map_func(20))     -- INFO
@@ -201,7 +201,7 @@ describe("lual.outputs.syslog_output", function()
 
     describe("Hostname Detection", function()
         it("should get hostname from socket.dns.gethostname", function()
-            local hostname = syslog_output_factory._get_hostname()
+            local hostname = syslog_dispatcher_factory._get_hostname()
             assert.are.equal("test-hostname", hostname)
             assert.are.equal(1, #mock_dns_calls)
         end)
@@ -212,7 +212,7 @@ describe("lual.outputs.syslog_output", function()
                 return nil -- Simulate failure
             end
 
-            local hostname = syslog_output_factory._get_hostname()
+            local hostname = syslog_dispatcher_factory._get_hostname()
             assert.are.equal("localhost", hostname)
             assert.are.equal(1, #mock_dns_calls)
         end)
@@ -223,7 +223,7 @@ describe("lual.outputs.syslog_output", function()
                 return "" -- Simulate empty hostname
             end
 
-            local hostname = syslog_output_factory._get_hostname()
+            local hostname = syslog_dispatcher_factory._get_hostname()
             assert.are.equal("localhost", hostname)
             assert.are.equal(1, #mock_dns_calls)
         end)
@@ -231,9 +231,9 @@ describe("lual.outputs.syslog_output", function()
 
     describe("Message Formatting", function()
         it("should format RFC 3164 compliant messages", function()
-            local format_func = syslog_output_factory._format_syslog_message
-            local facilities = syslog_output_factory._FACILITIES
-            local severities = syslog_output_factory._SEVERITIES
+            local format_func = syslog_dispatcher_factory._format_syslog_message
+            local facilities = syslog_dispatcher_factory._FACILITIES
+            local severities = syslog_dispatcher_factory._SEVERITIES
 
             local record = {
                 message = "Test log message",
@@ -248,8 +248,8 @@ describe("lual.outputs.syslog_output", function()
         end)
 
         it("should clean tag names", function()
-            local format_func = syslog_output_factory._format_syslog_message
-            local facilities = syslog_output_factory._FACILITIES
+            local format_func = syslog_dispatcher_factory._format_syslog_message
+            local facilities = syslog_dispatcher_factory._FACILITIES
 
             local record = {
                 message = "Test message",
@@ -261,8 +261,8 @@ describe("lual.outputs.syslog_output", function()
         end)
 
         it("should truncate long tags", function()
-            local format_func = syslog_output_factory._format_syslog_message
-            local facilities = syslog_output_factory._FACILITIES
+            local format_func = syslog_dispatcher_factory._format_syslog_message
+            local facilities = syslog_dispatcher_factory._FACILITIES
 
             local record = {
                 message = "Test message",
@@ -276,8 +276,8 @@ describe("lual.outputs.syslog_output", function()
         end)
 
         it("should handle missing level in record", function()
-            local format_func = syslog_output_factory._format_syslog_message
-            local facilities = syslog_output_factory._FACILITIES
+            local format_func = syslog_dispatcher_factory._format_syslog_message
+            local facilities = syslog_dispatcher_factory._FACILITIES
 
             local record = {
                 message = "Test message"
@@ -292,7 +292,7 @@ describe("lual.outputs.syslog_output", function()
 
     describe("Socket Operations", function()
         it("should create UDP socket with timeout", function()
-            local handler = syslog_output_factory({})
+            local handler = syslog_dispatcher_factory({})
             assert.are.equal(0.1, mock_udp_socket._timeout)
         end)
 
@@ -301,13 +301,13 @@ describe("lual.outputs.syslog_output", function()
                 return nil -- Simulate socket creation failure
             end
 
-            local handler = syslog_output_factory({})
+            local handler = syslog_dispatcher_factory({})
             assert.are.equal(1, #mock_stderr_messages)
             assert.truthy(string.find(mock_stderr_messages[1], "Failed to create UDP socket"))
         end)
 
         it("should send messages to correct host and port", function()
-            local handler = syslog_output_factory({
+            local handler = syslog_dispatcher_factory({
                 host = "log.example.com",
                 port = 1514,
                 facility = "LOCAL0",
@@ -333,7 +333,7 @@ describe("lual.outputs.syslog_output", function()
         end)
 
         it("should use default host and port", function()
-            local handler = syslog_output_factory({})
+            local handler = syslog_dispatcher_factory({})
 
             local record = {
                 message = "Default test",
@@ -358,7 +358,7 @@ describe("lual.outputs.syslog_output", function()
                 return nil, "Network unreachable" -- Simulate failure
             end
 
-            local handler = syslog_output_factory({})
+            local handler = syslog_dispatcher_factory({})
             local record = { message = "Test", level = 20 }
 
             handler(record)
@@ -371,7 +371,7 @@ describe("lual.outputs.syslog_output", function()
 
     describe("Integration", function()
         it("should work with all configuration options", function()
-            local handler = syslog_output_factory({
+            local handler = syslog_dispatcher_factory({
                 facility = "LOCAL7",
                 host = "syslog.company.com",
                 port = 5514,
@@ -400,7 +400,7 @@ describe("lual.outputs.syslog_output", function()
         end)
 
         it("should handle case-insensitive facility names", function()
-            local handler = syslog_output_factory({ facility = "local0" })
+            local handler = syslog_dispatcher_factory({ facility = "local0" })
 
             local record = { message = "Test", level = 20 }
             handler(record)
@@ -411,7 +411,7 @@ describe("lual.outputs.syslog_output", function()
         end)
 
         it("should return no-op function on configuration errors", function()
-            local handler = syslog_output_factory({ facility = "INVALID" })
+            local handler = syslog_dispatcher_factory({ facility = "INVALID" })
 
             -- Should have logged error
             assert.are.equal(1, #mock_stderr_messages)
@@ -427,16 +427,16 @@ describe("lual.outputs.syslog_output", function()
 
     describe("Module Interface", function()
         it("should expose internal functions for testing", function()
-            assert.is_function(syslog_output_factory._map_level_to_severity)
-            assert.is_function(syslog_output_factory._get_hostname)
-            assert.is_function(syslog_output_factory._format_syslog_message)
-            assert.is_function(syslog_output_factory._validate_config)
-            assert.is_table(syslog_output_factory._FACILITIES)
-            assert.is_table(syslog_output_factory._SEVERITIES)
+            assert.is_function(syslog_dispatcher_factory._map_level_to_severity)
+            assert.is_function(syslog_dispatcher_factory._get_hostname)
+            assert.is_function(syslog_dispatcher_factory._format_syslog_message)
+            assert.is_function(syslog_dispatcher_factory._validate_config)
+            assert.is_table(syslog_dispatcher_factory._FACILITIES)
+            assert.is_table(syslog_dispatcher_factory._SEVERITIES)
         end)
 
         it("should be callable as a function", function()
-            local handler = syslog_output_factory({ facility = "USER" })
+            local handler = syslog_dispatcher_factory({ facility = "USER" })
             assert.is_function(handler)
         end)
     end)

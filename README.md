@@ -20,9 +20,9 @@ logger:set_level("debug")
 
 -- Configure a more involved logger with UTC timestamps:
 local logger = lual.logger({
-    output = lual.lib.console,
+    dispatcher = lual.lib.console,
     level = lual.levels.DEBUG,
-    formatter = lual.lib.color,
+    presenter = lual.lib.color,
     timezone = "utc"
 })
 
@@ -30,14 +30,14 @@ local bigLogging = require("lual").logger({
     name = "app.database",
     level = "debug",
     timezone = "utc",
-    outputs = {
-        {type = "console", formatter = "color"},
-        {type = "file", path = "app.log", formatter = "text"}
+    dispatchers = {
+        {type = "console", presenter = "color"},
+        {type = "file", path = "app.log", presenter = "text"}
     }
 })
 
--- Of course you can imperatively add outputs and formatters:
-logger:add_output(lual.lib.console, lual.lib.text)
+-- Of course you can imperatively add dispatchers and presenters:
+logger:add_dispatcher(lual.lib.console, lual.lib.text)
 
 -- Supports structured logging:
 logger:info({destination = "home"}, "Time to leave") -- Context table first
@@ -49,9 +49,9 @@ logger:info({user_id = 123, action = "update"}, "User %s performed action: %s", 
 
 ## Built-in Components
 
-It has a small but useful set of outputs and formatters:
+It has a small but useful set of dispatchers and presenters:
 
-**Outputs:**
+**dispatchers:**
 
 - `console`: prints to the console
 - `file`: writes to a file
@@ -62,7 +62,7 @@ It has a small but useful set of outputs and formatters:
 - `color`: terminal colored
 - `json`: as JSON
 
-But formatters and outputs are just functions, pass your own.
+But presenters and dispatchers are just functions, pass your own.
 
 Names can be either introspected or set manually. There is hierarchical logging
 with propagation, see docs/propagation.txt.
@@ -90,9 +90,9 @@ local logger = lual.logger("myapp")    -- Named logger
 local logger = lual.logger({
     name = "app.database",
     level = "debug",
-    outputs = {
-        {type = "console", formatter = "color"},
-        {type = "file", path = "app.log", formatter = "text"}
+    dispatchers = {
+        {type = "console", presenter = "color"},
+        {type = "file", path = "app.log", presenter = "text"}
     }
 })
 ```
@@ -106,10 +106,10 @@ local logger = lual.logger({
   `myapp.module.submodule`), allowing for targeted configuration.
 - **Log Levels:** Standard severity levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`,
   `CRITICAL`, plus `NONE` to disable logging for a logger.
-- **Console Output:** `lualog.lib.console` writes log messages to `io.stdout`
-  (default), `io.stderr`, or any custom stream object that provides `write()`
-  and `flush()` methods.
-- **File Output:** `lualog.lib.file` writes log messages to files with
+- **Console dispatcher:** `lualog.lib.console` writes log messages to
+  `io.stdout` (default), `io.stderr`, or any custom stream object that provides
+  `write()` and `flush()` methods.
+- **File dispatcher:** `lualog.lib.file` writes log messages to files with
   configurable paths and rotation options.
 - **Text Formatter:** `lualog.lib.text` formats messages by default as:
   `YYYY-MM-DD HH:MM:S LEVEL [LoggerName] Message`.
@@ -125,38 +125,39 @@ local logger = lual.logger({
     - Pure structured: `logger:info({event = "UserLogin", userId = 123})`
     - Mixed: `logger:info({eventId = "XYZ"}, "Processing event: %s", eventName)`
       (context table first)
-  - **Per-Logger Configuration:** Log levels and outputs (with their formatters)
-    can be configured for each logger instance using methods like `:set_level()`
-    and `:add_output()`.
+  - **Per-Logger Configuration:** Log levels and dispatchers (with their
+    presenters) can be configured for each logger instance using methods like
+    `:set_level()` and `:add_dispatcher()`.
 - **Message Propagation:** Log messages processed by a logger are passed to its
-  parent's outputs by default. Propagation can be disabled per logger
+  parent's dispatchers by default. Propagation can be disabled per logger
   (`logger.propagate = false`).
 - **Contextual Information:** Log records automatically include a UTC timestamp,
   logger name, and the source filename/line number where the log message was
   emitted.
-- **Error Handling:** Errors within outputs or formatters are caught and
+- **Error Handling:** Errors within dispatchers or presenters are caught and
   reported to `io.stderr`, preventing the logging system from crashing the
   application.
 - **Default Setup:** On require, a root logger is configured with:
   - Level: `lualog.levels.INFO`.
-  - One output: `lualog.lib.console` writing to `io.stdout`.
-  - Formatter for this output: `lualog.lib.text`.
+  - One dispatcher: `lualog.lib.console` writing to `io.stdout`.
+  - Formatter for this dispatcher: `lualog.lib.text`.
 
-You can create custom outputs and formatters:
+You can create custom dispatchers and presenters:
 
-- **Custom Output:** A function with the signature `my_output(record, config)`
+- **Custom dispatcher:** A function with the signature
+  `my_dispatcher(record, config)`
   - `record`: A table containing the log details. Key fields include:
-    - `message`: The fully formatted log message string (from the formatter).
+    - `message`: The fully formatted log message string (from the presenter).
     - `level_name`, `level_no`: Severity level.
-    - `logger_name`: Name of the logger that owns the output processing the
+    - `logger_name`: Name of the logger that owns the dispatcher processing the
       record.
     - `timestamp`, `filename`, `lineno`, `source_logger_name` (original
       emitter).
     - `raw_message_fmt`, `raw_args`: Original format string and variadic
       arguments.
     - `context`: The context table, if provided in the log call.
-  - `config`: The `output_config` table passed when adding the output.
-- **Custom Formatter:** A function with the signature `my_formatter(record)`
+  - `config`: The `dispatcher_config` table passed when adding the dispatcher.
+- **Custom Formatter:** A function with the signature `my_presenter(record)`
   - `record`: A table with raw log details. Key fields include:
     - `message_fmt`: The raw message format string (e.g., "User %s logged in").
       Can be `nil` if context implies the message.

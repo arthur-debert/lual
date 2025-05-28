@@ -5,7 +5,7 @@
 
 package.path = "./lua/?.lua;" .. package.path
 
-local file_output_factory = require("lual.outputs.file_output")
+local file_dispatcher_factory = require("lua.lual.dispatchers.file_dispatcher")
 local os = require("os")
 
 -- Get TMPDIR or use /tmp
@@ -61,7 +61,7 @@ end
 
 -- Test command generation
 print("\n=== Generated commands ===")
-local commands = file_output_factory._generate_rotation_commands(test_log_path)
+local commands = file_dispatcher_factory._generate_rotation_commands(test_log_path)
 for i, cmd in ipairs(commands) do
     if cmd.type == "remove" then
         print(string.format("%d: remove %s", i, cmd.target))
@@ -72,7 +72,7 @@ end
 
 -- Test validation
 print("\n=== Validation ===")
-local valid, err = file_output_factory._validate_rotation_commands(commands, test_log_path)
+local valid, err = file_dispatcher_factory._validate_rotation_commands(commands, test_log_path)
 print("Valid:", valid)
 if not valid then
     print("Error:", err)
@@ -80,7 +80,7 @@ end
 
 -- Execute rotation
 print("\n=== Executing rotation ===")
-local handler = file_output_factory({path = test_log_path})
+local handler = file_dispatcher_factory({ path = test_log_path })
 
 print("\n=== After rotation ===")
 for i = 5, 1, -1 do
@@ -98,7 +98,7 @@ end
 
 -- Test writing to the new log
 print("\n=== Testing log writing ===")
-handler({message = "New log entry after rotation"})
+handler({ message = "New log entry after rotation" })
 
 local exists, content = check_file_exists(test_log_path)
 if exists then

@@ -1,11 +1,11 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
-local text_formatter_factory = require("lual.formatters.text")
+local text_presenter_factory = require("lual.presenters.text")
 
-describe("lual.formatters.text", function()
-    local text_formatter
+describe("lual.presenters.text", function()
+    local text_presenter
 
     before_each(function()
-        text_formatter = text_formatter_factory()
+        text_presenter = text_presenter_factory()
     end)
 
     describe("Basic functionality", function()
@@ -19,7 +19,7 @@ describe("lual.formatters.text", function()
                 args = { "jane.doe", "10.0.0.1" },
             }
 
-            local formatted = text_formatter(record)
+            local formatted = text_presenter(record)
 
             assert.is_string(formatted)
             -- Use a more flexible pattern to match the timestamp
@@ -39,7 +39,7 @@ describe("lual.formatters.text", function()
                 args = {},
             }
 
-            local formatted = text_formatter(record)
+            local formatted = text_presenter(record)
 
             assert.is_string(formatted)
             assert.truthy(formatted:find("DEBUG"))
@@ -58,7 +58,7 @@ describe("lual.formatters.text", function()
                 context = { user_id = 123, action = "login" }
             }
 
-            local formatted = text_formatter(record)
+            local formatted = text_presenter(record)
 
             assert.is_string(formatted)
             assert.truthy(formatted:find("INFO"))
@@ -79,7 +79,7 @@ describe("lual.formatters.text", function()
                 args = {},
             }
 
-            local formatted = text_formatter(record)
+            local formatted = text_presenter(record)
 
             -- Should contain UTC formatted timestamp
             assert.truthy(formatted:find("2021%-01%-01 00:00:00"))
@@ -95,7 +95,7 @@ describe("lual.formatters.text", function()
                 args = {},
             }
 
-            local formatted = text_formatter(record)
+            local formatted = text_presenter(record)
 
             -- Should contain a valid timestamp format (can't predict exact local time)
             assert.matches("%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d", formatted)
@@ -111,7 +111,7 @@ describe("lual.formatters.text", function()
                 args = {},
             }
 
-            local formatted = text_formatter(record)
+            local formatted = text_presenter(record)
 
             -- Should contain a valid timestamp format
             assert.matches("%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d", formatted)
@@ -127,7 +127,7 @@ describe("lual.formatters.text", function()
                 args = {},
             }
 
-            local formatted = text_formatter(record)
+            local formatted = text_presenter(record)
 
             -- Should contain UTC formatted timestamp
             assert.truthy(formatted:find("2021%-01%-01 00:00:00"))
@@ -145,7 +145,7 @@ describe("lual.formatters.text", function()
                 args = {},
             }
 
-            local formatted = text_formatter(record)
+            local formatted = text_presenter(record)
 
             assert.truthy(formatted:find("UNKNOWN_LEVEL"))
             assert.truthy(formatted:find("UNKNOWN_LOGGER"))
@@ -158,12 +158,12 @@ describe("lual.formatters.text", function()
             local lualog = require("lual.logger")
 
             assert.is_not_nil(lualog.lib.text)
-            -- lib.text should be a callable formatter object (created by calling the factory)
+            -- lib.text should be a callable presenter object (created by calling the factory)
             assert.is_table(lualog.lib.text)
             assert.is_not_nil(getmetatable(lualog.lib.text))
             assert.is_function(getmetatable(lualog.lib.text).__call)
 
-            -- Test that it actually works as a formatter
+            -- Test that it actually works as a presenter
             local test_record = {
                 timestamp = 1640995200,
                 timezone = "utc",

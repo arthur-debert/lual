@@ -11,20 +11,20 @@ lual gives various ways to construct your logger:
             local logger = lualog.logger("app.database")
             logger:set_level("debug")
 
-            logger:add_output(
+            logger:add_dispatcher(
                 lualog.lib.console,
                 lualog.lib.text,
                 { stream = io.stdout }  -- optional config
             )
             
-            -- Add file output
-            logger:add_output(
+            -- Add file dispatcher
+            logger:add_dispatcher(
                 lualog.lib.file({ path = "app.log" }),
                 lualog.lib.text
             )
             
-            -- Add colored console output
-            logger:add_output(
+            -- Add colored console dispatcher
+            logger:add_dispatcher(
                 lualog.lib.console,
                 lualog.lib.color,
                 { stream = io.stderr }
@@ -40,9 +40,9 @@ lual gives various ways to construct your logger:
                 local  logger = require("lualog").logger({
                     name = "app.database",
                      level = "debug",
-                    outputs = {
-                        {type = "console", formatter = "color"},
-                        {type = "file", path = "app.log", formatter = "text"}
+                    dispatchers = {
+                        {type = "console", presenter = "color"},
+                        {type = "file", path = "app.log", presenter = "text"}
                     }
                 })
 
@@ -50,18 +50,18 @@ lual gives various ways to construct your logger:
 
 3. Shortcut Declarative
 
-For the very common case where where there is one output and one formatter, we can allow this other form of the declarative api:
+For the very common case where where there is one dispatcher and one presenter, we can allow this other form of the declarative api:
 
     -- the initial get logger can customize the logger.
 
         local lualog = require("lualog")
-        # this  is a simple case, where there is a 101 releatioship between outputs and formatters, and only one output
-        local logger = lualog.logger({output: "console", level:"debug", formatter: "color"})
+        # this  is a simple case, where there is a 101 releatioship between dispatchers and presenters, and only one dispatcher
+        local logger = lualog.logger({dispatcher: "console", level:"debug", presenter: "color"})
     -- lua
 
 In this case, the code should verify if the table has such format. The general form is : 
- .   * as long as output and format are either a single item or a table of one item 
-     * we transform to the general form (the formatter is part of the output, which is a table)
+ .   * as long as dispatcher and format are either a single item or a table of one item 
+     * we transform to the general form (the presenter is part of the dispatcher, which is a table)
 So we do a to_canonical_config transformation, then run the regular validation and api.
 
 
@@ -105,5 +105,5 @@ After the work on the single config table architecture, we can add a declarative
 
    - Wrong values/types: 
        levels must be from a predefined set of values
-       outputers, formatters must be functions, names must be strings, propagate must be a boolean. 
-       it would be great to validate that output and formatters have the right signature, but that is a bit more complex, so we can let errors blow up at runtime.
+       dispatcherers, presenters must be functions, names must be strings, propagate must be a boolean. 
+       it would be great to validate that dispatcher and presenters have the right signature, but that is a bit more complex, so we can let errors blow up at runtime.

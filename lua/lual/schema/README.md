@@ -26,8 +26,8 @@ local schema = require("lual.schema")
 local config = {
     name = "my.logger",
     level = "info",
-    outputs = {
-        { type = "console", formatter = "text" }
+    dispatchers = {
+        { type = "console", presenter = "text" }
     }
 }
 
@@ -80,7 +80,7 @@ field_name = {
 ## Available Schemas
 
 - `ConfigSchema`: Main configuration validation
-- `OutputSchema`: Output configuration validation
+- `dispatcherschema`: dispatcher configuration validation
 
 ## Files
 

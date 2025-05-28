@@ -22,22 +22,22 @@ local function generate_error_message(field_name, value, field_schema)
         if type(value) ~= "string" then
             if field_name == "level" then
                 return "Level must be a string or number"
-            elseif field_name == "output" then -- For shortcut API
-                return "Output type must be a string"
-            elseif field_name == "formatter" then
-                return "Formatter type must be a string"
+            elseif field_name == "dispatcher" then -- For shortcut API
+                return "dispatcher type must be a string"
+            elseif field_name == "presenter" then
+                return "PRESENTER type must be a string"
             end
         end
 
         -- Generate more specific error messages for certain fields
         if field_name == "type" then
-            return string.format("Invalid output type: %s. Valid values are: %s",
+            return string.format("Invalid dispatcher type: %s. Valid values are: %s",
                 tostring(value), table.concat(valid_values, ", "))
-        elseif field_name == "output" then -- For shortcut API
-            return string.format("Invalid output type: %s. Valid values are: %s",
+        elseif field_name == "dispatcher" then -- For shortcut API
+            return string.format("Invalid dispatcher type: %s. Valid values are: %s",
                 tostring(value), table.concat(valid_values, ", "))
-        elseif field_name == "formatter" then
-            return string.format("Invalid formatter type: %s. Valid values are: %s",
+        elseif field_name == "presenter" then
+            return string.format("Invalid presenter type: %s. Valid values are: %s",
                 tostring(value), table.concat(valid_values, ", "))
         else
             return string.format("Invalid %s: %s. Valid values are: %s",
@@ -53,12 +53,12 @@ local function generate_error_message(field_name, value, field_schema)
             return "Config.name must be a string"
         elseif field_name == "propagate" then
             return "Config.propagate must be a boolean"
-        elseif field_name == "outputs" then
-            return "Config.outputs must be a table"
+        elseif field_name == "dispatchers" then
+            return "Config.dispatchers must be a table"
         elseif field_name == "stream" then
-            return "Console output 'stream' field must be a file handle"
+            return "Console dispatcher 'stream' field must be a file handle"
         elseif field_name == "path" then
-            return "File output must have a 'path' string field"
+            return "File dispatcher must have a 'path' string field"
         else
             return string.format("%s must be a %s",
                 string.gsub(field_name, "^%l", string.upper), type_str)
@@ -81,14 +81,14 @@ local function validate_field(field_name, value, field_schema, data, is_shortcut
         if field_schema.required then
             -- Generate specific required field messages
             if field_name == "type" then
-                return false, "Each output must have a 'type' string field"
-            elseif field_name == "output" then -- For shortcut API
-                return false, "Shortcut config must have an 'output' field"
-            elseif field_name == "formatter" then
+                return false, "Each dispatcher must have a 'type' string field"
+            elseif field_name == "dispatcher" then -- For shortcut API
+                return false, "Shortcut config must have an 'dispatcher' field"
+            elseif field_name == "presenter" then
                 if is_shortcut then
-                    return false, "Shortcut config must have a 'formatter' field"
+                    return false, "Shortcut config must have a 'presenter' field"
                 else
-                    return false, "Each output must have a 'formatter' string field"
+                    return false, "Each dispatcher must have a 'presenter' string field"
                 end
             else
                 return false, string.format("%s is required", string.gsub(field_name, "^%l", string.upper))
@@ -99,7 +99,7 @@ local function validate_field(field_name, value, field_schema, data, is_shortcut
             local cond = field_schema.conditional
             if data[cond.field] == cond.value and cond.required then
                 if field_name == "path" then
-                    return false, "File output must have a 'path' string field"
+                    return false, "File dispatcher must have a 'path' string field"
                 else
                     return false, string.format("%s is required when %s is %s",
                         string.gsub(field_name, "^%l", string.upper), cond.field, cond.value)

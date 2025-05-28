@@ -10,9 +10,9 @@ describe("Schema Validation", function()
                 level = "info",
                 propagate = true,
                 timezone = "utc",
-                outputs = {
-                    { type = "console", formatter = "text" },
-                    { type = "file",    formatter = "json", path = "test.log" }
+                dispatchers = {
+                    { type = "console", presenter = "text" },
+                    { type = "file",    presenter = "json", path = "test.log" }
                 }
             }
 
@@ -82,127 +82,127 @@ describe("Schema Validation", function()
         end)
     end)
 
-    describe("Output validation", function()
-        it("should validate a valid console output", function()
-            local output = {
+    describe("dispatcher validation", function()
+        it("should validate a valid console dispatcher", function()
+            local dispatcher = {
                 type = "console",
-                formatter = "text"
+                presenter = "text"
             }
 
-            local result = schema.validate_output(output)
+            local result = schema.validate_dispatcher(dispatcher)
 
             assert.is_true(next(result._errors) == nil, "Should have no errors")
-            assert.are.same(output.type, result.data.type)
-            assert.are.same(output.formatter, result.data.formatter)
+            assert.are.same(dispatcher.type, result.data.type)
+            assert.are.same(dispatcher.presenter, result.data.presenter)
         end)
 
-        it("should validate a valid file output", function()
-            local output = {
+        it("should validate a valid file dispatcher", function()
+            local dispatcher = {
                 type = "file",
-                formatter = "json",
+                presenter = "json",
                 path = "test.log"
             }
 
-            local result = schema.validate_output(output)
+            local result = schema.validate_dispatcher(dispatcher)
 
             assert.is_true(next(result._errors) == nil, "Should have no errors")
-            assert.are.same(output.path, result.data.path)
+            assert.are.same(dispatcher.path, result.data.path)
         end)
 
         it("should require type field", function()
-            local output = {
-                formatter = "text"
+            local dispatcher = {
+                presenter = "text"
             }
 
-            local result = schema.validate_output(output)
+            local result = schema.validate_dispatcher(dispatcher)
 
             assert.is_not_nil(result._errors.type)
-            local expected_error = config_schema.generate_expected_error("OutputSchema", "type", "required")
+            local expected_error = config_schema.generate_expected_error("dispatcherschema", "type", "required")
             assert.are.equal(expected_error, result._errors.type)
         end)
 
-        it("should require formatter field", function()
-            local output = {
+        it("should require presenter field", function()
+            local dispatcher = {
                 type = "console"
             }
 
-            local result = schema.validate_output(output)
+            local result = schema.validate_dispatcher(dispatcher)
 
-            assert.is_not_nil(result._errors.formatter)
-            local expected_error = config_schema.generate_expected_error("OutputSchema", "formatter", "required")
-            assert.are.equal(expected_error, result._errors.formatter)
+            assert.is_not_nil(result._errors.presenter)
+            local expected_error = config_schema.generate_expected_error("dispatcherschema", "presenter", "required")
+            assert.are.equal(expected_error, result._errors.presenter)
         end)
 
-        it("should require path for file outputs", function()
-            local output = {
+        it("should require path for file dispatchers", function()
+            local dispatcher = {
                 type = "file",
-                formatter = "text"
+                presenter = "text"
             }
 
-            local result = schema.validate_output(output)
+            local result = schema.validate_dispatcher(dispatcher)
 
             assert.is_not_nil(result._errors.path)
-            local expected_error = config_schema.generate_expected_error("OutputSchema", "path", "conditional")
+            local expected_error = config_schema.generate_expected_error("dispatcherschema", "path", "conditional")
             assert.are.equal(expected_error, result._errors.path)
         end)
 
-        it("should reject invalid output type", function()
-            local output = {
+        it("should reject invalid dispatcher type", function()
+            local dispatcher = {
                 type = "invalid",
-                formatter = "text"
+                presenter = "text"
             }
 
-            local result = schema.validate_output(output)
+            local result = schema.validate_dispatcher(dispatcher)
 
             assert.is_not_nil(result._errors.type)
-            local expected_error = config_schema.generate_expected_error("OutputSchema", "type", "invalid_value",
+            local expected_error = config_schema.generate_expected_error("dispatcherschema", "type", "invalid_value",
                 "invalid")
             assert.are.equal(expected_error, result._errors.type)
         end)
 
-        it("should reject invalid formatter type", function()
-            local output = {
+        it("should reject invalid presenter type", function()
+            local dispatcher = {
                 type = "console",
-                formatter = "invalid"
+                presenter = "invalid"
             }
 
-            local result = schema.validate_output(output)
+            local result = schema.validate_dispatcher(dispatcher)
 
-            assert.is_not_nil(result._errors.formatter)
-            local expected_error = config_schema.generate_expected_error("OutputSchema", "formatter", "invalid_value",
+            assert.is_not_nil(result._errors.presenter)
+            local expected_error = config_schema.generate_expected_error("dispatcherschema", "presenter", "invalid_value",
                 "invalid")
-            assert.are.equal(expected_error, result._errors.formatter)
+            assert.are.equal(expected_error, result._errors.presenter)
         end)
     end)
 
     describe("Nested validation", function()
-        it("should validate nested outputs array", function()
+        it("should validate nested dispatchers array", function()
             local config = {
-                outputs = {
-                    { type = "console", formatter = "text" },
-                    { type = "file",    formatter = "json", path = "test.log" }
+                dispatchers = {
+                    { type = "console", presenter = "text" },
+                    { type = "file",    presenter = "json", path = "test.log" }
                 }
             }
 
             local result = schema.validate_config(config)
 
             assert.is_true(next(result._errors) == nil, "Should have no errors")
-            assert.are.same(2, #result.data.outputs)
+            assert.are.same(2, #result.data.dispatchers)
         end)
 
-        it("should report errors in nested outputs", function()
+        it("should report errors in nested dispatchers", function()
             local config = {
-                outputs = {
-                    { type = "console", formatter = "text" },
-                    { type = "invalid", formatter = "text" }
+                dispatchers = {
+                    { type = "console", presenter = "text" },
+                    { type = "invalid", presenter = "text" }
                 }
             }
 
             local result = schema.validate_config(config)
 
-            assert.is_not_nil(result._errors["outputs[2]"])
-            assert.is_not_nil(result._errors["outputs[2]"].type)
-            assert.matches("Invalid output type", result._errors["outputs[2]"].type)
+            assert.is_not_nil(result._errors["dispatchers[2]"])
+            assert.is_not_nil(result._errors["dispatchers[2]"].type)
+            assert.matches("Invalid dispatcher type", result._errors["dispatchers[2]"].type)
         end)
     end)
 

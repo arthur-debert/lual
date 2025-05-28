@@ -82,7 +82,7 @@ end
 --- Creates a logger from a declarative config table (supports both standard and shortcut formats)
 -- This is the primary API for creating loggers. Can be called with:
 -- 1. No arguments or string name: lual.logger() or lual.logger("name") - simple logger creation
--- 2. Config table: lual.logger({name="app", level="debug", outputs={...}}) - declarative configuration
+-- 2. Config table: lual.logger({name="app", level="debug", dispatchers={...}}) - declarative configuration
 -- @param input_config (string|table|nil) The logger name or declarative configuration
 -- @return table The logger instance
 function M.logger(input_config)
@@ -100,7 +100,7 @@ function M.logger(input_config)
     local default_config = {
         name = "root",
         level = "info",
-        outputs = {},
+        dispatchers = {},
         propagate = true,
         timezone = "local", -- Default to local time
     }
@@ -117,9 +117,9 @@ function M.logger(input_config)
         if cached_config.level == canonical_config.level and
             cached_config.timezone == canonical_config.timezone and
             cached_config.propagate == canonical_config.propagate then
-            -- For outputs, we'll do a simple length check for now
+            -- For dispatchers, we'll do a simple length check for now
             -- A more sophisticated comparison could be added later if needed
-            if #(cached_config.outputs or {}) == #(canonical_config.outputs or {}) then
+            if #(cached_config.dispatchers or {}) == #(canonical_config.dispatchers or {}) then
                 return cached_logger
             end
         end

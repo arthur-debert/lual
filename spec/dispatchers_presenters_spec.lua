@@ -15,8 +15,8 @@ describe("lualog.lib.text", function()
 			args = { "jane.doe", "10.0.0.1" },
 		}
 		local expected_timestamp = os.date("!%Y-%m-%d %H:%M:%S", record.timestamp)
-		local expected_output = expected_timestamp .. " INFO [test.logger] User jane.doe logged in from 10.0.0.1"
-		assert.are.same(expected_output, lualog.lib.text(record))
+		local expected_dispatcher = expected_timestamp .. " INFO [test.logger] User jane.doe logged in from 10.0.0.1"
+		assert.are.same(expected_dispatcher, lualog.lib.text(record))
 	end)
 
 	it("should handle nil arguments gracefully", function()
@@ -29,8 +29,8 @@ describe("lualog.lib.text", function()
 			args = nil,
 		}
 		local expected_timestamp = os.date("!%Y-%m-%d %H:%M:%S", record.timestamp)
-		local expected_output = expected_timestamp .. " DEBUG [nil.args.test] Test message with no args"
-		assert.are.same(expected_output, lualog.lib.text(record))
+		local expected_dispatcher = expected_timestamp .. " DEBUG [nil.args.test] Test message with no args"
+		assert.are.same(expected_dispatcher, lualog.lib.text(record))
 	end)
 
 	it("should handle empty arguments table", function()
@@ -43,8 +43,8 @@ describe("lualog.lib.text", function()
 			args = {},
 		}
 		local expected_timestamp = os.date("!%Y-%m-%d %H:%M:%S", record.timestamp)
-		local expected_output = expected_timestamp .. " WARNING [empty.args.test] Test message with empty args"
-		assert.are.same(expected_output, lualog.lib.text(record))
+		local expected_dispatcher = expected_timestamp .. " WARNING [empty.args.test] Test message with empty args"
+		assert.are.same(expected_dispatcher, lualog.lib.text(record))
 	end)
 
 	it("should use fallbacks for missing optional record fields", function()
@@ -59,8 +59,8 @@ describe("lualog.lib.text", function()
 			message_fmt = "Message with nil level",
 			args = {},
 		}
-		local expected_output1 = expected_timestamp .. " UNKNOWN_LEVEL [test.missing.level] Message with nil level"
-		assert.are.same(expected_output1, lualog.lib.text(record1))
+		local expected_dispatcher1 = expected_timestamp .. " UNKNOWN_LEVEL [test.missing.level] Message with nil level"
+		assert.are.same(expected_dispatcher1, lualog.lib.text(record1))
 
 		local record2 = {
 			timestamp = ts,
@@ -70,8 +70,8 @@ describe("lualog.lib.text", function()
 			message_fmt = "Message with nil logger name",
 			args = {},
 		}
-		local expected_output2 = expected_timestamp .. " ERROR [UNKNOWN_LOGGER] Message with nil logger name"
-		assert.are.same(expected_output2, lualog.lib.text(record2))
+		local expected_dispatcher2 = expected_timestamp .. " ERROR [UNKNOWN_LOGGER] Message with nil logger name"
+		assert.are.same(expected_dispatcher2, lualog.lib.text(record2))
 
 		local record3 = {
 			timestamp = ts,
@@ -81,8 +81,8 @@ describe("lualog.lib.text", function()
 			message_fmt = "Message with missing args",
 			args = nil, -- Missing args
 		}
-		local expected_output3 = expected_timestamp .. " CRITICAL [test.missing.args] Message with missing args"
-		assert.are.same(expected_output3, lualog.lib.text(record3))
+		local expected_dispatcher3 = expected_timestamp .. " CRITICAL [test.missing.args] Message with missing args"
+		assert.are.same(expected_dispatcher3, lualog.lib.text(record3))
 	end)
 end)
 
@@ -169,7 +169,7 @@ describe("lualog.lib.console", function()
 		}
 		local record = { message = "Message that will fail to write" }
 
-		-- Call the output with the erroring stream
+		-- Call the dispatcher with the erroring stream
 		lualog.lib.console(record, { stream = erroring_mock_stream })
 
 		-- Check that an error message was written to our mock_stderr_stream

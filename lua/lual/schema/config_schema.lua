@@ -27,9 +27,9 @@ function M.generate_expected_error(schema_name, field_name, error_type, value)
 
     if error_type == "required" then
         if field_name == "type" then
-            return "Each output must have a 'type' string field"
-        elseif field_name == "formatter" then
-            return "Each output must have a 'formatter' string field"
+            return "Each dispatcher must have a 'type' string field"
+        elseif field_name == "presenter" then
+            return "Each dispatcher must have a 'presenter' string field"
         else
             return string.format("%s is required", string.gsub(field_name, "^%l", string.upper))
         end
@@ -38,10 +38,10 @@ function M.generate_expected_error(schema_name, field_name, error_type, value)
             return "Config.name must be a string"
         elseif field_name == "propagate" then
             return "Config.propagate must be a boolean"
-        elseif field_name == "outputs" then
-            return "Config.outputs must be a table"
+        elseif field_name == "dispatchers" then
+            return "Config.dispatchers must be a table"
         elseif field_name == "stream" then
-            return "Console output 'stream' field must be a file handle"
+            return "Console dispatcher 'stream' field must be a file handle"
         else
             local type_str = type(field_schema.type) == "table"
                 and table.concat(field_schema.type, " or ")
@@ -58,10 +58,10 @@ function M.generate_expected_error(schema_name, field_name, error_type, value)
             table.sort(valid_values)
 
             if field_name == "type" then
-                return string.format("Invalid output type: %s. Valid values are: %s",
+                return string.format("Invalid dispatcher type: %s. Valid values are: %s",
                     tostring(value), table.concat(valid_values, ", "))
-            elseif field_name == "formatter" then
-                return string.format("Invalid formatter type: %s. Valid values are: %s",
+            elseif field_name == "presenter" then
+                return string.format("Invalid presenter type: %s. Valid values are: %s",
                     tostring(value), table.concat(valid_values, ", "))
             else
                 return string.format("Invalid %s: %s. Valid values are: %s",
@@ -70,7 +70,7 @@ function M.generate_expected_error(schema_name, field_name, error_type, value)
         end
     elseif error_type == "conditional" then
         if field_name == "path" then
-            return "File output must have a 'path' string field"
+            return "File dispatcher must have a 'path' string field"
         end
     elseif error_type == "unknown" then
         return "Unknown config key: " .. field_name
@@ -111,38 +111,38 @@ M.ConfigSchema = {
         description = "The timezone to use for timestamps."
     },
 
-    outputs = {
+    dispatchers = {
         multiple = true,
         type = "table",
         required = false,
-        description = "Array of output configurations.",
-        schema = "OutputSchema" -- Reference to another schema
+        description = "Array of dispatcher configurations.",
+        schema = "dispatcherschema" -- Reference to another schema
     }
 }
 
--- Output schema definition
-M.OutputSchema = {
+-- dispatcher schema definition
+M.dispatcherschema = {
     type = {
         multiple = false,
         type = "string",
-        values = extract_valid_values(constants.VALID_OUTPUT_TYPES),
+        values = extract_valid_values(constants.VALID_dispatcher_TYPES),
         required = true,
-        description = "The type of output (console or file)."
+        description = "The type of dispatcher (console or file)."
     },
 
-    formatter = {
+    presenter = {
         multiple = false,
         type = "string",
-        values = extract_valid_values(constants.VALID_FORMATTER_TYPES),
+        values = extract_valid_values(constants.VALID_PRESENTER_TYPES),
         required = true,
-        description = "The formatter type to use for this output."
+        description = "The presenter type to use for this dispatcher."
     },
 
     path = {
         multiple = false,
         type = "string",
         required = false,
-        description = "File path for file outputs.",
+        description = "File path for file dispatchers.",
         conditional = {
             field = "type",
             value = "file",
@@ -154,7 +154,7 @@ M.OutputSchema = {
         multiple = false,
         type = "userdata", -- file handle
         required = false,
-        description = "Stream for console outputs."
+        description = "Stream for console dispatchers."
     }
 }
 
@@ -190,29 +190,29 @@ M.ShortcutSchema = {
         description = "The timezone to use for timestamps."
     },
 
-    output = {
+    dispatcher = {
         multiple = false,
         type = "string",
-        values = extract_valid_values(constants.VALID_OUTPUT_TYPES),
+        values = extract_valid_values(constants.VALID_dispatcher_TYPES),
         required = true,
-        description = "The type of output (console or file)."
+        description = "The type of dispatcher (console or file)."
     },
 
-    formatter = {
+    presenter = {
         multiple = false,
         type = "string",
-        values = extract_valid_values(constants.VALID_FORMATTER_TYPES),
+        values = extract_valid_values(constants.VALID_PRESENTER_TYPES),
         required = true,
-        description = "The formatter type to use for this output."
+        description = "The presenter type to use for this dispatcher."
     },
 
     path = {
         multiple = false,
         type = "string",
         required = false,
-        description = "File path for file outputs.",
+        description = "File path for file dispatchers.",
         conditional = {
-            field = "output",
+            field = "dispatcher",
             value = "file",
             required = true
         }
@@ -222,7 +222,7 @@ M.ShortcutSchema = {
         multiple = false,
         type = "userdata", -- file handle
         required = false,
-        description = "Stream for console outputs."
+        description = "Stream for console dispatchers."
     }
 }
 

@@ -113,17 +113,17 @@ function M.logger_prototype:is_enabled_for(message_level_no)
     return message_level_no >= self.level
 end
 
---- Gets all effective outputs for this logger (including parent outputs via propagation)
-function M.logger_prototype:get_effective_outputs()
-    local effective_outputs = {}
+--- Gets all effective dispatchers for this logger (including parent dispatchers via propagation)
+function M.logger_prototype:get_effective_dispatchers()
+    local effective_dispatchers = {}
     local current_logger = self
 
     while current_logger do
-        for _, output_item in ipairs(current_logger.outputs or {}) do
-            table.insert(effective_outputs, {
-                output_func = output_item.output_func,
-                formatter_func = output_item.formatter_func,
-                output_config = output_item.output_config,
+        for _, dispatcher_item in ipairs(current_logger.dispatchers or {}) do
+            table.insert(effective_dispatchers, {
+                dispatcher_func = dispatcher_item.dispatcher_func,
+                presenter_func = dispatcher_item.presenter_func,
+                dispatcher_config = dispatcher_item.dispatcher_config,
                 owner_logger_name = current_logger.name,
                 owner_logger_level = current_logger.level,
             })
@@ -134,7 +134,7 @@ function M.logger_prototype:get_effective_outputs()
         end
         current_logger = current_logger.parent
     end
-    return effective_outputs
+    return effective_dispatchers
 end
 
 --- Sets the ingest dispatch function (dependency injection)

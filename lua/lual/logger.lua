@@ -12,26 +12,26 @@ local log = {}
 
 local core_levels = require("lual.core.levels")
 local engine = require("lual.core.logging")
-local all_outputs = require("lual.outputs.init")       -- Require the new outputs init
-local all_formatters = require("lual.formatters.init") -- Require the new formatters init
+local all_dispatchers = require("lual.dispatchers.init") -- Require the new dispatchers init
+local all_presenters = require("lual.presenters.init")   -- Require the new presenters init
 
 log.levels = core_levels.definition
-log.logger = engine.logger      -- Primary API for creating loggers
-log.logger = engine.logger      -- Backward compatibility alias
-log.outputs = all_outputs       -- Assign the outputs table
-log.formatters = all_formatters -- Assign the formatters table
+log.logger = engine.logger        -- Primary API for creating loggers
+log.logger = engine.logger        -- Backward compatibility alias
+log.dispatchers = all_dispatchers -- Assign the dispatchers table
+log.presenters = all_presenters   -- Assign the presenters table
 
--- Add convenient shortcuts for outputs and formatters
+-- Add convenient shortcuts for dispatchers and presenters
 log.lib = {
-  -- Output shortcuts
-  console = all_outputs.console_output,
-  file = all_outputs.file_output,
-  syslog = all_outputs.syslog_output,
+  -- dispatcher shortcuts
+  console = all_dispatchers.console_dispatcher,
+  file = all_dispatchers.file_dispatcher,
+  syslog = all_dispatchers.syslog_dispatcher,
 
-  -- Formatter shortcuts (call factories with default config for backward compatibility)
-  text = all_formatters.text(),
-  color = all_formatters.color(),
-  json = all_formatters.json()
+  -- PRESENTER shortcuts (call factories with default config for backward compatibility)
+  text = all_presenters.text(),
+  color = all_presenters.color(),
+  json = all_presenters.json()
 }
 
 -- Add LEVELS mapping for external validation and use
@@ -69,16 +69,16 @@ function log.reset_config()
 end
 
 -- =============================================================================
--- 4. Output Definitions (Function Signatures) - REMOVED
+-- 4. dispatcher Definitions (Function Signatures) - REMOVED
 -- =============================================================================
--- log.outputs = {} -- This line is removed
--- All function log.outputs.console_output(...) etc. are removed.
+-- log.dispatchers = {} -- This line is removed
+-- All function log.dispatchers.console_dispatcher(...) etc. are removed.
 
 -- =============================================================================
--- 5. Formatter Definitions (Function Signatures) - REMOVED
+-- 5. PRESENTER Definitions (Function Signatures) - REMOVED
 -- =============================================================================
--- log.formatters = {} -- This line is removed
--- All function log.formatters.text(...) etc. are removed.
+-- log.presenters = {} -- This line is removed
+-- All function log.presenters.text(...) etc. are removed.
 
 -- =============================================================================
 -- Initialization (Example: Set up a default root logger)
@@ -86,14 +86,14 @@ end
 function log.init_default_config()
   local root_logger = log.logger("root")
   if root_logger then
-    root_logger.outputs = {} -- Clear existing default outputs
+    root_logger.dispatchers = {} -- Clear existing default dispatchers
     if root_logger.set_level then
       root_logger:set_level(log.levels.INFO)
     end
-    if root_logger.add_output and log.outputs and log.outputs.console_output and log.formatters and log.formatters.text then
-      root_logger:add_output(
-        log.outputs.console_output,
-        log.formatters.text,
+    if root_logger.add_dispatcher and log.dispatchers and log.dispatchers.console_dispatcher and log.presenters and log.presenters.text then
+      root_logger:add_dispatcher(
+        log.dispatchers.console_dispatcher,
+        log.presenters.text,
         { stream = io.stdout }
       )
     end

@@ -1,5 +1,5 @@
--- Color formatter for lual.log inspired by the rich Python library
--- Provides colored terminal output using ANSI color codes
+-- Color presenter for lual.log inspired by the rich Python library
+-- Provides colored terminal dispatcher using ANSI color codes
 
 local unpack = unpack or table.unpack -- Ensure unpack is available
 local time_utils = require("lual.utils.time")
@@ -52,23 +52,23 @@ local function colorize(text, color_name)
     return colors[color_name] .. text .. colors.reset
 end
 
---- Factory that creates a color formatter function
--- @param config (table, optional) Configuration for the color formatter
--- @return function The formatter function with schema attached
-local function color_formatter_factory(config)
+--- Factory that creates a color presenter function
+-- @param config (table, optional) Configuration for the color presenter
+-- @return function The presenter function with schema attached
+local function color_presenter_factory(config)
     config = config or {}
 
     -- Validate level_colors if provided
     if config.level_colors then
         if type(config.level_colors) ~= "table" then
-            error("Color formatter 'level_colors' must be a table")
+            error("Color presenter 'level_colors' must be a table")
         end
     end
 
     local level_colors = config.level_colors or default_level_colors
 
-    -- Create the actual formatter function
-    local function formatter_func(record)
+    -- Create the actual presenter function
+    local function presenter_func(record)
         local timestamp_str = time_utils.format_timestamp(record.timestamp, record.timezone)
         local msg_args = record.args or {}
         -- Make sure msg_args is a table for string.format to use
@@ -98,7 +98,7 @@ local function color_formatter_factory(config)
     end
 
     -- Create a callable table with schema
-    local formatter_with_schema = {
+    local presenter_with_schema = {
         schema = {
             level_colors = {
                 type = "table",
@@ -109,13 +109,13 @@ local function color_formatter_factory(config)
     }
 
     -- Make it callable
-    setmetatable(formatter_with_schema, {
+    setmetatable(presenter_with_schema, {
         __call = function(_, record)
-            return formatter_func(record)
+            return presenter_func(record)
         end
     })
 
-    return formatter_with_schema
+    return presenter_with_schema
 end
 
-return color_formatter_factory
+return color_presenter_factory

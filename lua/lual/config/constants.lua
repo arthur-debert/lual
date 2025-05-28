@@ -3,16 +3,16 @@
 
 local M = {}
 
--- Valid output types
-M.VALID_OUTPUT_TYPES = {
-    _meta = { name = "output type", case_sensitive = false },
+-- Valid dispatcher types
+M.VALID_dispatcher_TYPES = {
+    _meta = { name = "dispatcher type", case_sensitive = false },
     console = true,
     file = true
 }
 
--- Valid formatter types
-M.VALID_FORMATTER_TYPES = {
-    _meta = { name = "formatter type", case_sensitive = false },
+-- Valid presenter types
+M.VALID_PRESENTER_TYPES = {
+    _meta = { name = "Formatter type", case_sensitive = false },
     text = true,
     color = true,
     json = true
@@ -40,8 +40,8 @@ M.VALID_LEVEL_STRINGS = {
 M.VALID_SHORTCUT_KEYS = {
     name = true,
     level = true,
-    output = true,
-    formatter = true,
+    dispatcher = true,
+    presenter = true,
     propagate = true,
     timezone = true,
     -- File-specific fields
@@ -54,7 +54,7 @@ M.VALID_SHORTCUT_KEYS = {
 M.VALID_DECLARATIVE_KEYS = {
     name = true,
     level = true,
-    outputs = true,
+    dispatchers = true,
     propagate = true,
     timezone = true
 }
@@ -78,7 +78,7 @@ function M.generate_expected_error_message(value, constant_table)
             table.insert(valid_values, key)
         end
     end
-    table.sort(valid_values) -- Sort for consistent output
+    table.sort(valid_values) -- Sort for consistent dispatcher
 
     return string.format("Invalid %s: %s. Valid values are: %s",
         field_name,
@@ -103,7 +103,7 @@ function M.validate_against_constants(value, constant_table, allow_nil, expected
     if expected_type and type(value) ~= expected_type then
         local meta = constant_table._meta
         local field_name = meta and meta.name or "value"
-        return false, string.format("%s must be a %s", string.gsub(field_name, "^%l", string.upper), expected_type)
+        return false, string.format("%s must be a %s", field_name, expected_type)
     end
 
     local meta = constant_table._meta

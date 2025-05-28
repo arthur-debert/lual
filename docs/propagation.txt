@@ -11,7 +11,7 @@ lual automatically creates the entire hierarchy:
 - "app.database" (child of app)
 - "app.database.connection" (child of app.database)
 
-Each logger in the hierarchy can have its own level and outputs, but messages
+Each logger in the hierarchy can have its own level and dispatchers, but messages
 propagate upward by default, allowing centralized handling.
 
 
@@ -84,27 +84,27 @@ Each logger inherits behavior from its parents but can override settings.
 PROPAGATION: HOW MESSAGES FLOW UPWARD
 
 By default, log messages propagate up the hierarchy. When a child logger
-processes a message, it also sends the message to its parent's outputs,
+processes a message, it also sends the message to its parent's dispatchers,
 and so on up to the root.
 
     local lual = require("lual")
-    local file_output = require("lual.outputs.file_output")
+    local file_dispatcher = require("lual.dispatchers.file_dispatcher")
     
     -- Root logger writes everything to console (default)
     
     -- App logger also writes to a file
     local app_logger = lual.logger("app")
-    app_logger:add_output(
+    app_logger:add_dispatcher(
         lualog.lib.file({ path = "app.log" }),
         lualog.lib.text
     )
     
-    -- Database logger has no outputs of its own
+    -- Database logger has no dispatchers of its own
     local db_logger = lual.logger("app.database")
     
     -- This message will be written to:
-    -- 1. app.log (via app_logger's file output)
-    -- 2. console (via root logger's console output)
+    -- 1. app.log (via app_logger's file dispatcher)
+    -- 2. console (via root logger's console dispatcher)
     db_logger:info("Database connection established")
     -- lua
 
@@ -116,7 +116,7 @@ You can disable propagation to stop messages from flowing upward:
     local lual = require("lual")
     
     local sensitive_logger = lual.logger("app.security.audit")
-    sensitive_logger:add_output(
+    sensitive_logger:add_dispatcher(
         lualog.lib.file({ path = "audit.log" }),
         lualog.lib.text
     )
@@ -158,20 +158,20 @@ EXAMPLE: WEB APPLICATION HIERARCHY
 
     local lual = require("lual")
     
-    -- Root: console output for all messages
+    -- Root: console dispatcher for all messages
     local root = lual.logger("root")  -- Explicit root
     root:set_level(lual.levels.INFO)
     
     -- App-wide file logging
     local app = lual.logger("webapp")
-    app:add_output(
+    app:add_dispatcher(
         lualog.lib.file({ path = "webapp.log" }),
         lualog.lib.text
     )
     
     -- HTTP requests: separate file, info level
     local http = lual.logger("webapp.http")
-    http:add_output(
+    http:add_dispatcher(
         lualog.lib.file({ path = "requests.log" }),
         lualog.lib.text
     )
@@ -182,7 +182,7 @@ EXAMPLE: WEB APPLICATION HIERARCHY
     
     -- Security: separate file, no propagation
     local security = lual.logger("webapp.security")
-    security:add_output(
+    security:add_dispatcher(
         lualog.lib.file({ path = "security.log" }),
         lualog.lib.text
     )
@@ -237,9 +237,9 @@ For automatic naming, lual uses `debug.getinfo()` to inspect the call stack:
 3. **Converts the filename** using the dot notation rules
 4. **Falls back to "root"** if conversion fails or returns empty
 
-The `get_effective_outputs()` method walks up the hierarchy, collecting outputs
+The `get_effective_dispatchers()` method walks up the hierarchy, collecting dispatchers
 from each logger where `propagate` is true. Each logger applies its own level
-filter before processing outputs.
+filter before processing dispatchers.
 
 Propagation stops when:
 - A logger has `propagate = false`

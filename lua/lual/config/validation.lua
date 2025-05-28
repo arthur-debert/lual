@@ -24,7 +24,7 @@ function M.validate_and_merge_config(user_config, default_config)
         -- Convert first error to old format (single error string)
         for field, error_msg in pairs(result._errors) do
             if type(error_msg) == "table" then
-                -- Handle nested errors (like outputs[1].formatter)
+                -- Handle nested errors (like dispatchers[1].presenter)
                 for sub_field, sub_error in pairs(error_msg) do
                     return nil, sub_error
                 end
@@ -34,21 +34,101 @@ function M.validate_and_merge_config(user_config, default_config)
         end
     end
 
-    return result.data
+    -- 4. Convert string-based config to function-based config if needed
+    local validated_config = result.data
+    if validated_config.dispatchers then
+        local all_dispatchers = require("lual.dispatchers.init")
+        local all_presenters = require("lual.presenters.init")
+
+        for i, dispatcher in ipairs(validated_config.dispatchers) do
+            -- Convert string presenter to function if it's still a string
+            if type(dispatcher.presenter) == "string" then
+                if dispatcher.presenter == "text" then
+                    dispatcher.presenter_func = all_presenters.text
+                elseif dispatcher.presenter == "color" then
+                    dispatcher.presenter_func = all_presenters.color
+                elseif dispatcher.presenter == "json" then
+                    dispatcher.presenter_func = all_presenters.json
+                end
+                -- Keep the original string for reference but add the function
+            end
+
+            -- Convert string dispatcher type to function if needed
+            if type(dispatcher.type) == "string" then
+                if dispatcher.type == "console" then
+                    dispatcher.dispatcher_func = all_dispatchers.console_dispatcher
+                elseif dispatcher.type == "file" then
+                    -- File dispatcher is a factory, so we need to call it with config
+                    local config = { path = dispatcher.path }
+                    -- Copy other file-specific config
+                    for k, v in pairs(dispatcher) do
+                        if k ~= "type" and k ~= "presenter" and k ~= "path" and k ~= "presenter_func" and k ~= "dispatcher_func" then
+                            config[k] = v
+                        end
+                    end
+                    dispatcher.dispatcher_func = all_dispatchers.file_dispatcher(config)
+                    dispatcher.dispatcher_config = config
+                end
+            end
+        end
+    end
+
+    return validated_config
 end
 
---- Validates a single output configuration
--- @param output table The output config to validate
+--- Validates a single dispatcher configuration
+-- @param dispatcher table The dispatcher config to validate
 -- @return string|nil Error message or nil if valid
-function M.validate_single_output(output)
-    -- Use schema validation for output
-    local result = schema.validate_output(output)
+function M.validate_single_dispatcher(dispatcher)
+    -- Use schema validation for dispatcher
+    local result = schema.validate_dispatcher(dispatcher)
 
     -- Check for errors and return in the old format
     if next(result._errors) then
         -- Return first error message
         for field, error_msg in pairs(result._errors) do
             return error_msg
+        end
+    end
+
+    -- Convert string-based config to function-based config if needed
+    local validated_dispatcher = result.data
+    if validated_dispatcher then
+        local all_dispatchers = require("lual.dispatchers.init")
+        local all_presenters = require("lual.presenters.init")
+
+        -- Convert string presenter to function if it's still a string
+        if type(validated_dispatcher.presenter) == "string" then
+            if validated_dispatcher.presenter == "text" then
+                validated_dispatcher.presenter_func = all_presenters.text
+            elseif validated_dispatcher.presenter == "color" then
+                validated_dispatcher.presenter_func = all_presenters.color
+            elseif validated_dispatcher.presenter == "json" then
+                validated_dispatcher.presenter_func = all_presenters.json
+            end
+        end
+
+        -- Convert string dispatcher type to function if needed
+        if type(validated_dispatcher.type) == "string" then
+            if validated_dispatcher.type == "console" then
+                validated_dispatcher.dispatcher_func = all_dispatchers.console_dispatcher
+            elseif validated_dispatcher.type == "file" then
+                -- File dispatcher is a factory, so we need to call it with config
+                local config = { path = validated_dispatcher.path }
+                -- Copy other file-specific config
+                for k, v in pairs(validated_dispatcher) do
+                    if k ~= "type" and k ~= "presenter" and k ~= "path" and k ~= "presenter_func" and k ~= "dispatcher_func" then
+                        config[k] = v
+                    end
+                end
+                validated_dispatcher.dispatcher_func = all_dispatchers.file_dispatcher(config)
+                validated_dispatcher.dispatcher_config = config
+            end
+        end
+
+        -- Copy the converted dispatcher back to the original
+        for k, v in pairs(validated_dispatcher) do
+            dispatcher[k] = v
         end
     end
 
@@ -71,8 +151,8 @@ function M.validate_canonical_config(config)
         return false, "Config.level must be a number"
     end
 
-    if config.outputs and type(config.outputs) ~= "table" then
-        return false, "Config.outputs must be a table"
+    if config.dispatchers and type(config.dispatchers) ~= "table" then
+        return false, "Config.dispatchers must be a table"
     end
 
     if config.propagate ~= nil and type(config.propagate) ~= "boolean" then
@@ -88,17 +168,17 @@ function M.validate_canonical_config(config)
         end
     end
 
-    -- Validate outputs structure (canonical format has functions)
-    if config.outputs then
-        for i, output in ipairs(config.outputs) do
-            if type(output) ~= "table" then
-                return false, "Each output must be a table"
+    -- Validate dispatchers structure (canonical format has functions)
+    if config.dispatchers then
+        for i, dispatcher in ipairs(config.dispatchers) do
+            if type(dispatcher) ~= "table" then
+                return false, "Each dispatcher must be a table"
             end
-            if not output.output_func or type(output.output_func) ~= "function" then
-                return false, "Each output must have an output_func function"
+            if not dispatcher.dispatcher_func or type(dispatcher.dispatcher_func) ~= "function" then
+                return false, "Each dispatcher must have an dispatcher_func function"
             end
-            if not output.formatter_func or (type(output.formatter_func) ~= "function" and not (type(output.formatter_func) == "table" and getmetatable(output.formatter_func) and getmetatable(output.formatter_func).__call)) then
-                return false, "Each output must have a formatter_func function"
+            if not dispatcher.presenter_func or (type(dispatcher.presenter_func) ~= "function" and not (type(dispatcher.presenter_func) == "table" and getmetatable(dispatcher.presenter_func) and getmetatable(dispatcher.presenter_func).__call)) then
+                return false, "Each dispatcher must have a presenter_func function"
             end
         end
     end

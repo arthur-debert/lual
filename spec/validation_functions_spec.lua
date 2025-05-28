@@ -15,14 +15,14 @@ describe("Validation Functions", function()
     describe("validate_level", function()
         it("should accept nil level", function()
             -- Note: validate_level is not directly exposed, but we can test it through process_config
-            local result = config.process_config({ outputs = {} }, { level = nil })
+            local result = config.process_config({ dispatchers = {} }, { level = nil })
             assert.is_not_nil(result)
         end)
 
         it("should accept valid string levels", function()
             local levels = { "debug", "info", "warning", "error", "critical", "none" }
             for _, level in ipairs(levels) do
-                local result = config.process_config({ level = level, outputs = {} })
+                local result = config.process_config({ level = level, dispatchers = {} })
                 assert.is_not_nil(result, "Failed for level: " .. level)
             end
         end)
@@ -30,131 +30,131 @@ describe("Validation Functions", function()
         it("should accept valid string levels (case insensitive)", function()
             local levels = { "DEBUG", "Info", "WARNING", "Error", "CRITICAL", "None" }
             for _, level in ipairs(levels) do
-                local result = config.process_config({ level = level, outputs = {} })
+                local result = config.process_config({ level = level, dispatchers = {} })
                 assert.is_not_nil(result, "Failed for level: " .. level)
             end
         end)
 
         it("should accept numeric levels", function()
-            local result = config.process_config({ level = 20, outputs = {} })
+            local result = config.process_config({ level = 20, dispatchers = {} })
             assert.is_not_nil(result)
         end)
 
         it("should reject invalid string levels", function()
             assert.has_error(function()
-                config.process_config({ level = "invalid", outputs = {} })
+                config.process_config({ level = "invalid", dispatchers = {} })
             end)
         end)
 
         it("should reject invalid level types", function()
             assert.has_error(function()
-                config.process_config({ level = true, outputs = {} })
+                config.process_config({ level = true, dispatchers = {} })
             end)
         end)
     end)
 
-    describe("validate_single_output", function()
-        it("should accept valid console output", function()
+    describe("validate_single_dispatcher", function()
+        it("should accept valid console dispatcher", function()
             local result = config.process_config({
-                outputs = {
-                    { type = "console", formatter = "text" }
+                dispatchers = {
+                    { type = "console", presenter = "text" }
                 }
             })
             assert.is_not_nil(result)
         end)
 
-        it("should accept valid file output", function()
+        it("should accept valid file dispatcher", function()
             local result = config.process_config({
-                outputs = {
-                    { type = "file", formatter = "color", path = "test.log" }
+                dispatchers = {
+                    { type = "file", presenter = "color", path = "test.log" }
                 }
             })
             assert.is_not_nil(result)
         end)
 
-        it("should accept console output with valid stream", function()
+        it("should accept console dispatcher with valid stream", function()
             local result = config.process_config({
-                outputs = {
-                    { type = "console", formatter = "text", stream = io.stderr }
+                dispatchers = {
+                    { type = "console", presenter = "text", stream = io.stderr }
                 }
             })
             assert.is_not_nil(result)
         end)
 
-        it("should reject output without type", function()
+        it("should reject dispatcher without type", function()
             assert.has_error(function()
                 config.process_config({
-                    outputs = {
-                        { formatter = "text" }
+                    dispatchers = {
+                        { presenter = "text" }
                     }
                 })
             end)
         end)
 
-        it("should reject output without formatter", function()
+        it("should reject dispatcher without presenter", function()
             assert.has_error(function()
                 config.process_config({
-                    outputs = {
+                    dispatchers = {
                         { type = "console" }
                     }
                 })
             end)
         end)
 
-        it("should reject file output without path", function()
+        it("should reject file dispatcher without path", function()
             assert.has_error(function()
                 config.process_config({
-                    outputs = {
-                        { type = "file", formatter = "text" }
+                    dispatchers = {
+                        { type = "file", presenter = "text" }
                     }
                 })
             end)
         end)
 
-        it("should reject console output with invalid stream", function()
+        it("should reject console dispatcher with invalid stream", function()
             assert.has_error(function()
                 config.process_config({
-                    outputs = {
-                        { type = "console", formatter = "text", stream = "invalid" }
+                    dispatchers = {
+                        { type = "console", presenter = "text", stream = "invalid" }
                     }
                 })
             end)
         end)
     end)
 
-    describe("validate_outputs", function()
-        it("should accept nil outputs", function()
+    describe("validate_dispatchers", function()
+        it("should accept nil dispatchers", function()
             local result = config.process_config({})
             assert.is_not_nil(result)
         end)
 
-        it("should accept empty outputs array", function()
-            local result = config.process_config({ outputs = {} })
+        it("should accept empty dispatchers array", function()
+            local result = config.process_config({ dispatchers = {} })
             assert.is_not_nil(result)
         end)
 
-        it("should accept valid outputs array", function()
+        it("should accept valid dispatchers array", function()
             local result = config.process_config({
-                outputs = {
-                    { type = "console", formatter = "text" },
-                    { type = "file",    formatter = "color", path = "test.log" }
+                dispatchers = {
+                    { type = "console", presenter = "text" },
+                    { type = "file",    presenter = "color", path = "test.log" }
                 }
             })
             assert.is_not_nil(result)
         end)
 
-        it("should reject non-table outputs", function()
+        it("should reject non-table dispatchers", function()
             assert.has_error(function()
-                config.process_config({ outputs = "not a table" })
+                config.process_config({ dispatchers = "not a table" })
             end)
         end)
 
-        it("should reject outputs with invalid output", function()
+        it("should reject dispatchers with invalid dispatcher", function()
             assert.has_error(function()
                 config.process_config({
-                    outputs = {
-                        { type = "console", formatter = "text" },
-                        { type = "invalid", formatter = "text" }
+                    dispatchers = {
+                        { type = "console", presenter = "text" },
+                        { type = "invalid", presenter = "text" }
                     }
                 })
             end)
@@ -166,70 +166,70 @@ describe("Validation Functions", function()
             local result = config.process_config({
                 name = "test.logger",
                 propagate = true,
-                outputs = {}
+                dispatchers = {}
             })
             assert.is_not_nil(result)
         end)
 
         it("should accept config with nil fields", function()
-            local result = config.process_config({ outputs = {} })
+            local result = config.process_config({ dispatchers = {} })
             assert.is_not_nil(result)
         end)
 
         it("should reject invalid name type", function()
             assert.has_error(function()
-                config.process_config({ name = 123, outputs = {} })
+                config.process_config({ name = 123, dispatchers = {} })
             end)
         end)
 
         it("should reject invalid propagate type", function()
             assert.has_error(function()
-                config.process_config({ propagate = "yes", outputs = {} })
+                config.process_config({ propagate = "yes", dispatchers = {} })
             end)
         end)
     end)
 
     describe("validate_timezone", function()
         it("should accept nil timezone", function()
-            local result = config.process_config({ outputs = {} })
+            local result = config.process_config({ dispatchers = {} })
             assert.is_not_nil(result)
         end)
 
         it("should accept valid timezone 'local'", function()
-            local result = config.process_config({ timezone = "local", outputs = {} })
+            local result = config.process_config({ timezone = "local", dispatchers = {} })
             assert.is_not_nil(result)
         end)
 
         it("should accept valid timezone 'utc'", function()
-            local result = config.process_config({ timezone = "utc", outputs = {} })
+            local result = config.process_config({ timezone = "utc", dispatchers = {} })
             assert.is_not_nil(result)
         end)
 
         it("should accept valid timezone 'UTC' (case insensitive)", function()
-            local result = config.process_config({ timezone = "UTC", outputs = {} })
+            local result = config.process_config({ timezone = "UTC", dispatchers = {} })
             assert.is_not_nil(result)
         end)
 
         it("should accept valid timezone 'LOCAL' (case insensitive)", function()
-            local result = config.process_config({ timezone = "LOCAL", outputs = {} })
+            local result = config.process_config({ timezone = "LOCAL", dispatchers = {} })
             assert.is_not_nil(result)
         end)
 
         it("should reject invalid timezone string", function()
             assert.has_error(function()
-                config.process_config({ timezone = "invalid", outputs = {} })
+                config.process_config({ timezone = "invalid", dispatchers = {} })
             end)
         end)
 
         it("should reject invalid timezone type", function()
             assert.has_error(function()
-                config.process_config({ timezone = 123, outputs = {} })
+                config.process_config({ timezone = 123, dispatchers = {} })
             end)
         end)
 
         it("should reject boolean timezone", function()
             assert.has_error(function()
-                config.process_config({ timezone = true, outputs = {} })
+                config.process_config({ timezone = true, dispatchers = {} })
             end)
         end)
     end)
@@ -239,7 +239,7 @@ describe("Validation Functions", function()
             local result = config.process_config({
                 name = "test",
                 level = "info",
-                outputs = {},
+                dispatchers = {},
                 propagate = true,
                 timezone = "utc"
             })
@@ -250,7 +250,7 @@ describe("Validation Functions", function()
             local result = config.process_config({
                 name = "test",
                 level = "info",
-                outputs = {}
+                dispatchers = {}
             })
             assert.is_not_nil(result)
         end)
@@ -260,7 +260,7 @@ describe("Validation Functions", function()
                 config.process_config({
                     name = "test",
                     unknown_key = "value",
-                    outputs = {}
+                    dispatchers = {}
                 })
             end)
         end)
@@ -268,14 +268,14 @@ describe("Validation Functions", function()
 
     describe("Shortcut API validation", function()
         it("should detect shortcut config", function()
-            assert.is_true(config.is_shortcut_config({ output = "console", formatter = "text" }))
-            assert.is_false(config.is_shortcut_config({ outputs = {} }))
+            assert.is_true(config.is_shortcut_config({ dispatcher = "console", presenter = "text" }))
+            assert.is_false(config.is_shortcut_config({ dispatchers = {} }))
         end)
 
         it("should validate shortcut config", function()
             local result = config.process_config({
-                output = "console",
-                formatter = "text"
+                dispatcher = "console",
+                presenter = "text"
             })
             assert.is_not_nil(result)
         end)
@@ -283,8 +283,8 @@ describe("Validation Functions", function()
         it("should reject invalid shortcut config", function()
             assert.has_error(function()
                 config.process_config({
-                    output = "console"
-                    -- missing formatter
+                    dispatcher = "console"
+                    -- missing presenter
                 })
             end)
         end)
@@ -292,35 +292,35 @@ describe("Validation Functions", function()
         it("should transform shortcut to declarative", function()
             local shortcut = {
                 name = "test",
-                output = "console",
-                formatter = "text"
+                dispatcher = "console",
+                presenter = "text"
             }
             local declarative = config.shortcut_to_declarative_config(shortcut)
             assert.are.same("test", declarative.name)
-            assert.are.same(1, #declarative.outputs)
-            assert.are.same("console", declarative.outputs[1].type)
-            assert.are.same("text", declarative.outputs[1].formatter)
+            assert.are.same(1, #declarative.dispatchers)
+            assert.are.same("console", declarative.dispatchers[1].type)
+            assert.are.same("text", declarative.dispatchers[1].presenter)
         end)
 
         it("should transform shortcut to declarative with timezone", function()
             local shortcut = {
                 name = "test",
-                output = "console",
-                formatter = "text",
+                dispatcher = "console",
+                presenter = "text",
                 timezone = "utc"
             }
             local declarative = config.shortcut_to_declarative_config(shortcut)
             assert.are.same("test", declarative.name)
             assert.are.same("utc", declarative.timezone)
-            assert.are.same(1, #declarative.outputs)
-            assert.are.same("console", declarative.outputs[1].type)
-            assert.are.same("text", declarative.outputs[1].formatter)
+            assert.are.same(1, #declarative.dispatchers)
+            assert.are.same("console", declarative.dispatchers[1].type)
+            assert.are.same("text", declarative.dispatchers[1].presenter)
         end)
 
         it("should validate shortcut config with timezone", function()
             local result = config.process_config({
-                output = "console",
-                formatter = "text",
+                dispatcher = "console",
+                presenter = "text",
                 timezone = "utc"
             })
             assert.is_not_nil(result)
@@ -340,7 +340,7 @@ describe("Validation Functions", function()
 
             -- Test that validation works with these levels
             for level_name, _ in pairs(lualog.LEVELS) do
-                local result = config.process_config({ level = level_name, outputs = {} })
+                local result = config.process_config({ level = level_name, dispatchers = {} })
                 assert.is_not_nil(result, "Failed for level: " .. level_name)
             end
         end)
