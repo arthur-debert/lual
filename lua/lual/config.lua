@@ -39,28 +39,6 @@ local function create_canonical_config(config)
     }
 end
 
---- Deep clones a config table
--- @param config (table) The config to clone
--- @return table The cloned config
-local function clone_config(config)
-    local cloned = {}
-    for k, v in pairs(config) do
-        if type(v) == "table" and k == "outputs" then
-            -- Deep clone outputs array
-            cloned[k] = {}
-            for i, output in ipairs(v) do
-                cloned[k][i] = {
-                    output_func = output.output_func,
-                    formatter_func = output.formatter_func,
-                    output_config = output.output_config or {}
-                }
-            end
-        else
-            cloned[k] = v
-        end
-    end
-    return cloned
-end
 
 --- Merges user config with default config, with user config taking precedence
 -- @param user_config (table) The user's partial config
@@ -635,13 +613,6 @@ function M.create_canonical_config(config)
     return create_canonical_config(config)
 end
 
---- Clones a config table
--- @param config table The config to clone
--- @return table The cloned config
-function M.clone_config(config)
-    return clone_config(config)
-end
-
 --- Validates a canonical config
 -- @param config table The config to validate
 -- @return boolean, string True if valid, or false with error message
@@ -661,28 +632,6 @@ end
 -- @return table The declarative config
 function M.shortcut_to_declarative_config(config)
     return shortcut_to_declarative_config(config)
-end
-
---- Validates a declarative config
--- @param config table The config to validate
--- @return boolean, string True if valid, or false with error message
-function M.validate_declarative_config(config)
-    return validate_declarative_config(config)
-end
-
---- Converts declarative config to canonical format
--- @param config table The declarative config
--- @return table The canonical config
-function M.declarative_to_canonical_config(config)
-    return declarative_to_canonical_config(config)
-end
-
---- Merges configs with user config taking precedence
--- @param user_config table The user config
--- @param default_config table The default config
--- @return table The merged config
-function M.merge_configs(user_config, default_config)
-    return merge_configs(user_config, default_config)
 end
 
 return M
