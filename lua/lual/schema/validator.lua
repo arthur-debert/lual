@@ -202,10 +202,7 @@ function M.validate(data, schema, schema_registry)
 
                             if next(item_result._errors) then
                                 has_errors = true
-                                -- Flatten nested errors for array items
-                                for nested_field, nested_error in pairs(item_result._errors) do
-                                    result._errors[field_name .. "[" .. i .. "]." .. nested_field] = nested_error
-                                end
+                                result._errors[field_name .. "[" .. i .. "]"] = item_result._errors
                             end
                         end
 

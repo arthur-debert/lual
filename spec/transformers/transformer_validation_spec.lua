@@ -74,8 +74,8 @@ describe("Transformer validation", function()
             }
 
             local result = schema.validate_dispatcher(dispatcher_config)
-            assert.is_not_nil(result._errors["transformers[1].type"])
-            assert.matches("Invalid transformer type", result._errors["transformers[1].type"])
+            assert.is_not_nil(result._errors["transformers[1]"])
+            assert.matches("Invalid transformer type", result._errors["transformers[1]"].type)
         end)
     end)
 

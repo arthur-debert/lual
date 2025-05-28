@@ -39,3 +39,11 @@ This is what happens:
         d. After all transformations are done, it's time to make your message
         look good! This will run the presenter(s) which will change things like
         adding colors, emoji, etc.
+        e. Once it looks amazing, it's time for the world to see it! We'll go
+        through all of your dispatchers and dispatch that message: to stdout, a
+        file, syslog or anywhere.
+
+
+    In a few words: 
+
+    seraching which loggers should see this
