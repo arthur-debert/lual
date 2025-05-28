@@ -47,3 +47,6 @@ This is what happens:
     In a few words: 
 
     seraching which loggers should see this
+    transforming the log record / enriching the data
+    presenting the log record
+    dispatching the log record to the output
