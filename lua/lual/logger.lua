@@ -16,10 +16,10 @@ local all_outputs = require("lual.outputs.init")       -- Require the new output
 local all_formatters = require("lual.formatters.init") -- Require the new formatters init
 
 log.levels = core_levels.definition
-log.get_logger = engine.get_logger
-log.outputs = all_outputs       -- Assign the outputs table
-log.formatters = all_formatters -- Assign the formatters table
-log.logger = engine.logger      -- Add the declarative API
+log.logger = engine.logger         -- Primary API for creating loggers
+log.get_logger = engine.get_logger -- Backward compatibility alias
+log.outputs = all_outputs          -- Assign the outputs table
+log.formatters = all_formatters    -- Assign the formatters table
 
 -- Add convenient shortcuts for outputs and formatters
 log.lib = {
@@ -84,7 +84,7 @@ end
 -- Initialization (Example: Set up a default root logger)
 -- =============================================================================
 function log.init_default_config()
-  local root_logger = log.get_logger("root")
+  local root_logger = log.logger("root")
   if root_logger then
     root_logger.outputs = {} -- Clear existing default outputs
     if root_logger.set_level then

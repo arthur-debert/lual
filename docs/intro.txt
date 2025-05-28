@@ -10,7 +10,7 @@ design is done over functions and tables, look ma, no classes.
     --  example: 
 
         local lual = require("lual")
-        local logger = lual.get_logger()
+        local logger = lual.logger()
         logger.info("This is a debug message")
         # the usual stuff
         logger:set_level("debug")

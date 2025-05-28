@@ -225,10 +225,18 @@ describe("Declarative API", function()
     end)
 
     describe("Validation", function()
-        it("should reject non-table config", function()
+        it("should accept string names for simple logger creation", function()
+            local logger = lualog.logger("test.string.name")
+            assert.is_not_nil(logger)
+            assert.are.same("test.string.name", logger.name)
+            assert.are.same(lualog.levels.INFO, logger.level) -- Default level
+            assert.is_true(logger.propagate)                  -- Default propagate
+        end)
+
+        it("should reject invalid config types (non-string, non-table)", function()
             assert.has_error(function()
-                lualog.logger("not a table")
-            end, "Invalid declarative config: Config must be a table")
+                lualog.logger(123)
+            end, "logger() expects nil, string, or table argument, got number")
         end)
 
         it("should reject unknown config keys", function()
@@ -439,6 +447,22 @@ describe("Declarative API", function()
                 end
             end
             assert.is_true(found_parent_output)
+        end)
+    end)
+
+    describe("Backward compatibility", function()
+        it("should support get_logger as an alias to logger", function()
+            local logger1 = lualog.logger("test.compat")
+            local logger2 = lualog.get_logger("test.compat")
+
+            -- Should return the same cached instance
+            assert.are.same(logger1, logger2)
+        end)
+
+        it("should support get_logger with no arguments", function()
+            local logger = lualog.get_logger()
+            assert.is_not_nil(logger)
+            assert.is_string(logger.name)
         end)
     end)
 

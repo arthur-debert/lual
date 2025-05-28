@@ -200,6 +200,9 @@ end
 -- @param config table The config to check
 -- @return boolean True if it's a shortcut format
 local function is_shortcut_config(config)
+    if not config or type(config) ~= "table" then
+        return false
+    end
     return config.output ~= nil or config.formatter ~= nil
 end
 
@@ -561,6 +564,11 @@ end
 -- @param default_config table Optional default config to merge with
 -- @return table The validated canonical config
 function M.process_config(input_config, default_config)
+    -- Handle nil or empty input config
+    if not input_config then
+        input_config = {}
+    end
+
     local final_declarative_config = input_config
 
     -- Check if this is a shortcut config and transform it if needed

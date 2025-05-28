@@ -240,7 +240,7 @@ end
 
 local M = {}
 
-function M.get_logger(name)
+function M._get_logger_simple(name)
     local logger_name = name
     if name == nil or name == "" then
         -- Auto-generate logger name from caller's filename
@@ -265,7 +265,7 @@ function M.get_logger(name)
         else
             parent_name = "root"
         end
-        parent_logger = M.get_logger(parent_name) -- Recursive call
+        parent_logger = M._get_logger_simple(parent_name) -- Recursive call
     end
 
     -- Create logger using config-based approach
@@ -291,9 +291,22 @@ function M.create_logger_from_config(config)
 end
 
 --- Creates a logger from a declarative config table (supports both standard and shortcut formats)
--- @param input_config (table) The declarative logger configuration
+-- This is the primary API for creating loggers. Can be called with:
+-- 1. No arguments or string name: lual.logger() or lual.logger("name") - simple logger creation
+-- 2. Config table: lual.logger({name="app", level="debug", outputs={...}}) - declarative configuration
+-- @param input_config (string|table|nil) The logger name or declarative configuration
 -- @return table The logger instance
 function M.logger(input_config)
+    -- Handle simple cases: nil, empty string, or string name
+    if input_config == nil or input_config == "" or type(input_config) == "string" then
+        return M._get_logger_simple(input_config)
+    end
+
+    -- Handle table-based declarative configuration
+    if type(input_config) ~= "table" then
+        error("logger() expects nil, string, or table argument, got " .. type(input_config))
+    end
+
     -- Define default config
     local default_config = {
         name = "root",
@@ -333,7 +346,7 @@ function M.logger(input_config)
         else
             parent_name = "root"
         end
-        canonical_config.parent = M.get_logger(parent_name)
+        canonical_config.parent = M.logger(parent_name)
     end
 
     -- Create the logger
@@ -347,12 +360,15 @@ function M.logger(input_config)
     return new_logger
 end
 
+-- Backward compatibility alias - get_logger points to logger
+M.get_logger = M.logger
+
 -- Export config module functions for backward compatibility and testing
 M.config = config_module
 
--- Assign M.get_logger to the local get_logger variable used by ingest and for mutual recursion.
--- This must be done after M.get_logger is defined.
-get_logger = M.get_logger
+-- Assign M.logger to the local get_logger variable used by ingest and for mutual recursion.
+-- This must be done after M.logger is defined.
+get_logger = M.logger
 
 function M.reset_cache()
     _loggers_cache = {}
