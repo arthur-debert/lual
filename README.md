@@ -134,7 +134,7 @@ local logger = lual.logger({
 - **Default Setup:** On require, a root logger is configured with:
   - Level: `lualog.levels.INFO`.
   - One dispatcher: `lualog.lib.console` writing to `io.stdout`.
-  - Formatter for this dispatcher: `lualog.lib.text`.
+  - Presenter for this dispatcher: `lualog.lib.text`.
 
 You can create custom dispatchers and presenters:
 
