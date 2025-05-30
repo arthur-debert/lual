@@ -1,0 +1,236 @@
+Configuration
+
+This document describes the configuration format for lual, including both the convenience syntax and full syntax options.
+
+
+1. Overview: Configuration as a Lua Table
+
+    Lual uses a configuration table to describe how a logger should behave. When 
+    creating loggers, you pass this table to define the logger's properties. The 
+    imperative API (like logger:add_dispatcher(...)) modifies this internal 
+    configuration, making the configuration table the single source of truth for 
+    the logger's behavior.
+
+
+2. Configuration Schema
+
+    The configuration table is a Lua table that can contain the following keys:
+
+    a. Full Syntax Schema
+
+        {
+            name = "string",           -- Logger name (optional, defaults to "root")
+            level = "string|number",   -- Log level (optional, defaults to INFO)
+            dispatchers = {            -- Array of dispatcher configurations (optional)
+                {
+                    type = "string",          -- Dispatcher type: "console" or "file"
+                    presenter = "string",     -- Presenter type: "text", "color", or "json"
+                    path = "string",          -- File path (required for file dispatchers)
+                    stream = file_handle,     -- Custom stream (optional for console dispatchers)
+                    transformers = {          -- Array of transformer configurations (optional)
+                        {
+                            type = "string"   -- Transformer type: "noop"
+                        }
+                    }
+                }
+            },
+            propagate = boolean,       -- Enable message propagation to parent loggers (optional, defaults to true)
+            timezone = "string"        -- Timezone: "local" or "utc" (optional, defaults to "local")
+        }
+
+    b. Convenience Syntax Schema
+
+        For simple single-dispatcher configurations, you can use the convenience syntax:
+
+        {
+            name = "string",           -- Logger name (optional)
+            level = "string|number",   -- Log level (optional)
+            dispatcher = "string",     -- Dispatcher type: "console" or "file" (required)
+            presenter = "string",      -- Presenter type: "text", "color", or "json" (required)
+            path = "string",           -- File path (required for file dispatchers)
+            stream = file_handle,      -- Custom stream (optional for console dispatchers)
+            propagate = boolean,       -- Enable propagation (optional)
+            timezone = "string"        -- Timezone (optional)
+        }
+
+    c. Valid Values
+
+        Levels: "debug", "info", "warning", "error", "critical", "none" (or numeric equivalents)
+        Dispatcher Types: "console", "file"
+        Presenter Types: "text", "color", "json"
+        Transformer Types: "noop"
+        Timezones: "local", "utc"
+
+
+3. Configuration Features
+
+    a. Sparse Configuration
+
+        The configuration table can be sparse - you only need to specify the keys 
+        you want to modify. Unspecified keys will use default values:
+
+            -- Minimal configuration - uses defaults for everything else
+            local logger = lual.logger({
+                level = lual.debug
+            })
+
+    b. Convenience Syntax
+
+        For the common case of a single dispatcher/presenter pair, use the convenience syntax:
+
+            local lual = require("lual.logger")
+
+            -- Convenience syntax (recommended)
+            local logger = lual.logger({
+                name = "app.database",
+                dispatcher = lual.console,
+                presenter = lual.text,
+                level = lual.debug
+            })
+
+            -- File logging with convenience syntax
+            local file_logger = lual.logger({
+                dispatcher = lual.file,
+                path = "app.log",
+                presenter = lual.json,
+                level = lual.info
+            })
+
+    c. Full Syntax for Multiple Dispatchers
+
+        For complex configurations with multiple dispatchers, use the full syntax:
+
+            local logger = lual.logger({
+                name = "app.main",
+                level = lual.debug,
+                dispatchers = {
+                    {type = lual.console, presenter = lual.color},
+                    {type = lual.file, path = "debug.log", presenter = lual.text},
+                    {type = lual.file, path = "errors.log", presenter = lual.json}
+                },
+                propagate = false,
+                timezone = lual.utc
+            })
+
+    d. Flat Namespace Constants
+
+        Lual provides flat namespace constants for easy access to common values:
+
+            local lual = require("lual.logger")
+
+            -- Level constants
+            lual.debug      -- 10
+            lual.info       -- 20  
+            lual.warning    -- 30
+            lual.error      -- 40
+            lual.critical   -- 50
+            lual.none       -- 100
+
+            -- Dispatcher constants
+            lual.console    -- "console"
+            lual.file       -- "file"
+
+            -- Presenter constants
+            lual.text       -- "text"
+            lual.color      -- "color"
+            lual.json       -- "json"
+
+            -- Timezone constants
+            lual.local_time -- "local"
+            lual.utc        -- "utc"
+
+            -- Transformer constants
+            lual.noop       -- "noop"
+
+
+4. Configuration Processing
+
+    When a new logger is created with a configuration, the system:
+
+        1. Detects syntax type: Determines if convenience or full syntax is used
+        2. Normalizes format: Converts convenience syntax to full syntax internally
+        3. Validates configuration: Checks all fields against the schema
+        4. Applies defaults: Merges user configuration with default values
+        5. Canonicalizes: Converts string identifiers to runtime function references
+        6. Creates logger: Instantiates the logger with the processed configuration
+
+
+5. Examples
+
+    a. Basic Console Logging
+    
+        local logger = lual.logger({
+            dispatcher = lual.console,
+            presenter = lual.text,
+            level = lual.info
+        })
+
+    b. File Logging with JSON Format
+    
+        local logger = lual.logger({
+            name = "audit",
+            dispatcher = lual.file,
+            path = "audit.log",
+            presenter = lual.json,
+            level = lual.warning,
+            timezone = lual.utc
+        })
+
+    c. Multiple Dispatchers
+    
+        local logger = lual.logger({
+            name = "app.complex",
+            level = lual.debug,
+            dispatchers = {
+                -- Console for development
+                {type = lual.console, presenter = lual.color},
+                -- File for persistent logs
+                {type = lual.file, path = "app.log", presenter = lual.text},
+                -- JSON file for structured analysis
+                {type = lual.file, path = "structured.log", presenter = lual.json}
+            },
+            propagate = true,
+            timezone = lual.local_time
+        })
+
+    d. Custom Stream for Console
+    
+        local logger = lual.logger({
+            dispatcher = lual.console,
+            stream = io.stderr,  -- Log to stderr instead of stdout
+            presenter = lual.color,
+            level = lual.error
+        })
+
+
+6. Default Configuration
+
+    If no configuration is provided, loggers use these defaults:
+
+        Name: "root"
+        Level: lual.info (20)
+        Dispatchers: Empty array (no output unless configured)
+        Propagate: true
+        Timezone: "local"
+
+
+7. Error Handling
+
+    Configuration validation occurs at logger creation time. Invalid configurations 
+    will throw descriptive errors:
+
+        -- This will throw an error
+        local logger = lual.logger({
+            dispatcher = "invalid_type",  -- Error: Invalid dispatcher type
+            presenter = lual.text
+        })
+
+    Common validation errors include:
+        - Unknown dispatcher/presenter types
+        - Missing required fields (e.g., path for file dispatchers)
+        - Invalid data types (e.g., non-string name)
+        - Mixing convenience and full syntax
+
+
+
+    

@@ -30,13 +30,13 @@ local lual = require("lual.logger")
 
 local logger = lual.logger({
     name = "app",
-    level = "info",
+    level = lual.info,
     dispatchers = {
         {
-            type = "console",
-            presenter = "text",
+            type = lual.console,
+            presenter = lual.text,
             transformers = {
-                { type = "noop" }
+                { type = lual.noop }
             }
         }
     }
@@ -50,14 +50,14 @@ Transformers are applied in sequence. You can chain multiple transformers:
 ```lua
 local logger = lual.logger({
     name = "app",
-    level = "info",
+    level = lual.info,
     dispatchers = {
         {
-            type = "console",
-            presenter = "text",
+            type = lual.console,
+            presenter = lual.text,
             transformers = {
-                { type = "noop" },
-                { type = "noop" }
+                { type = lual.noop },
+                { type = lual.noop }
             }
         }
     }
@@ -73,7 +73,7 @@ unchanged. It's useful for testing and as a template for custom transformers.
 
 ```lua
 transformers = {
-    { type = "noop" }
+    { type = lual.noop }
 }
 ```
 
@@ -200,8 +200,17 @@ local lual = require("lual.logger")
 -- Access transformer factories
 local noop = lual.transformers.noop_transformer()
 
--- Or use shortcuts
-local noop_shortcut = lual.lib.noop
+-- Or use flat namespace constant (recommended)
+local logger = lual.logger({
+    dispatcher = lual.console,
+    presenter = lual.text,
+    transformers = {
+        { type = lual.noop }
+    }
+})
+
+-- Backward compatible lib reference still available
+local noop_reference = lual.lib.noop
 ```
 
 ## Best Practices

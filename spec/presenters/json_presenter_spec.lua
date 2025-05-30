@@ -428,8 +428,8 @@ describe("lual.presenters.json", function()
         end)
     end)
 
-    describe("Integration with lual.lib", function()
-        it("should be accessible via lual.lib.json", function()
+    describe("Integration with lual constants", function()
+        it("should be accessible via lual.lib.json (backward compatibility)", function()
             local lualog = require("lual.logger")
 
             assert.is_not_nil(lualog.lib.json)
@@ -453,6 +453,23 @@ describe("lual.presenters.json", function()
             assert.is_table(parsed)
             assert.are.same("INFO", parsed.level)
             assert.are.same("test message", parsed.message)
+        end)
+
+        it("should have flat namespace constant lual.json", function()
+            local lualog = require("lual.logger")
+
+            assert.is_not_nil(lualog.json)
+            assert.are.equal("json", lualog.json)
+
+            -- Test that the flat constant works in logger config
+            local logger = lualog.logger({
+                dispatcher = lualog.console,
+                presenter = lualog.json,
+                level = lualog.info
+            })
+
+            assert.is_not_nil(logger)
+            assert.are.equal(lualog.info, logger.level)
         end)
     end)
 end)

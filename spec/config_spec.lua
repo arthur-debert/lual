@@ -412,7 +412,7 @@ describe("Unified Config API", function()
                 lualog.logger({
                     presenter = "text"
                 })
-            end, "Invalid shortcut config: Shortcut config must have an 'dispatcher' field")
+            end, "Invalid convenience config: Convenience config must have an 'dispatcher' field")
         end)
 
         it("should reject convenience config without presenter field", function()
@@ -420,7 +420,7 @@ describe("Unified Config API", function()
                 lualog.logger({
                     dispatcher = "console"
                 })
-            end, "Invalid shortcut config: Shortcut config must have a 'presenter' field")
+            end, "Invalid convenience config: Convenience config must have a 'presenter' field")
         end)
 
         it("should reject non-string dispatcher field", function()
@@ -429,7 +429,7 @@ describe("Unified Config API", function()
                     dispatcher = 123,
                     presenter = "text"
                 })
-            end, "Invalid shortcut config: dispatcher type must be a string")
+            end, "Invalid convenience config: dispatcher type must be a string")
         end)
 
         it("should reject non-string presenter field", function()
@@ -438,11 +438,11 @@ describe("Unified Config API", function()
                     dispatcher = "console",
                     presenter = 456
                 })
-            end, "Invalid shortcut config: Presenter type must be a string")
+            end, "Invalid convenience config: Presenter type must be a string")
         end)
 
         it("should reject unknown dispatcher types", function()
-            local expected_error = "Invalid shortcut config: " ..
+            local expected_error = "Invalid convenience config: " ..
                 constants.generate_expected_error_message("unknown", constants.VALID_dispatcher_TYPES)
             assert.has_error(function()
                 lualog.logger({
@@ -453,7 +453,7 @@ describe("Unified Config API", function()
         end)
 
         it("should reject unknown presenter types", function()
-            local expected_error = "Invalid shortcut config: " ..
+            local expected_error = "Invalid convenience config: " ..
                 constants.generate_expected_error_message("unknown", constants.VALID_PRESENTER_TYPES)
             assert.has_error(function()
                 lualog.logger({
@@ -469,7 +469,7 @@ describe("Unified Config API", function()
                     dispatcher = "file",
                     presenter = "text"
                 })
-            end, "Invalid shortcut config: File dispatcher must have a 'path' string field")
+            end, "Invalid convenience config: File dispatcher must have a 'path' string field")
         end)
 
         it("should reject file dispatcher with non-string path", function()
@@ -479,7 +479,7 @@ describe("Unified Config API", function()
                     presenter = "text",
                     path = 123
                 })
-            end, "Invalid shortcut config: File dispatcher must have a 'path' string field")
+            end, "Invalid convenience config: File dispatcher must have a 'path' string field")
         end)
 
         it("should reject console dispatcher with invalid stream type", function()
@@ -489,7 +489,7 @@ describe("Unified Config API", function()
                     presenter = "text",
                     stream = "stdout"
                 })
-            end, "Invalid shortcut config: Console dispatcher 'stream' field must be a file handle")
+            end, "Invalid convenience config: Console dispatcher 'stream' field must be a file handle")
         end)
 
         it("should reject unknown convenience config keys", function()
@@ -499,11 +499,11 @@ describe("Unified Config API", function()
                     presenter = "text",
                     unknown_key = "value"
                 })
-            end, "Invalid shortcut config: Unknown shortcut config key: unknown_key")
+            end, "Invalid convenience config: Unknown convenience config key: unknown_key")
         end)
 
         it("should reject invalid level in convenience config", function()
-            local expected_error = "Invalid shortcut config: " ..
+            local expected_error = "Invalid convenience config: " ..
                 constants.generate_expected_error_message("invalid_level", constants.VALID_LEVEL_STRINGS)
             assert.has_error(function()
                     lualog.logger({
@@ -522,7 +522,7 @@ describe("Unified Config API", function()
                     presenter = "text",
                     name = 123
                 })
-            end, "Invalid shortcut config: Config.name must be a string")
+            end, "Invalid convenience config: Config.name must be a string")
         end)
 
         it("should reject invalid propagate type in convenience config", function()
@@ -532,7 +532,7 @@ describe("Unified Config API", function()
                     presenter = "text",
                     propagate = "yes"
                 })
-            end, "Invalid shortcut config: Config.propagate must be a boolean")
+            end, "Invalid convenience config: Config.propagate must be a boolean")
         end)
     end)
 

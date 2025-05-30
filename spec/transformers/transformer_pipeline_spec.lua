@@ -73,9 +73,25 @@ describe("Transformer pipeline integration", function()
             assert.is_function(lual.transformers.noop_transformer)
         end)
 
-        it("should expose transformer shortcuts in lib", function()
+        it("should expose transformer shortcuts in lib (backward compatibility)", function()
             assert.is_not_nil(lual.lib.noop)
             assert.is_true(type(lual.lib.noop) == "table" or type(lual.lib.noop) == "function")
+        end)
+
+        it("should have flat namespace constant lual.noop", function()
+            assert.is_not_nil(lual.noop)
+            assert.are.equal("noop", lual.noop)
+
+            -- Test that the flat constant works in logger config
+            local logger = lual.logger({
+                name = "test_noop",
+                dispatcher = lual.console,
+                presenter = lual.text,
+                level = lual.debug
+            })
+
+            assert.is_not_nil(logger)
+            assert.are.equal("test_noop", logger.name)
         end)
     end)
 end)
