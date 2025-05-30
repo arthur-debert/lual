@@ -194,7 +194,7 @@ describe("ingest.dispatch_log_event", function()
 		print("Logger dispatchers Count: " .. tostring(#logger.dispatchers))
 		if #logger.dispatchers > 0 then
 			print(
-				"Formatter func is mock_presenter_func: "
+				"Presenter func is mock_presenter_func: "
 				.. tostring(logger.dispatchers[1].presenter_func == mock_presenter_func)
 			)
 		end
@@ -547,7 +547,7 @@ describe("ingest.dispatch_log_event", function()
 		}
 		ingest.dispatch_log_event(event_details, mock_logger_internal, mock_log_levels)
 
-		assert.are.same(0, #get_presenter_calls()) -- Formatter errored, so no call recorded by mock_presenter_func
+		assert.are.same(0, #get_presenter_calls()) -- Presenter errored, so no call recorded by mock_presenter_func
 
 		local hc_list = get_dispatcher_calls()
 		assert.are.same(1, #hc_list)
@@ -602,7 +602,7 @@ describe("ingest.dispatch_log_event", function()
 		}
 		ingest.dispatch_log_event(event_details, mock_logger_internal, mock_log_levels)
 
-		assert.are.same(1, #get_presenter_calls()) -- Formatter should have been called
+		assert.are.same(1, #get_presenter_calls()) -- Presenter should have been called
 		assert.are.same(0, #get_dispatcher_calls()) -- Erroring dispatcher does not record its call
 
 		local stderr_list = get_stderr_messages()

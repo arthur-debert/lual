@@ -21,7 +21,7 @@ Transformers sit between the logger and the presenter, allowing you to:
 
 ## Basic Usage
 
-### Declarative Configuration
+### Config API
 
 You can add transformers to dispatchers in your logger configuration:
 

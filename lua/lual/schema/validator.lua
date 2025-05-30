@@ -1,55 +1,58 @@
---- Schema-based validator
--- This module provides validation functions that work with schema definitions
+--- Generic schema validation functions
+-- This module provides the core validation logic for all schemas
 
 local constants = require("lual.config.constants")
 
 local M = {}
 
---- Generate error message for invalid values
--- @param field_name string The name of the field
--- @param value any The invalid value
--- @param field_schema table The schema definition for the field
--- @param schema_context string Optional context (e.g., "transformer", "dispatcher")
+--- Generate field-specific error messages
+-- @param field_name string The field name
+-- @param value any The field value
+-- @param valid_values table Valid values for the field
+-- @param schema_context string Context for schema (for error messages)
 -- @return string The error message
-local function generate_error_message(field_name, value, field_schema, schema_context)
-    if field_schema.values then
-        local valid_values = {}
-        for key, _ in pairs(field_schema.values) do
-            table.insert(valid_values, key)
+local function generate_field_error(field_name, value, valid_values, schema_context)
+    if valid_values then
+        local values_list = {}
+        for key, _ in pairs(valid_values) do
+            table.insert(values_list, key)
         end
-        table.sort(valid_values)
+        table.sort(values_list)
 
-        -- For non-string values that should be strings, show type error instead of enum error
-        if type(value) ~= "string" then
-            if field_name == "level" then
-                return "Level must be a string or number"
-            elseif field_name == "dispatcher" then -- For shortcut API
-                return "dispatcher type must be a string"
-            elseif field_name == "presenter" then
-                return "PRESENTER type must be a string"
-            end
-        end
-
-        -- Generate more specific error messages for certain fields
         if field_name == "type" then
             if schema_context == "transformer" then
                 return string.format("Invalid transformer type: %s. Valid values are: %s",
-                    tostring(value), table.concat(valid_values, ", "))
+                    tostring(value), table.concat(values_list, ", "))
             else
                 return string.format("Invalid dispatcher type: %s. Valid values are: %s",
-                    tostring(value), table.concat(valid_values, ", "))
+                    tostring(value), table.concat(values_list, ", "))
             end
-        elseif field_name == "dispatcher" then -- For shortcut API
-            return string.format("Invalid dispatcher type: %s. Valid values are: %s",
-                tostring(value), table.concat(valid_values, ", "))
         elseif field_name == "presenter" then
             return string.format("Invalid presenter type: %s. Valid values are: %s",
-                tostring(value), table.concat(valid_values, ", "))
+                tostring(value), table.concat(values_list, ", "))
         else
             return string.format("Invalid %s: %s. Valid values are: %s",
-                field_name, tostring(value), table.concat(valid_values, ", "))
+                field_name, tostring(value), table.concat(values_list, ", "))
         end
-    elseif field_schema.type then
+    elseif field_name == "type" then
+        if schema_context == "transformer" then
+            return "Each transformer must have a 'type' string field"
+        else
+            return "Each dispatcher must have a 'type' string field"
+        end
+    elseif field_name == "presenter" then
+        return "Each dispatcher must have a 'presenter' string field"
+    else
+        return string.format("Invalid %s: %s", field_name, tostring(value))
+    end
+end
+
+--- Generate type error messages
+-- @param field_name string The field name
+-- @param field_schema table The field schema
+-- @return string The error message
+local function generate_type_error(field_name, field_schema)
+    if field_schema.type then
         local type_str = type(field_schema.type) == "table"
             and table.concat(field_schema.type, " or ")
             or field_schema.type
@@ -72,90 +75,97 @@ local function generate_error_message(field_name, value, field_schema, schema_co
                 string.gsub(field_name, "^%l", string.upper), type_str)
         end
     else
-        return string.format("Invalid %s: %s", field_name, tostring(value))
+        return string.format("Invalid %s", field_name)
     end
 end
 
 --- Validate a single field against its schema
--- @param field_name string The name of the field
--- @param value any The value to validate
--- @param field_schema table The schema definition for the field
--- @param data table The full data object (for conditional validation)
--- @param is_shortcut boolean Whether this is shortcut config validation
--- @param schema_context string Optional context (e.g., "transformer", "dispatcher")
+-- @param field_name string The field name
+-- @param value any The field value
+-- @param field_schema table The field schema
+-- @param data table The full data being validated
+-- @param schema_context string Context for schema (for error messages)
 -- @return boolean, string True if valid, or false with error message
-local function validate_field(field_name, value, field_schema, data, is_shortcut, schema_context)
+local function validate_field(field_name, value, field_schema, data, schema_context)
     -- Check if field is required
-    if value == nil then
-        if field_schema.required then
-            -- Generate specific required field messages
-            if field_name == "type" then
-                if schema_context == "transformer" then
-                    return false, "Each transformer must have a 'type' string field"
-                else
-                    return false, "Each dispatcher must have a 'type' string field"
-                end
-            elseif field_name == "dispatcher" then -- For shortcut API
-                return false, "Shortcut config must have an 'dispatcher' field"
-            elseif field_name == "presenter" then
-                if is_shortcut then
-                    return false, "Shortcut config must have a 'presenter' field"
-                else
-                    return false, "Each dispatcher must have a 'presenter' string field"
-                end
+    if field_schema.required and value == nil then
+        if field_name == "type" then
+            if schema_context == "transformer" then
+                return false, "Each transformer must have a 'type' string field"
             else
-                return false, string.format("%s is required", string.gsub(field_name, "^%l", string.upper))
+                return false, "Each dispatcher must have a 'type' string field"
             end
+        elseif field_name == "presenter" then
+            return false, "Each dispatcher must have a 'presenter' string field"
+        else
+            return false, string.format("%s is required", string.gsub(field_name, "^%l", string.upper))
         end
-        -- Check conditional requirements
-        if field_schema.conditional then
-            local cond = field_schema.conditional
-            if data[cond.field] == cond.value and cond.required then
-                if field_name == "path" then
-                    return false, "File dispatcher must have a 'path' string field"
-                else
-                    return false, string.format("%s is required when %s is %s",
-                        string.gsub(field_name, "^%l", string.upper), cond.field, cond.value)
-                end
-            end
-        end
-        return true -- nil is valid for non-required fields
     end
 
-    -- Type validation
+    -- Skip validation if field is nil and not required, unless there's conditional validation that applies
+    if value == nil then
+        if not field_schema.conditional then
+            return true
+        else
+            -- For conditional fields, only validate if the condition is met
+            local condition = field_schema.conditional
+            local condition_field_value = data[condition.field]
+            if condition_field_value ~= condition.value then
+                -- Condition not met, skip validation of this conditional field
+                return true
+            end
+            -- Condition is met, continue with validation
+        end
+    end
+
+    -- Validate field type
     if field_schema.type then
-        local valid_type = false
         local expected_types = type(field_schema.type) == "table" and field_schema.type or { field_schema.type }
+        local value_type = type(value)
+        local type_valid = false
 
         for _, expected_type in ipairs(expected_types) do
-            if type(value) == expected_type then
-                valid_type = true
+            if value_type == expected_type then
+                type_valid = true
                 break
             end
         end
 
-        if not valid_type then
-            return false, generate_error_message(field_name, value, field_schema, schema_context)
+        if not type_valid then
+            return false, generate_type_error(field_name, field_schema)
         end
     end
 
-    -- Value validation (for enums)
-    if field_schema.values and type(value) == "string" then
-        -- Case-insensitive lookup
-        local lookup_value = string.lower(value)
-        if not field_schema.values[lookup_value] then
-            return false, generate_error_message(field_name, value, field_schema, schema_context)
+    -- Validate against allowed values
+    if field_schema.values then
+        local value_key = value
+        -- Handle case-insensitive validation for string values
+        if type(value) == "string" and field_schema.values._meta and not field_schema.values._meta.case_sensitive then
+            value_key = string.lower(value)
+        end
+
+        if not field_schema.values[value_key] then
+            return false, generate_field_error(field_name, value, field_schema.values, schema_context)
+        end
+    end
+
+    -- Validate conditional requirements (check this even if value is not nil)
+    if field_schema.conditional then
+        local condition = field_schema.conditional
+        local condition_field_value = data[condition.field]
+        if condition_field_value == condition.value and condition.required and (value == nil or (type(value) == "string" and value == "")) then
+            return false, generate_type_error(field_name, field_schema)
         end
     end
 
     return true
 end
 
---- Validate data against a schema
+--- Main validation function
 -- @param data table The data to validate
--- @param schema table The schema definition
--- @param schema_registry table Optional registry of schemas for nested validation
--- @return table Result with data and _errors keys
+-- @param schema table The schema to validate against
+-- @param schema_registry table Registry of all schemas
+-- @return table Result with data and _errors fields
 function M.validate(data, schema, schema_registry)
     local result = {
         data = {},
@@ -167,77 +177,62 @@ function M.validate(data, schema, schema_registry)
         return result
     end
 
-    schema_registry = schema_registry or {}
+    -- Copy data to result
+    for k, v in pairs(data) do
+        result.data[k] = v
+    end
 
-    -- Detect schema context
-    local is_shortcut = schema == schema_registry.ShortcutSchema
+    -- Determine schema context for error messages
     local schema_context = nil
     if schema == schema_registry.transformerschema then
         schema_context = "transformer"
-    elseif schema == schema_registry.dispatcherschema then
-        schema_context = "dispatcher"
     end
 
-    -- Validate known fields
+    -- Validate each field in the schema
     for field_name, field_schema in pairs(schema) do
         local value = data[field_name]
-        local valid, error_msg = validate_field(field_name, value, field_schema, data, is_shortcut, schema_context)
 
-        if not valid then
-            result._errors[field_name] = error_msg
-            result.data[field_name] = value -- Include original value even if invalid
-        else
-            -- Handle nested schema validation
-            if field_schema.schema and value ~= nil then
-                local nested_schema = schema_registry[field_schema.schema]
-                if nested_schema then
-                    if field_schema.multiple and type(value) == "table" then
-                        -- Validate array of objects
-                        local validated_array = {}
-                        local has_errors = false
-
-                        for i, item in ipairs(value) do
-                            local item_result = M.validate(item, nested_schema, schema_registry)
-                            validated_array[i] = item_result.data
-
-                            if next(item_result._errors) then
-                                has_errors = true
-                                result._errors[field_name .. "[" .. i .. "]"] = item_result._errors
+        if field_schema.multiple then
+            -- Handle array fields
+            if value ~= nil then
+                if type(value) ~= "table" then
+                    result._errors[field_name] = generate_type_error(field_name, field_schema)
+                else
+                    -- Validate each item in the array
+                    for i, item in ipairs(value) do
+                        if field_schema.schema then
+                            -- Nested schema validation
+                            local nested_schema = schema_registry[field_schema.schema]
+                            if nested_schema then
+                                local nested_result = M.validate(item, nested_schema, schema_registry)
+                                if next(nested_result._errors) then
+                                    -- Create nested error structure that tests expect
+                                    result._errors[string.format("%s[%d]", field_name, i)] = nested_result._errors
+                                end
+                            end
+                        else
+                            -- Direct field validation for array items
+                            local valid, error_msg = validate_field(field_name, item, field_schema, data, schema_context)
+                            if not valid then
+                                result._errors[string.format("%s[%d]", field_name, i)] = error_msg
                             end
                         end
-
-                        result.data[field_name] = validated_array
-                        if has_errors then
-                            -- Keep the original value in case of errors
-                            result.data[field_name] = value
-                        end
-                    else
-                        -- Validate single nested object
-                        local nested_result = M.validate(value, nested_schema, schema_registry)
-                        result.data[field_name] = nested_result.data
-
-                        if next(nested_result._errors) then
-                            result._errors[field_name] = nested_result._errors
-                        end
                     end
-                else
-                    result.data[field_name] = value
                 end
-            else
-                result.data[field_name] = value
+            end
+        else
+            -- Handle single fields - always validate even if value is nil to catch conditional requirements
+            local valid, error_msg = validate_field(field_name, value, field_schema, data, schema_context)
+            if not valid then
+                result._errors[field_name] = error_msg
             end
         end
     end
 
     -- Check for unknown fields
-    for field_name, value in pairs(data) do
+    for field_name, _ in pairs(data) do
         if not schema[field_name] then
-            if is_shortcut then
-                result._errors[field_name] = "Unknown shortcut config key: " .. field_name
-            else
-                result._errors[field_name] = "Unknown config key: " .. field_name
-            end
-            result.data[field_name] = value
+            result._errors[field_name] = "Unknown config key: " .. field_name
         end
     end
 

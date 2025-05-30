@@ -1,6 +1,6 @@
 SCHEMA VALIDATION SYSTEM
 
-The schema validation system provides declarative validation for lual 
+The schema validation system provides structured validation for lual 
 configurations. Instead of manual validation code, schemas define rules 
 that are automatically enforced.
 
@@ -10,8 +10,8 @@ that are automatically enforced.
     --
 
 The system validates three types of configurations:
-1. Declarative configs (standard format with dispatchers array)
-2. Shortcut configs (simplified single-dispatcher format)  
+1. Config API (standard format with dispatchers array)
+2. Convenience syntax configs (simplified single-dispatcher format)  
 3. dispatcher configs (individual dispatcher definitions)
 
 Validation returns a result table with two keys:
@@ -41,9 +41,9 @@ BASIC USAGE
 
 VALIDATION FUNCTIONS
 
-    schema.validate_config(data)    -- Declarative config validation
+    schema.validate_config(data)        -- Config API validation
     schema.validate_dispatcher(data)    -- Single dispatcher validation  
-    schema.validate_shortcut(data)  -- Shortcut config validation
+    schema.validate_shortcut(data)      -- Convenience syntax validation
     -- lua
 
 Each function returns the same result format with `data` and `_errors` keys.
@@ -93,7 +93,7 @@ Schemas are defined as tables with field validation rules:
 Available schemas:
 - `ConfigSchema`: Main configuration validation
 - `dispatcherschema`: dispatcher configuration validation  
-- `ShortcutSchema`: Shortcut configuration validation
+- `ShortcutSchema`: Convenience syntax configuration validation
 
 
 VALIDATION FEATURES
@@ -116,7 +116,7 @@ INTERNALS
 
 The validation system uses three main components:
 
-1. **Schema Definitions** (`config_schema.lua`): Declarative field rules
+1. **Schema Definitions** (`config_schema.lua`): Structured field rules
    extracted from constants with metadata for validation logic
 
 2. **Validator Engine** (`validator.lua`): Core validation logic that 

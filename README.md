@@ -86,7 +86,7 @@ local lual = require("lual")
 local logger = lual.logger()           -- Auto-named from filename
 local logger = lual.logger("myapp")    -- Named logger
 
--- Declarative configuration
+-- Config API (full syntax)
 local logger = lual.logger({
     name = "app.database",
     level = "debug",
