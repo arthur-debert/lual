@@ -79,6 +79,51 @@ local function validate_transformer(transformer, index)
     return true
 end
 
+--- Validates type-specific fields using mapping system
+-- @param dispatcher table The dispatcher config to validate
+-- @return boolean, string True if valid, or false with error message
+local function validate_type_specific_fields(dispatcher)
+    local normalization = require("lual.config.normalization")
+    local mappings = normalization.get_mappings()
+
+    local dispatcher_type = dispatcher.type
+    local validation_rules = mappings.validation_rules[dispatcher_type]
+
+    if not validation_rules then
+        return true -- No specific validation rules for this type
+    end
+
+    for field_name, rule in pairs(validation_rules) do
+        local value = dispatcher[field_name]
+
+        -- Check if field is required
+        if rule.required and value == nil then
+            return false, rule.error_msg or (field_name .. " is required")
+        end
+
+        -- Skip validation if field is optional and not provided
+        if not rule.required and value == nil then
+            goto continue
+        end
+
+        -- Type-specific validation
+        if rule.type == "string" then
+            if type(value) ~= "string" then
+                return false, rule.error_msg or (field_name .. " must be a string")
+            end
+        elseif rule.type == "file_handle" then
+            -- File handle validation - check it's not a primitive type
+            if type(value) == "string" or type(value) == "number" or type(value) == "boolean" then
+                return false, rule.error_msg or (field_name .. " must be a file handle")
+            end
+        end
+
+        ::continue::
+    end
+
+    return true
+end
+
 --- Validates a single dispatcher configuration
 -- @param dispatcher table The dispatcher config to validate
 -- @param index number The index of the dispatcher (for error messages)
@@ -125,18 +170,10 @@ local function validate_dispatcher_config(dispatcher, index)
         end
     end
 
-    -- Validate type-specific fields
-    if dispatcher.type == "file" then
-        if not dispatcher.path or type(dispatcher.path) ~= "string" then
-            return false, "File dispatcher must have a 'path' string field"
-        end
-    end
-
-    if dispatcher.type == "console" and dispatcher.stream then
-        -- Stream should be a file handle, check it's not a primitive type
-        if type(dispatcher.stream) == "string" or type(dispatcher.stream) == "number" or type(dispatcher.stream) == "boolean" then
-            return false, "Console dispatcher 'stream' field must be a file handle"
-        end
+    -- Validate type-specific fields using mapping system
+    valid, err = validate_type_specific_fields(dispatcher)
+    if not valid then
+        return false, err
     end
 
     return true
@@ -266,22 +303,48 @@ function M.validate_convenience_requirements(config)
     return true
 end
 
---- Validates type-specific convenience fields
+--- Validates type-specific convenience fields (legacy function, now uses mapping system)
 -- @param config table The config to validate
 -- @return boolean, string True if valid, or false with error message
 function M.validate_convenience_type_fields(config)
-    -- File dispatcher must have path
-    if config.dispatcher == "file" then
-        if not config.path or type(config.path) ~= "string" then
-            return false, "File dispatcher must have a 'path' string field"
-        end
+    -- This function is now handled by the mapping system in normalization.lua
+    -- but kept for backward compatibility
+    local normalization = require("lual.config.normalization")
+    local mappings = normalization.get_mappings()
+
+    local dispatcher_type = config.dispatcher
+    local validation_rules = mappings.validation_rules[dispatcher_type]
+
+    if not validation_rules then
+        return true -- No specific validation rules for this type
     end
 
-    -- Console dispatcher stream validation
-    if config.dispatcher == "console" and config.stream then
-        if type(config.stream) == "string" or type(config.stream) == "number" or type(config.stream) == "boolean" then
-            return false, "Console dispatcher 'stream' field must be a file handle"
+    for field_name, rule in pairs(validation_rules) do
+        local value = config[field_name]
+
+        -- Check if field is required
+        if rule.required and value == nil then
+            return false, rule.error_msg or (field_name .. " is required")
         end
+
+        -- Skip validation if field is optional and not provided
+        if not rule.required and value == nil then
+            goto continue
+        end
+
+        -- Type-specific validation
+        if rule.type == "string" then
+            if type(value) ~= "string" then
+                return false, rule.error_msg or (field_name .. " must be a string")
+            end
+        elseif rule.type == "file_handle" then
+            -- File handle validation - check it's not a primitive type
+            if type(value) == "string" or type(value) == "number" or type(value) == "boolean" then
+                return false, rule.error_msg or (field_name .. " must be a file handle")
+            end
+        end
+
+        ::continue::
     end
 
     return true

@@ -105,6 +105,38 @@ local function get_transformer_functions(transformers)
     return transformer_funcs
 end
 
+--- Prepares type-specific config using mapping system
+-- @param dispatcher_config table The dispatcher configuration
+-- @return table The type-specific configuration
+local function prepare_type_specific_config(dispatcher_config)
+    local normalization = require("lual.config.normalization")
+    local mappings = normalization.get_mappings()
+
+    local dispatcher_type = dispatcher_config.type
+    local type_config = {}
+
+    -- Get type-specific field mappings
+    local type_mappings = mappings.type_specific[dispatcher_type]
+    if type_mappings then
+        for convenience_field, mapping_config in pairs(type_mappings) do
+            local target_field = mapping_config.target
+            if dispatcher_config[target_field] ~= nil then
+                type_config[target_field] = dispatcher_config[target_field]
+            end
+        end
+    end
+
+    -- Copy any other dispatcher-specific config (excluding core fields)
+    local core_fields = { type = true, presenter = true, transformers = true }
+    for k, v in pairs(dispatcher_config) do
+        if not core_fields[k] and type_config[k] == nil then
+            type_config[k] = v
+        end
+    end
+
+    return type_config
+end
+
 --- Converts dispatchers config to canonical format
 -- @param dispatchers_config table The dispatchers configuration
 -- @return table Array of canonical dispatcher objects
@@ -119,19 +151,8 @@ local function convert_dispatchers_to_canonical(dispatchers_config)
         local dispatcher_type = dispatcher_config.type
         local presenter_type = dispatcher_config.presenter
 
-        -- Prepare type-specific config
-        local type_config = {}
-        if dispatcher_type == "file" then
-            type_config.path = dispatcher_config.path
-            -- Copy other file-specific config
-            for k, v in pairs(dispatcher_config) do
-                if k ~= "type" and k ~= "presenter" and k ~= "transformers" then
-                    type_config[k] = v
-                end
-            end
-        elseif dispatcher_type == "console" and dispatcher_config.stream then
-            type_config.stream = dispatcher_config.stream
-        end
+        -- Prepare type-specific config using mapping system
+        local type_config = prepare_type_specific_config(dispatcher_config)
 
         -- Get function instances
         local dispatcher_func = get_dispatcher_function(dispatcher_type, type_config)

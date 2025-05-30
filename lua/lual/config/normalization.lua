@@ -7,6 +7,88 @@ local validation = require("lual.config.validation")
 local M = {}
 
 -- =============================================================================
+-- CONVENIENCE SYNTAX MAPPINGS
+-- =============================================================================
+
+--- Configuration for transforming convenience syntax to full syntax
+local CONVENIENCE_MAPPINGS = {
+    -- Core fields that always map from convenience to full syntax
+    core = {
+        dispatcher = "type",
+        presenter = "presenter"
+    },
+
+    -- Type-specific fields based on dispatcher type
+    type_specific = {
+        file = {
+            path = { target = "path", required = true }
+        },
+        console = {
+            stream = { target = "stream", required = false }
+        }
+    },
+
+    -- Validation rules for type-specific fields
+    validation_rules = {
+        file = {
+            path = {
+                required = true,
+                type = "string",
+                error_msg = "File dispatcher must have a 'path' string field"
+            }
+        },
+        console = {
+            stream = {
+                required = false,
+                type = "file_handle",
+                error_msg = "Console dispatcher 'stream' field must be a file handle"
+            }
+        }
+    },
+
+    -- Fields to remove after transformation (convenience syntax fields)
+    cleanup_fields = { "dispatcher", "presenter", "path", "stream" }
+}
+
+--- Validates a field according to mapping rules
+-- @param field_name string The field name to validate
+-- @param value any The value to validate
+-- @param dispatcher_type string The dispatcher type for context
+-- @return boolean, string True if valid, or false with error message
+local function validate_field_by_mapping(field_name, value, dispatcher_type)
+    local rules = CONVENIENCE_MAPPINGS.validation_rules[dispatcher_type]
+    if not rules or not rules[field_name] then
+        return true -- No specific validation rule
+    end
+
+    local rule = rules[field_name]
+
+    -- Check if field is required
+    if rule.required and value == nil then
+        return false, rule.error_msg or (field_name .. " is required")
+    end
+
+    -- Skip validation if field is optional and not provided
+    if not rule.required and value == nil then
+        return true
+    end
+
+    -- Type-specific validation
+    if rule.type == "string" then
+        if type(value) ~= "string" then
+            return false, rule.error_msg or (field_name .. " must be a string")
+        end
+    elseif rule.type == "file_handle" then
+        -- File handle validation - check it's not a primitive type
+        if type(value) == "string" or type(value) == "number" or type(value) == "boolean" then
+            return false, rule.error_msg or (field_name .. " must be a file handle")
+        end
+    end
+
+    return true
+end
+
+-- =============================================================================
 -- NORMALIZATION FUNCTIONS
 -- =============================================================================
 
@@ -47,42 +129,60 @@ local function validate_convenience_config(config)
         return false, err -- Already has prefix
     end
 
-    -- Validate type-specific fields
-    valid, err = validation.validate_convenience_type_fields(config)
-    if not valid then
-        return false, "Invalid shortcut config: " .. err
+    -- Validate type-specific fields using mapping
+    local dispatcher_type = config.dispatcher
+    if dispatcher_type then
+        local type_mappings = CONVENIENCE_MAPPINGS.type_specific[dispatcher_type]
+        if type_mappings then
+            for convenience_field, mapping_config in pairs(type_mappings) do
+                local value = config[convenience_field]
+                valid, err = validate_field_by_mapping(convenience_field, value, dispatcher_type)
+                if not valid then
+                    return false, "Invalid shortcut config: " .. err
+                end
+            end
+        end
     end
 
     return true
 end
 
---- Transforms convenience syntax to full syntax
+--- Transforms convenience syntax to full syntax using mapping configuration
 -- @param config table The convenience syntax config
 -- @return table The normalized config in full syntax
 local function transform_convenience_to_full(config)
     local normalized = deep_copy(config)
+    local dispatcher_entry = {}
 
-    -- Create dispatcher entry
-    local dispatcher_entry = {
-        type = normalized.dispatcher,
-        presenter = normalized.presenter
-    }
-
-    -- Add type-specific fields
-    if normalized.dispatcher == "file" then
-        dispatcher_entry.path = normalized.path
-    elseif normalized.dispatcher == "console" and normalized.stream then
-        dispatcher_entry.stream = normalized.stream
+    -- Apply core field mappings
+    for convenience_field, full_field in pairs(CONVENIENCE_MAPPINGS.core) do
+        if normalized[convenience_field] then
+            dispatcher_entry[full_field] = normalized[convenience_field]
+        end
     end
 
-    -- Create dispatchers array
+    -- Apply type-specific field mappings
+    local dispatcher_type = normalized.dispatcher
+    local type_mappings = CONVENIENCE_MAPPINGS.type_specific[dispatcher_type]
+
+    if type_mappings then
+        for convenience_field, mapping_config in pairs(type_mappings) do
+            local value = normalized[convenience_field]
+
+            -- Copy field if it exists (for optional fields) or if required
+            if value ~= nil then
+                dispatcher_entry[mapping_config.target] = value
+            end
+        end
+    end
+
+    -- Create dispatchers array with the configured entry
     normalized.dispatchers = { dispatcher_entry }
 
-    -- Remove convenience syntax fields
-    normalized.dispatcher = nil
-    normalized.presenter = nil
-    normalized.path = nil
-    normalized.stream = nil
+    -- Clean up convenience syntax fields
+    for _, field in ipairs(CONVENIENCE_MAPPINGS.cleanup_fields) do
+        normalized[field] = nil
+    end
 
     return normalized
 end
@@ -147,6 +247,12 @@ function M.convenience_to_full_config(config)
     end
 
     return transform_convenience_to_full(config)
+end
+
+--- Gets the convenience syntax mappings (for use by other modules)
+-- @return table The mappings configuration
+function M.get_mappings()
+    return CONVENIENCE_MAPPINGS
 end
 
 return M
