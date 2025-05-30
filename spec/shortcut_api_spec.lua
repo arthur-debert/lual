@@ -1,7 +1,6 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 local lualog = require("lual.logger")
 local config = require("lual.config")
-local validation = require("lual.config.validation")
 local constants = require("lual.config.constants")
 
 -- Helper function to check if something is callable (function or callable table)
@@ -15,7 +14,7 @@ local function is_callable(obj)
     return false
 end
 
-describe("Shortcut Declarative API", function()
+describe("Unified API - Shortcut Syntax", function()
     before_each(function()
         -- Reset the logger system for each test
         package.loaded["lual.logger"] = nil

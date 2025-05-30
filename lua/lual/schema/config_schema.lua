@@ -5,13 +5,11 @@ local constants = require("lual.config.constants")
 
 local M = {}
 
--- Extract valid values from constants (removing _meta)
+-- Extract valid values from constants (preserving _meta for case sensitivity)
 local function extract_valid_values(constant_table)
     local values = {}
     for key, value in pairs(constant_table) do
-        if key ~= "_meta" then
-            values[key] = value
-        end
+        values[key] = value -- Include _meta as well
     end
     return values
 end
@@ -188,72 +186,10 @@ M.transformerschema = {
     }
 }
 
--- Shortcut schema definition (for shortcut API validation)
-M.ShortcutSchema = {
-    name = {
-        multiple = false,
-        type = "string",
-        required = false,
-        description = "The name of the logger instance."
-    },
-
-    level = {
-        multiple = false,
-        type = { "string", "number" },
-        values = extract_valid_values(constants.VALID_LEVEL_STRINGS),
-        required = false,
-        description = "The logging level threshold."
-    },
-
-    propagate = {
-        multiple = false,
-        type = "boolean",
-        required = false,
-        description = "Whether to propagate log messages to parent loggers."
-    },
-
-    timezone = {
-        multiple = false,
-        type = "string",
-        values = extract_valid_values(constants.VALID_TIMEZONES),
-        required = false,
-        description = "The timezone to use for timestamps."
-    },
-
-    dispatcher = {
-        multiple = false,
-        type = "string",
-        values = extract_valid_values(constants.VALID_dispatcher_TYPES),
-        required = true,
-        description = "The type of dispatcher (console or file)."
-    },
-
-    presenter = {
-        multiple = false,
-        type = "string",
-        values = extract_valid_values(constants.VALID_PRESENTER_TYPES),
-        required = true,
-        description = "The presenter type to use for this dispatcher."
-    },
-
-    path = {
-        multiple = false,
-        type = "string",
-        required = false,
-        description = "File path for file dispatchers.",
-        conditional = {
-            field = "dispatcher",
-            value = "file",
-            required = true
-        }
-    },
-
-    stream = {
-        multiple = false,
-        type = "userdata", -- file handle
-        required = false,
-        description = "Stream for console dispatchers."
-    }
+-- Valid transformer types
+M.VALID_TRANSFORMER_TYPES = {
+    _meta = { name = "transformer type", case_sensitive = false },
+    noop = true
 }
 
 return M

@@ -3,7 +3,6 @@ local lualog = require("lual.logger")
 local engine = require("lual.core.logging")
 local spy = require("luassert.spy")
 local match = require("luassert.match")
-local validation = require("lual.config.validation")
 local constants = require("lual.config.constants")
 
 -- Helper function to check if something is callable (function or callable table)
@@ -17,7 +16,7 @@ local function is_callable(obj)
     return false
 end
 
-describe("Declarative API", function()
+describe("Unified API - Full Syntax", function()
     before_each(function()
         -- Reset the logger system for each test
         package.loaded["lual.logger"] = nil
