@@ -23,7 +23,7 @@ describe("Validation Functions", function()
                 level = "debug"
             }
 
-            local result = config.shortcut_to_declarative_config(shortcut)
+            local result = config.shortcut_to_full_config(shortcut)
 
             assert.are.same("test", result.name)
             assert.are.same("debug", result.level)
@@ -39,7 +39,7 @@ describe("Validation Functions", function()
                 timezone = "utc"
             }
 
-            local result = config.shortcut_to_declarative_config(shortcut)
+            local result = config.shortcut_to_full_config(shortcut)
 
             assert.are.same("utc", result.timezone)
             assert.are.same(1, #result.dispatchers)

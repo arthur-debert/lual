@@ -405,7 +405,7 @@ local function validate_single_dispatcher(dispatcher, index)
     return true
 end
 
---- Validates dispatchers array for declarative format
+--- Validates dispatchers array
 -- @param dispatchers table The dispatchers array to validate
 -- @return boolean, string True if valid, or false with error message
 local function validate_dispatchers(dispatchers)
@@ -427,10 +427,10 @@ local function validate_dispatchers(dispatchers)
     return true
 end
 
---- Validates that declarative config doesn't contain unknown keys
+--- Validates that config doesn't contain unknown keys
 -- @param config table The config to validate
 -- @return boolean, string True if valid, or false with error message
-local function validate_declarative_known_keys(config)
+local function validate_known_keys(config)
     local valid_keys = {
         name = true,
         level = true,
@@ -448,10 +448,10 @@ local function validate_declarative_known_keys(config)
     return true
 end
 
---- Validates a declarative config table (with string-based types)
--- @param config (table) The declarative config to validate
+--- Validates a config table (with string-based types)
+-- @param config (table) The config to validate
 -- @return boolean, string True if valid, or false with error message
-local function validate_declarative_config(config)
+local function validate_config(config)
     if type(config) ~= "table" then
         return false, "Config must be a table"
     end
@@ -468,22 +468,22 @@ local function validate_declarative_config(config)
     normalized_config = result
 
     -- Determine error prefix based on original format
-    local error_prefix = was_shortcut_format and "Invalid shortcut config: " or "Invalid declarative config: "
+    local error_prefix = was_shortcut_format and "Invalid shortcut config: " or "Invalid config: "
 
     -- Helper function to add prefix only if not already present
     local function add_error_prefix(err)
-        -- Strip any existing "Invalid declarative config: " prefix first
-        local cleaned_err = string.gsub(err, "^Invalid declarative config: ", "")
+        -- Strip any existing "Invalid config: " prefix first
+        local cleaned_err = string.gsub(err, "^Invalid config: ", "")
 
         if was_shortcut_format then
             return "Invalid shortcut config: " .. cleaned_err
         else
-            return "Invalid declarative config: " .. cleaned_err
+            return "Invalid config: " .. cleaned_err
         end
     end
 
     -- Validate unknown keys
-    local valid, err = validate_declarative_known_keys(normalized_config)
+    local valid, err = validate_known_keys(normalized_config)
     if not valid then
         return false, add_error_prefix(err)
     end
@@ -509,24 +509,24 @@ local function validate_declarative_config(config)
     return true
 end
 
---- Converts a declarative config to canonical config format
--- @param declarative_config (table) The declarative config
+--- Converts a config to canonical config format
+-- @param user_config (table) The user config
 -- @return table The canonical config
-local function declarative_to_canonical_config(declarative_config)
+local function config_to_canonical(user_config)
     local all_dispatchers = require("lual.dispatchers.init")
     local all_presenters = require("lual.presenters.init")
     local all_transformers = require("lual.transformers.init")
 
     local canonical = {
-        name = declarative_config.name,
-        propagate = declarative_config.propagate,
-        timezone = declarative_config.timezone,
+        name = user_config.name,
+        propagate = user_config.propagate,
+        timezone = user_config.timezone,
         dispatchers = {}
     }
 
     -- Convert level string to number if needed
-    if declarative_config.level then
-        if type(declarative_config.level) == "string" then
+    if user_config.level then
+        if type(user_config.level) == "string" then
             local level_map = {
                 debug = core_levels.definition.DEBUG,
                 info = core_levels.definition.INFO,
@@ -535,15 +535,15 @@ local function declarative_to_canonical_config(declarative_config)
                 critical = core_levels.definition.CRITICAL,
                 none = core_levels.definition.NONE
             }
-            canonical.level = level_map[string.lower(declarative_config.level)]
+            canonical.level = level_map[string.lower(user_config.level)]
         else
-            canonical.level = declarative_config.level
+            canonical.level = user_config.level
         end
     end
 
-    -- Convert dispatchers from declarative to canonical format
-    if declarative_config.dispatchers then
-        for _, dispatcher_config in ipairs(declarative_config.dispatchers) do
+    -- Convert dispatchers to canonical format
+    if user_config.dispatchers then
+        for _, dispatcher_config in ipairs(user_config.dispatchers) do
             local dispatcher_func
             local presenter_func
             local transformer_funcs = {}
@@ -603,28 +603,28 @@ end
 -- =============================================================================
 
 --- Main function to process any config format and return a validated canonical config
--- @param input_config table The input config (can be shortcut, declarative, or partial canonical)
+-- @param input_config table The input config (can be shortcut or full format)
 -- @param default_config table Optional default config to merge with
 -- @return table The validated canonical config
 function M.process_config(input_config, default_config)
-    local final_declarative_config = input_config
+    local final_config = input_config
 
     -- Check if this is a shortcut config and transform it if needed
-    final_declarative_config = normalize_config_format(final_declarative_config)
+    final_config = normalize_config_format(final_config)
 
-    -- Validate the standard declarative config
-    local valid, err = validate_declarative_config(final_declarative_config)
+    -- Validate the config
+    local valid, err = validate_config(final_config)
     if not valid then
-        error(err) -- Don't add prefix here since validate_declarative_config already handles it
+        error(err) -- Don't add prefix here since validate_config already handles it
     end
 
     -- Apply defaults if provided
     if default_config then
-        final_declarative_config = merge_configs(final_declarative_config, default_config)
+        final_config = merge_configs(final_config, default_config)
     end
 
     -- Convert to canonical format
-    local canonical_config = declarative_to_canonical_config(final_declarative_config)
+    local canonical_config = config_to_canonical(final_config)
 
     -- Validate the final canonical config
     local valid, err = validate_canonical_config(canonical_config)
@@ -656,18 +656,18 @@ function M.validate_canonical_config(config)
     return validate_canonical_config(config)
 end
 
---- Validates a declarative config
+--- Validates a config
 -- @param config table The config to validate
 -- @return boolean, string True if valid, or false with error message
-function M.validate_declarative_config(config)
-    return validate_declarative_config(config)
+function M.validate_config(config)
+    return validate_config(config)
 end
 
---- Converts declarative config to canonical format
--- @param config table The declarative config
+--- Converts config to canonical format
+-- @param config table The config
 -- @return table The canonical config
-function M.declarative_to_canonical_config(config)
-    return declarative_to_canonical_config(config)
+function M.config_to_canonical(config)
+    return config_to_canonical(config)
 end
 
 --- Merges configs with user config taking precedence
@@ -685,10 +685,10 @@ function M.is_shortcut_config(config)
     return config.dispatcher ~= nil or config.presenter ~= nil
 end
 
---- Transforms shortcut config to declarative format (compatibility function)
+--- Transforms shortcut config to full format (compatibility function)
 -- @param config table The shortcut config
--- @return table The declarative config
-function M.shortcut_to_declarative_config(config)
+-- @return table The full format config
+function M.shortcut_to_full_config(config)
     local normalized = normalize_config_format(config)
     return normalized
 end

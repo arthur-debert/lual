@@ -76,14 +76,14 @@ function M._get_logger_simple(name)
 end
 
 -- =============================================================================
--- DECLARATIVE LOGGER API
+-- CONFIG LOGGER API
 -- =============================================================================
 
---- Creates a logger from a declarative config table (supports both standard and shortcut formats)
+--- Creates a logger from a config table (supports both full and shortcut formats)
 -- This is the primary API for creating loggers. Can be called with:
 -- 1. No arguments or string name: lual.logger() or lual.logger("name") - simple logger creation
--- 2. Config table: lual.logger({name="app", level="debug", dispatchers={...}}) - declarative configuration
--- @param input_config (string|table|nil) The logger name or declarative configuration
+-- 2. Config table: lual.logger({name="app", level="debug", dispatchers={...}}) - configuration
+-- @param input_config (string|table|nil) The logger name or configuration
 -- @return table The logger instance
 function M.logger(input_config)
     -- Handle simple cases: nil, empty string, or string name
@@ -91,7 +91,7 @@ function M.logger(input_config)
         return M._get_logger_simple(input_config)
     end
 
-    -- Handle table-based declarative configuration
+    -- Handle table-based configuration
     if type(input_config) ~= "table" then
         error("logger() expects nil, string, or table argument, got " .. type(input_config))
     end
@@ -126,7 +126,7 @@ function M.logger(input_config)
         -- If configuration doesn't match, we'll create a new logger and update the cache
     end
 
-    local new_logger = factory.create_declarative_logger(input_config, default_config, M.logger)
+    local new_logger = factory.create_logger(input_config, default_config, M.logger)
 
     -- Cache the logger if it has a name
     if canonical_config.name then

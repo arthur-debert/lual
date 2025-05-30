@@ -245,8 +245,8 @@ describe("Unified API - Shortcut Syntax", function()
         end)
     end)
 
-    describe("Transformation to standard format", function()
-        it("should transform console shortcut to standard declarative format", function()
+    describe("Transformation to full format", function()
+        it("should transform console shortcut to full format", function()
             local shortcut = {
                 name = "test",
                 dispatcher = "console",
@@ -255,7 +255,7 @@ describe("Unified API - Shortcut Syntax", function()
                 propagate = false
             }
 
-            local standard = config.shortcut_to_declarative_config(shortcut)
+            local standard = config.shortcut_to_full_config(shortcut)
 
             assert.are.same("test", standard.name)
             assert.are.same("debug", standard.level)
@@ -265,7 +265,7 @@ describe("Unified API - Shortcut Syntax", function()
             assert.are.same("text", standard.dispatchers[1].presenter)
         end)
 
-        it("should transform file shortcut to standard declarative format", function()
+        it("should transform file shortcut to full format", function()
             local shortcut = {
                 name = "test",
                 dispatcher = "file",
@@ -273,7 +273,7 @@ describe("Unified API - Shortcut Syntax", function()
                 presenter = "color"
             }
 
-            local standard = config.shortcut_to_declarative_config(shortcut)
+            local standard = config.shortcut_to_full_config(shortcut)
 
             assert.are.same("test", standard.name)
             assert.are.same(1, #standard.dispatchers)
@@ -282,14 +282,14 @@ describe("Unified API - Shortcut Syntax", function()
             assert.are.same("app.log", standard.dispatchers[1].path)
         end)
 
-        it("should transform console shortcut with stream to standard format", function()
+        it("should transform console shortcut with stream to full format", function()
             local shortcut = {
                 dispatcher = "console",
                 presenter = "color",
                 stream = io.stderr
             }
 
-            local standard = config.shortcut_to_declarative_config(shortcut)
+            local standard = config.shortcut_to_full_config(shortcut)
 
             assert.are.same(1, #standard.dispatchers)
             assert.are.same("console", standard.dispatchers[1].type)

@@ -77,12 +77,12 @@ function M.create_simple_logger(name, get_logger_func)
     return M.create_logger_from_config(config)
 end
 
---- Creates a logger from declarative configuration
--- @param input_config table The declarative config
+--- Creates a logger from configuration
+-- @param input_config table The config
 -- @param default_config table Default configuration to merge with
 -- @param get_logger_func function Function to get parent loggers
 -- @return table The logger instance
-function M.create_declarative_logger(input_config, default_config, get_logger_func)
+function M.create_logger(input_config, default_config, get_logger_func)
     -- Use the config module to process the input config
     local canonical_config = config_module.process_config(input_config, default_config)
 

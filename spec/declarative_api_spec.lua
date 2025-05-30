@@ -258,11 +258,11 @@ describe("Unified API - Full Syntax", function()
                     name = "test",
                     unknown_key = "value"
                 })
-            end, "Invalid declarative config: Unknown config key: unknown_key")
+            end, "Invalid config: Unknown config key: unknown_key")
         end)
 
         it("should reject invalid level strings", function()
-            local expected_error = "Invalid declarative config: " ..
+            local expected_error = "Invalid config: " ..
                 constants.generate_expected_error_message("invalid_level", constants.VALID_LEVEL_STRINGS)
             assert.has_error(function()
                     lualog.logger({
@@ -279,7 +279,7 @@ describe("Unified API - Full Syntax", function()
                     name = "test",
                     level = true
                 })
-            end, "Invalid declarative config: Level must be a string or number")
+            end, "Invalid config: Level must be a string or number")
         end)
 
         it("should reject invalid name types", function()
@@ -287,7 +287,7 @@ describe("Unified API - Full Syntax", function()
                 lualog.logger({
                     name = 123
                 })
-            end, "Invalid declarative config: Config.name must be a string")
+            end, "Invalid config: Config.name must be a string")
         end)
 
         it("should reject invalid propagate types", function()
@@ -296,7 +296,7 @@ describe("Unified API - Full Syntax", function()
                     name = "test",
                     propagate = "yes"
                 })
-            end, "Invalid declarative config: Config.propagate must be a boolean")
+            end, "Invalid config: Config.propagate must be a boolean")
         end)
 
         it("should reject invalid dispatchers type", function()
@@ -305,7 +305,7 @@ describe("Unified API - Full Syntax", function()
                     name = "test",
                     dispatchers = "not an array"
                 })
-            end, "Invalid declarative config: Config.dispatchers must be a table")
+            end, "Invalid config: Config.dispatchers must be a table")
         end)
 
         it("should reject dispatchers without type field", function()
@@ -316,7 +316,7 @@ describe("Unified API - Full Syntax", function()
                         { presenter = "text" }
                     }
                 })
-            end, "Invalid declarative config: Each dispatcher must have a 'type' string field")
+            end, "Invalid config: Each dispatcher must have a 'type' string field")
         end)
 
         it("should reject dispatchers without presenter field", function()
@@ -327,11 +327,11 @@ describe("Unified API - Full Syntax", function()
                         { type = "console" }
                     }
                 })
-            end, "Invalid declarative config: Each dispatcher must have a 'presenter' string field")
+            end, "Invalid config: Each dispatcher must have a 'presenter' string field")
         end)
 
         it("should reject unknown dispatcher types", function()
-            local expected_error = "Invalid declarative config: " ..
+            local expected_error = "Invalid config: " ..
                 constants.generate_expected_error_message("unknown", constants.VALID_dispatcher_TYPES)
             assert.has_error(function()
                 lualog.logger({
@@ -344,7 +344,7 @@ describe("Unified API - Full Syntax", function()
         end)
 
         it("should reject unknown presenter types", function()
-            local expected_error = "Invalid declarative config: " ..
+            local expected_error = "Invalid config: " ..
                 constants.generate_expected_error_message("unknown", constants.VALID_PRESENTER_TYPES)
             assert.has_error(function()
                 lualog.logger({
@@ -364,7 +364,7 @@ describe("Unified API - Full Syntax", function()
                         { type = "file", presenter = "text" }
                     }
                 })
-            end, "Invalid declarative config: File dispatcher must have a 'path' string field")
+            end, "Invalid config: File dispatcher must have a 'path' string field")
         end)
 
         it("should reject file dispatcher with non-string path", function()
@@ -375,7 +375,7 @@ describe("Unified API - Full Syntax", function()
                         { type = "file", presenter = "text", path = 123 }
                     }
                 })
-            end, "Invalid declarative config: File dispatcher must have a 'path' string field")
+            end, "Invalid config: File dispatcher must have a 'path' string field")
         end)
 
         it("should reject console dispatcher with invalid stream type", function()
@@ -386,7 +386,7 @@ describe("Unified API - Full Syntax", function()
                         { type = "console", presenter = "text", stream = "stdout" }
                     }
                 })
-            end, "Invalid declarative config: Console dispatcher 'stream' field must be a file handle")
+            end, "Invalid config: Console dispatcher 'stream' field must be a file handle")
         end)
     end)
 
@@ -429,7 +429,7 @@ describe("Unified API - Full Syntax", function()
                 level = "info"
             })
 
-            -- Should be able to use imperative methods on declaratively created logger
+            -- Should be able to use imperative methods on config-created logger
             logger:set_level(lualog.levels.DEBUG)
             assert.are.same(lualog.levels.DEBUG, logger.level)
 
