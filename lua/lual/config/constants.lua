@@ -12,7 +12,7 @@ M.VALID_dispatcher_TYPES = {
 
 -- Valid presenter types
 M.VALID_PRESENTER_TYPES = {
-    _meta = { name = "Formatter type", case_sensitive = false },
+    _meta = { name = "Presenter type", case_sensitive = false },
     text = true,
     color = true,
     json = true

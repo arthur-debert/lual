@@ -148,7 +148,7 @@ describe("Shortcut Declarative API", function()
                     dispatcher = "console",
                     presenter = 456
                 })
-            end, "Invalid shortcut config: Formatter type must be a string")
+            end, "Invalid shortcut config: Presenter type must be a string")
         end)
 
         it("should reject unknown dispatcher types", function()
