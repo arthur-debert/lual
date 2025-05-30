@@ -153,8 +153,8 @@ describe("lual.presenters.text", function()
         end)
     end)
 
-    describe("Integration with lual.lib", function()
-        it("should be accessible via lual.lib.text", function()
+    describe("Integration with lual constants", function()
+        it("should be accessible via lual.lib.text (backward compatibility)", function()
             local lualog = require("lual.logger")
 
             assert.is_not_nil(lualog.lib.text)
@@ -176,6 +176,23 @@ describe("lual.presenters.text", function()
             assert.is_string(result)
             assert.truthy(result:find("INFO"))
             assert.truthy(result:find("test message"))
+        end)
+
+        it("should have flat namespace constant lual.text", function()
+            local lualog = require("lual.logger")
+
+            assert.is_not_nil(lualog.text)
+            assert.are.equal("text", lualog.text)
+
+            -- Test that the flat constant works in logger config
+            local logger = lualog.logger({
+                dispatcher = lualog.console,
+                presenter = lualog.text,
+                level = lualog.debug
+            })
+
+            assert.is_not_nil(logger)
+            assert.are.equal(lualog.debug, logger.level)
         end)
     end)
 end)

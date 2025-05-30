@@ -7,44 +7,71 @@ logger.
 It borrows from Python but also leverages Lua's strengths, hence the entire
 design is done over functions and tables, look ma, no classes.
 
-## Quick Example
+## Overview
+
+LUAL is a hierarchical logging library for Lua that provides flexible configuration, multiple output formats, and efficient log management.
+
+## Quick Start
 
 ```lua
-local lual = require("lual")
-local logger = lual.logger()
-logger:info("This is an info message")
-logger:info("User %s logged in from IP %s", "jane.doe", "192.168.1.100") -- String formatting
+local lual = require("lual.logger")
 
--- The usual stuff
-logger:set_level("debug")
-
--- Configure a more involved logger with UTC timestamps:
+-- Create a logger with convenience syntax
 local logger = lual.logger({
-    dispatcher = lual.lib.console,
-    level = lual.levels.DEBUG,
-    presenter = lual.lib.color,
-    timezone = "utc"
+    name = "app.database",
+    dispatcher = lual.console,
+    level = lual.debug,
+    presenter = lual.color,
+    timezone = lual.local_time
 })
 
-local bigLogging = require("lual").logger({
-    name = "app.database",
-    level = "debug",
-    timezone = "utc",
+logger:info("Database connection established")
+logger:debug("Query executed in 1.2ms")
+```
+
+## API Documentation
+
+### Imperative API (Method-based configuration)
+
+```lua
+local logger = lual.logger("app.network") 
+logger:add_dispatcher(lual.lib.console, lual.lib.text)
+logger:set_level(lual.debug)
+```
+
+## Features
+
+- **Hierarchical Logging**: Automatic parent logger creation and log propagation
+- **Multiple Output Formats**: Text, colored text, and JSON presenters  
+- **Flexible Dispatchers**: Console and file output with customizable streams
+- **Convenience Syntax**: Simple config-based logger creation
+- **Level Filtering**: Debug, info, warning, error, and critical levels
+- **Timezone Support**: Local time and UTC formatting
+- **Memory Efficient**: Logger caching and optimized string formatting
+
+## Configuration Examples
+
+### File Logging
+```lua
+local logger = lual.logger({
+    name = "app.audit",
+    dispatcher = lual.file,
+    path = "app.log",
+    presenter = lual.json,
+    level = lual.info
+})
+```
+
+### Multiple Dispatchers (Full Syntax)
+```lua
+local logger = lual.logger({
+    name = "app.main",
+    level = lual.debug,
     dispatchers = {
-        {type = "console", presenter = "color"},
-        {type = "file", path = "app.log", presenter = "text"}
+        {type = lual.console, presenter = lual.color},
+        {type = lual.file, path = "debug.log", presenter = lual.text}
     }
 })
-
--- Of course you can imperatively add dispatchers and presenters:
-logger:add_dispatcher(lual.lib.console, lual.lib.text)
-
--- Supports structured logging:
-logger:info({destination = "home"}, "Time to leave") -- Context table first
-logger:info({msg = "Time to leave", destination = "home"}) -- Pure structured
-
--- Mixed structured and string formatting:
-logger:info({user_id = 123, action = "update"}, "User %s performed action: %s", "JohnDoe", "ItemUpdate")
 ```
 
 ## Built-in Components

@@ -23,7 +23,39 @@ log.dispatchers = all_dispatchers   -- Assign the dispatchers table
 log.presenters = all_presenters     -- Assign the presenters table
 log.transformers = all_transformers -- Assign the transformers table
 
--- Add convenient shortcuts for dispatchers and presenters
+-- =============================================================================
+-- FLAT NAMESPACE CONSTANTS FOR QUICK ACCESS
+-- =============================================================================
+
+-- Level constants (flat namespace)
+log.debug = core_levels.definition.DEBUG
+log.info = core_levels.definition.INFO
+log.warning = core_levels.definition.WARNING
+log.error = core_levels.definition.ERROR
+log.critical = core_levels.definition.CRITICAL
+log.none = core_levels.definition.NONE
+
+-- Dispatcher constants (string identifiers for config API)
+log.console = "console"
+log.file = "file"
+
+-- Presenter constants (string identifiers for config API)
+log.text = "text"
+log.color = "color"
+log.json = "json"
+
+-- Timezone constants
+log.local_time = "local"
+log.utc = "utc"
+
+-- Transformer constants
+log.noop = "noop"
+
+-- =============================================================================
+-- BACKWARD COMPATIBILITY: lib namespace (deprecated)
+-- =============================================================================
+
+-- Keep lib namespace for backward compatibility but mark as deprecated
 log.lib = {
   -- dispatcher shortcuts
   console = all_dispatchers.console_dispatcher,
