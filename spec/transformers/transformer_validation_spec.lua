@@ -1,3 +1,6 @@
+package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
+local lualog = require("lual.logger")
+
 describe("Transformer validation", function()
     local config_module
     local schema
@@ -5,6 +8,15 @@ describe("Transformer validation", function()
     before_each(function()
         config_module = require("lual.config")
         schema = require("lual.schema")
+
+        -- Reset the logger system for each test
+        package.loaded["lual.logger"] = nil
+        package.loaded["lual.core.logging"] = nil
+        lualog = require("lual.logger")
+
+        -- Reset the logger cache
+        local engine = require("lual.core.logging")
+        engine.reset_cache()
     end)
 
     describe("Schema validation", function()
@@ -80,10 +92,9 @@ describe("Transformer validation", function()
     end)
 
     describe("Config processing with transformers", function()
-        it("should process declarative config with transformers", function()
-            local input_config = {
-                name = "test_logger",
-                level = "info",
+        it("should process config with transformers", function()
+            local config = {
+                name = "test.transformer",
                 dispatchers = {
                     {
                         type = "console",
@@ -95,24 +106,23 @@ describe("Transformer validation", function()
                 }
             }
 
-            local canonical_config = config_module.process_config(input_config)
+            local logger = lualog.logger(config)
 
-            assert.are.equal("test_logger", canonical_config.name)
-            assert.are.equal(1, #canonical_config.dispatchers)
-            assert.are.equal(1, #canonical_config.dispatchers[1].transformer_funcs)
+            -- Verify transformer was properly set up
+            assert.are.same(1, #logger.dispatchers)
+            local dispatcher = logger.dispatchers[1]
+            assert.are.same(1, #dispatcher.transformer_funcs)
+
             -- Check that it's a callable table (like presenters)
-            local transformer = canonical_config.dispatchers[1].transformer_funcs[1]
-            assert.is_true(type(transformer) == "table" or type(transformer) == "function")
-            if type(transformer) == "table" then
-                assert.is_not_nil(getmetatable(transformer))
-                assert.is_not_nil(getmetatable(transformer).__call)
-            end
+            local transformer = dispatcher.transformer_funcs[1]
+            assert.is_true(type(transformer) == "table")
+            assert.is_not_nil(getmetatable(transformer))
+            assert.is_not_nil(getmetatable(transformer).__call)
         end)
 
-        it("should process declarative config without transformers", function()
-            local input_config = {
-                name = "test_logger",
-                level = "info",
+        it("should process config without transformers", function()
+            local config = {
+                name = "test.no.transformer",
                 dispatchers = {
                     {
                         type = "console",
@@ -121,31 +131,29 @@ describe("Transformer validation", function()
                 }
             }
 
-            local canonical_config = config_module.process_config(input_config)
+            local logger = lualog.logger(config)
 
-            assert.are.equal("test_logger", canonical_config.name)
-            assert.are.equal(1, #canonical_config.dispatchers)
-            assert.are.equal(0, #canonical_config.dispatchers[1].transformer_funcs)
+            -- Verify no transformers are present
+            assert.are.same(1, #logger.dispatchers)
+            local dispatcher = logger.dispatchers[1]
+            assert.are.same(0, #dispatcher.transformer_funcs)
         end)
 
-        it("should reject config with invalid transformer type", function()
-            local input_config = {
-                name = "test_logger",
-                level = "info",
-                dispatchers = {
-                    {
-                        type = "console",
-                        presenter = "text",
-                        transformers = {
-                            { type = "invalid_transformer" }
+        it("should reject invalid transformer type", function()
+            assert.has_error(function()
+                lualog.logger({
+                    name = "test.invalid.transformer",
+                    dispatchers = {
+                        {
+                            type = "console",
+                            presenter = "text",
+                            transformers = {
+                                { type = "invalid_transformer" }
+                            }
                         }
                     }
-                }
-            }
-
-            assert.has_error(function()
-                config_module.process_config(input_config)
-            end, "Invalid declarative config: Invalid transformer type: invalid_transformer. Valid values are: noop")
+                })
+            end, "Invalid config: Invalid transformer type: invalid_transformer. Valid values are: noop")
         end)
     end)
 end)

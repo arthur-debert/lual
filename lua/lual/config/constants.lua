@@ -12,7 +12,7 @@ M.VALID_dispatcher_TYPES = {
 
 -- Valid presenter types
 M.VALID_PRESENTER_TYPES = {
-    _meta = { name = "Formatter type", case_sensitive = false },
+    _meta = { name = "Presenter type", case_sensitive = false },
     text = true,
     color = true,
     json = true
@@ -40,29 +40,6 @@ M.VALID_LEVEL_STRINGS = {
     error = true,
     critical = true,
     none = true
-}
-
--- Valid keys for shortcut config format
-M.VALID_SHORTCUT_KEYS = {
-    name = true,
-    level = true,
-    dispatcher = true,
-    presenter = true,
-    propagate = true,
-    timezone = true,
-    -- File-specific fields
-    path = true,
-    -- Console-specific fields
-    stream = true
-}
-
--- Valid keys for declarative config format
-M.VALID_DECLARATIVE_KEYS = {
-    name = true,
-    level = true,
-    dispatchers = true,
-    propagate = true,
-    timezone = true
 }
 
 --- Helper function to generate expected error message for testing

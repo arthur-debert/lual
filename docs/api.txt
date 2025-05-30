@@ -1,9 +1,10 @@
 API 
 
 lual gives various ways to construct your logger:
+
 1. Imperative: 
 
-    a series of functional calls to the logger object, each setting part of the config. 
+    A series of functional calls to the logger object, each setting part of the config. 
 
         -- example
 
@@ -31,38 +32,38 @@ lual gives various ways to construct your logger:
             )
 
 
-2. Declarative:
+2. Config API:
 
-    A single call to the logger object, with a config table. 
+    A single call to the logger object with a config table. The config API supports two syntax options:
+
+    a) Full syntax - Complete control with explicit dispatchers array:
 
             -- example: 
 
-                local  logger = require("lualog").logger({
+                local logger = require("lualog").logger({
                     name = "app.database",
-                     level = "debug",
+                    level = "debug",
                     dispatchers = {
                         {type = "console", presenter = "color"},
                         {type = "file", path = "app.log", presenter = "text"}
                     }
                 })
 
-            -- lua
+    b) Convenience syntax - Convenient syntax for single dispatcher cases:
 
-3. Shortcut Declarative
+        For the very common case where there is one dispatcher and one presenter, 
+        you can use this convenience syntax:
 
-For the very common case where where there is one dispatcher and one presenter, we can allow this other form of the declarative api:
+            local lualog = require("lualog")
+            -- Convenience syntax for single dispatcher + presenter
+            local logger = lualog.logger({
+                dispatcher = "console", 
+                level = "debug", 
+                presenter = "color"
+            })
 
-    -- the initial get logger can customize the logger.
-
-        local lualog = require("lualog")
-        # this  is a simple case, where there is a 101 releatioship between dispatchers and presenters, and only one dispatcher
-        local logger = lualog.logger({dispatcher: "console", level:"debug", presenter: "color"})
-    -- lua
-
-In this case, the code should verify if the table has such format. The general form is : 
- .   * as long as dispatcher and format are either a single item or a table of one item 
-     * we transform to the general form (the presenter is part of the dispatcher, which is a table)
-So we do a to_canonical_config transformation, then run the regular validation and api.
+        The convenience syntax is automatically transformed to the full syntax internally.
+        Both approaches create identical logger instances.
 
 
 IMPLEMENTATION DESIGN:
@@ -71,7 +72,7 @@ Single Config Table Architecture:
 
 All loggers are internally created from a canonical config table. This provides:
 - Single source of truth for logger configuration
-- Consistency between imperative and declarative APIs  
+- Consistency between imperative and config APIs  
 - Easier testing and maintenance
 
 Core approach:
@@ -79,7 +80,7 @@ Core approach:
 2. All logger creation goes through create_logger_from_config(config)
 3. Imperative methods become config transformations:
    - Get current config -> clone -> modify -> recreate logger
-4. Declarative APIs normalize input to canonical config
+4. Config API normalizes input to canonical config (convenience -> full -> canonical)
 5. Performance cost negligible (config changes are rare)
 
 Benefits:
@@ -89,21 +90,28 @@ Benefits:
 - Clean separation of concerns
 
 
-DECLARATIVE API:
+CONFIG API IMPLEMENTATION:
 
-After the work on the single config table architecture, we can add a declarative api. It should be straight forward, but it has two things to consider:
+The config API processes input through a unified pipeline:
 
-1. The user ins't required to use a full config table, a partial one can be used. 
+1. Input Detection: Automatically detect convenience vs full syntax
+2. Normalization: Transform convenience syntax to full syntax if needed
+3. Validation: Validate the normalized config
+4. Canonicalization: Convert to internal canonical format
+5. Logger Creation: Create logger from canonical config
 
-    This means that we need to merge the config table with the default config table, with the user's config taking precedence.
+Key considerations:
 
-2. Validation: 
+1. Partial configs are supported - merge with defaults:
+   User config takes precedence over default values.
 
-    We should validate , at least a few things: 
+2. Validation ensures correctness:
+   - Unknown keys: Rejected to prevent silent configuration errors
+   - Type validation: levels, names, dispatcher types, etc.
+   - Required fields: dispatcher type, presenter type for each dispatcher
+   - Conditional validation: file dispatcher requires path field
 
-    - Extraneous keys: While it would not cause an error, if the user sends keys that are not in the config table, it should raise an error so the user can fix it. Otherwise the user will expect some configuration to work when it doesn't 
+3. Error messages are context-aware:
+   - "Invalid config:" for full syntax errors
 
-   - Wrong values/types: 
-       levels must be from a predefined set of values
-       dispatcherers, presenters must be functions, names must be strings, propagate must be a boolean. 
-       it would be great to validate that dispatcher and presenters have the right signature, but that is a bit more complex, so we can let errors blow up at runtime.
+The unified approach eliminates API confusion while maintaining convenience.
