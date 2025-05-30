@@ -26,7 +26,7 @@ function M.process_config(input_config, default_config)
     -- Validate unknown keys (after normalization, always validate as full syntax)
     local valid, err = validation.validate_unknown_keys(normalized_config, false)
     if not valid then
-        local prefix = is_convenience and "Invalid shortcut config: " or "Invalid config: "
+        local prefix = is_convenience and "Invalid convenience config: " or "Invalid config: "
         error(prefix .. err)
     end
 
@@ -39,7 +39,7 @@ function M.process_config(input_config, default_config)
     -- Validate dispatchers
     valid, err = validation.validate_dispatchers(normalized_config.dispatchers)
     if not valid then
-        local prefix = is_convenience and "Invalid shortcut config: " or "Invalid config: "
+        local prefix = is_convenience and "Invalid convenience config: " or "Invalid config: "
         error(prefix .. err)
     end
 

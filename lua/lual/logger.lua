@@ -57,17 +57,17 @@ log.noop = "noop"
 
 -- Keep lib namespace for backward compatibility but mark as deprecated
 log.lib = {
-  -- dispatcher shortcuts
+  -- dispatcher references
   console = all_dispatchers.console_dispatcher,
   file = all_dispatchers.file_dispatcher,
   syslog = all_dispatchers.syslog_dispatcher,
 
-  -- PRESENTER shortcuts (call factories with default config for backward compatibility)
+  -- PRESENTER references (call factories with default config for backward compatibility)
   text = all_presenters.text(),
   color = all_presenters.color(),
   json = all_presenters.json(),
 
-  -- TRANSFORMER shortcuts (call factories with default config for backward compatibility)
+  -- TRANSFORMER references (call factories with default config for backward compatibility)
   noop = all_transformers.noop_transformer()
 }
 

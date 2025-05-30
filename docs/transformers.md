@@ -209,8 +209,8 @@ local logger = lual.logger({
     }
 })
 
--- Backward compatible lib shortcut still available
-local noop_shortcut = lual.lib.noop
+-- Backward compatible lib reference still available
+local noop_reference = lual.lib.noop
 ```
 
 ## Best Practices

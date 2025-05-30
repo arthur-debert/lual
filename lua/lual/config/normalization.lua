@@ -114,13 +114,13 @@ local function validate_convenience_config(config)
     -- Validate unknown keys
     local valid, err = validation.validate_unknown_keys(config, true)
     if not valid then
-        return false, "Invalid shortcut config: " .. err
+        return false, "Invalid convenience config: " .. err
     end
 
     -- Validate required fields
     valid, err = validation.validate_convenience_requirements(config)
     if not valid then
-        return false, "Invalid shortcut config: " .. err
+        return false, "Invalid convenience config: " .. err
     end
 
     -- Validate basic fields
@@ -138,7 +138,7 @@ local function validate_convenience_config(config)
                 local value = config[convenience_field]
                 valid, err = validate_field_by_mapping(convenience_field, value, dispatcher_type)
                 if not valid then
-                    return false, "Invalid shortcut config: " .. err
+                    return false, "Invalid convenience config: " .. err
                 end
             end
         end

@@ -28,7 +28,7 @@ local function validate_field(field_name, value, is_convenience)
     -- Use custom validation function
     local valid, err = validator.validate(value)
     if not valid then
-        local prefix = is_convenience and "Invalid shortcut config: " or "Invalid config: "
+        local prefix = is_convenience and "Invalid convenience config: " or "Invalid config: "
         return false, prefix .. (err or validator.error_msg or ("Invalid " .. field_name))
     end
 
@@ -45,7 +45,7 @@ local function validate_known_keys(config, is_convenience)
     for key, _ in pairs(config) do
         if not valid_keys[key] then
             if is_convenience then
-                return false, "Unknown shortcut config key: " .. tostring(key)
+                return false, "Unknown convenience config key: " .. tostring(key)
             else
                 return false, "Unknown config key: " .. tostring(key)
             end
@@ -295,10 +295,10 @@ end
 -- @return boolean, string True if valid, or false with error message
 function M.validate_convenience_requirements(config)
     if not config.dispatcher then
-        return false, "Shortcut config must have an 'dispatcher' field"
+        return false, "Convenience config must have an 'dispatcher' field"
     end
     if not config.presenter then
-        return false, "Shortcut config must have a 'presenter' field"
+        return false, "Convenience config must have a 'presenter' field"
     end
     return true
 end
