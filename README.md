@@ -56,7 +56,7 @@ It has a small but useful set of dispatchers and presenters:
 - `console`: prints to the console
 - `file`: writes to a file
 
-**Formatters:**
+**Presenters:**
 
 - `text`: plain text
 - `color`: terminal colored
@@ -106,21 +106,15 @@ local logger = lual.logger({
   `myapp.module.submodule`), allowing for targeted configuration.
 - **Log Levels:** Standard severity levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`,
   `CRITICAL`, plus `NONE` to disable logging for a logger.
-- **Console dispatcher:** `lualog.lib.console` writes log messages to
-  `io.stdout` (default), `io.stderr`, or any custom stream object that provides
-  `write()` and `flush()` methods.
-- **File dispatcher:** `lualog.lib.file` writes log messages to files with
-  configurable paths and rotation options.
-- **Text Formatter:** `lualog.lib.text` formats messages by default as:
-  `YYYY-MM-DD HH:MM:S LEVEL [LoggerName] Message`.
-- **Color Formatter:** `lualog.lib.color` formats messages with ANSI color codes
-  for enhanced terminal readability.
-- **JSON Formatter:** `lualog.lib.json` formats messages as JSON for structured
-  logging and easy parsing by log aggregation systems.
-- **Timezone Support:** Configurable timezone for timestamps - supports both UTC
-  and local time formatting (defaults to local time).
-  - **String Formatting:** Supports `printf`-style string formatting (e.g.,
-    `logger:info("Hello %s", name)`).
+- Dispatchers: 
+  -  **Console :** `lualog.lib.console` writes log messages to `io.stdout` (default), `io.stderr`, or any custom stream object that provides `write()` and `flush()` methods.
+  - **File:** `lualog.lib.file` writes log messages to files with configurable paths and rotation options.  - Presenters: 
+- Presenters: 
+  - **Text:** `lualog.lib.text` traditional log txt message with ISO datatime: `YYYY-MM-DD HH:MM:S LEVEL [LoggerName] Message`.
+  - **Color:** `lualog.lib.color` ANSI color codes for enhanced terminal readability.
+  - **JSON:** `lualog.lib.json` s JSON for structured logging and easy parsing by log aggregation systems.
+- **Timezone Support:** Configurable timezone for timestamps - supports both UTC and local time formatting (defaults to local time).
+  - **String Formatting:** Supports `printf`-style string formatting (e.g., `logger:info("Hello %s", name)`).
   - **Structured Logging:** Supports logging rich, structured data.
     - Pure structured: `logger:info({event = "UserLogin", userId = 123})`
     - Mixed: `logger:info({eventId = "XYZ"}, "Processing event: %s", eventName)`
@@ -157,7 +151,7 @@ You can create custom dispatchers and presenters:
       arguments.
     - `context`: The context table, if provided in the log call.
   - `config`: The `dispatcher_config` table passed when adding the dispatcher.
-- **Custom Formatter:** A function with the signature `my_presenter(record)`
+- **Custom Presenter:** A function with the signature `my_presenter(record)`
   - `record`: A table with raw log details. Key fields include:
     - `message_fmt`: The raw message format string (e.g., "User %s logged in").
       Can be `nil` if context implies the message.
