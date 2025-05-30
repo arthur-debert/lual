@@ -2,11 +2,11 @@
 
 This module provides a schema-based validation system for the lual configuration
 system. It replaces the previous ad-hoc validation with a structured,
-declarative approach.
+schema-driven approach.
 
 ## Features
 
-- **Declarative schemas**: Define validation rules in a clear, structured format
+- **Schema-based validation**: Define validation rules in a clear, structured format
 - **Type validation**: Validate field types (string, number, boolean, table,
   userdata)
 - **Enum validation**: Validate against predefined sets of values

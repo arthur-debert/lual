@@ -7,7 +7,7 @@ source = {
 description = {
    summary = "A focused but powerful and flexible logging library for Lua.",
    detailed = [[
-      lual is a logging library inspired by Python's stdlib and loguru loggers. It provides hierarchical logging with propagation, multiple dispatcher handlers (console, file, syslog), various formatters (text, color, JSON), and both imperative and declarative APIs. Designed with Lua's strengths in mind using functions and tables.
+      lual is a logging library inspired by Python's stdlib and loguru loggers. It provides hierarchical logging with propagation, multiple dispatcher handlers (console, file, syslog), various formatters (text, color, JSON), and both imperative and config APIs. Designed with Lua's strengths in mind using functions and tables.
    ]],
    homepage = "https://github.com/arthur-debert/lual",
    license = "MIT"
