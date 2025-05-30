@@ -193,150 +193,131 @@ end
 -- SHORTCUT API FUNCTIONS
 -- =============================================================================
 
---- Detects if a config uses the shortcut declarative format
--- @param config table The config to check
--- @return boolean True if it's a shortcut format
-local function is_shortcut_config(config)
-    return config.dispatcher ~= nil or config.presenter ~= nil
-end
+--- Detects conflicting configuration formats and normalizes shortcut syntax
+-- @param config table The input config to check and normalize
+-- @return table The normalized config (shortcut fields converted to full form)
+local function normalize_config_format(config)
+    local has_shortcut_fields = config.dispatcher ~= nil or config.presenter ~= nil
+    local has_full_fields = config.dispatchers ~= nil
 
---- Validates shortcut config fields
--- @param config table The shortcut config to validate
--- @return boolean, string True if valid, or false with error message
-local function validate_shortcut_fields(config)
-    -- Check for required fields in shortcut format
-    if not config.dispatcher then
-        return false, "Shortcut config must have an 'dispatcher' field"
+    -- Error if both shortcut and full form are used
+    if has_shortcut_fields and has_full_fields then
+        error("Invalid config: Cannot mix shortcut fields (dispatcher/presenter) with full form (dispatchers). " ..
+            "Use either: {dispatcher='console', presenter='text'} OR {dispatchers={{type='console', presenter='text'}}}")
     end
 
-    if not config.presenter then
-        return false, "Shortcut config must have a 'presenter' field"
-    end
+    -- If shortcut fields are present, transform to full form
+    if has_shortcut_fields then
+        -- Validate unknown keys for shortcut format
+        local valid_shortcut_keys = {
+            name = true,
+            level = true,
+            dispatcher = true,
+            presenter = true,
+            propagate = true,
+            timezone = true,
+            path = true,
+            stream = true
+        }
 
-    -- Validate dispatcher type
-    local valid, err = constants.validate_against_constants(config.dispatcher, constants.VALID_dispatcher_TYPES, false,
-        "string")
-    if not valid then
-        return false, err
-    end
-
-    -- Validate presenter type
-    valid, err = constants.validate_against_constants(config.presenter, constants.VALID_PRESENTER_TYPES, false, "string")
-    if not valid then
-        return false, err
-    end
-
-    -- Validate file-specific requirements
-    if config.dispatcher == "file" then
-        if not config.path or type(config.path) ~= "string" then
-            return false, "File dispatcher must have a 'path' string field"
+        for key, _ in pairs(config) do
+            if not valid_shortcut_keys[key] then
+                error("Invalid shortcut config: Unknown shortcut config key: " .. tostring(key))
+            end
         end
-    end
 
-    -- Validate console-specific fields
-    if config.dispatcher == "console" and config.stream then
-        if type(config.stream) == "string" or type(config.stream) == "number" or type(config.stream) == "boolean" then
-            return false, "Console dispatcher 'stream' field must be a file handle"
+        -- Validate that we have the required shortcut fields
+        if not config.dispatcher then
+            error("Invalid shortcut config: Shortcut config must have an 'dispatcher' field")
         end
-    end
-
-    return true
-end
-
---- Validates that shortcut config doesn't contain unknown keys
--- @param config table The config to validate
--- @return boolean, string True if valid, or false with error message
-local function validate_shortcut_known_keys(config)
-    local valid_keys = {
-        name = true,
-        level = true,
-        dispatcher = true,
-        presenter = true,
-        propagate = true,
-        timezone = true,
-        -- File-specific fields
-        path = true,
-        -- Console-specific fields
-        stream = true
-    }
-
-    for key, _ in pairs(config) do
-        if not valid_keys[key] then
-            return false, "Unknown shortcut config key: " .. tostring(key)
+        if not config.presenter then
+            error("Invalid shortcut config: Shortcut config must have a 'presenter' field")
         end
+
+        -- Validate dispatcher type
+        local valid, err = constants.validate_against_constants(config.dispatcher, constants.VALID_dispatcher_TYPES,
+            false, "string")
+        if not valid then
+            error("Invalid shortcut config: " .. err)
+        end
+
+        -- Validate presenter type
+        valid, err = constants.validate_against_constants(config.presenter, constants.VALID_PRESENTER_TYPES, false,
+            "string")
+        if not valid then
+            error("Invalid shortcut config: " .. err)
+        end
+
+        -- Validate basic fields for shortcut format
+        if config.name ~= nil and type(config.name) ~= "string" then
+            error("Invalid shortcut config: Config.name must be a string")
+        end
+
+        if config.propagate ~= nil and type(config.propagate) ~= "boolean" then
+            error("Invalid shortcut config: Config.propagate must be a boolean")
+        end
+
+        if config.timezone ~= nil then
+            local valid, err = constants.validate_against_constants(config.timezone, constants.VALID_TIMEZONES, false,
+                "string")
+            if not valid then
+                error("Invalid shortcut config: " .. err)
+            end
+        end
+
+        if config.level ~= nil then
+            if type(config.level) == "string" then
+                local valid, err = constants.validate_against_constants(config.level, constants.VALID_LEVEL_STRINGS,
+                    false, "string")
+                if not valid then
+                    error("Invalid shortcut config: " .. err)
+                end
+            elseif type(config.level) ~= "number" then
+                error("Invalid shortcut config: Level must be a string or number")
+            end
+        end
+
+        -- Create a copy of the config for transformation
+        local normalized_config = {}
+        for k, v in pairs(config) do
+            normalized_config[k] = v
+        end
+
+        -- Transform shortcut to full form
+        local dispatcher_entry = {
+            type = normalized_config.dispatcher,
+            presenter = normalized_config.presenter
+        }
+
+        -- Add type-specific fields with validation
+        if normalized_config.dispatcher == "file" then
+            if not normalized_config.path or type(normalized_config.path) ~= "string" then
+                error("Invalid shortcut config: File dispatcher must have a 'path' string field")
+            end
+            dispatcher_entry.path = normalized_config.path
+        elseif normalized_config.dispatcher == "console" and normalized_config.stream then
+            -- Validate stream is a file handle (not string/number/boolean)
+            if type(normalized_config.stream) == "string" or type(normalized_config.stream) == "number" or type(normalized_config.stream) == "boolean" then
+                error("Invalid shortcut config: Console dispatcher 'stream' field must be a file handle")
+            end
+            dispatcher_entry.stream = normalized_config.stream
+        end
+
+        -- Create dispatchers array
+        normalized_config.dispatchers = { dispatcher_entry }
+
+        -- Remove shortcut fields
+        normalized_config.dispatcher = nil
+        normalized_config.presenter = nil
+        normalized_config.path = nil
+        normalized_config.stream = nil
+
+        return normalized_config
     end
 
-    return true
+    -- Already in full form or no dispatcher config, return as-is
+    return config
 end
-
---- Validates a shortcut declarative config table
--- @param config table The shortcut config to validate
--- @return boolean, string True if valid, or false with error message
-local function validate_shortcut_config(config)
-    if type(config) ~= "table" then
-        return false, "Config must be a table"
-    end
-
-    -- Validate unknown keys
-    local valid, err = validate_shortcut_known_keys(config)
-    if not valid then
-        return false, err
-    end
-
-    -- Validate basic fields (name, propagate)
-    valid, err = validate_basic_fields(config)
-    if not valid then
-        return false, err
-    end
-
-    -- Validate level
-    valid, err = validate_level(config.level)
-    if not valid then
-        return false, err
-    end
-
-    -- Validate shortcut-specific fields
-    valid, err = validate_shortcut_fields(config)
-    if not valid then
-        return false, err
-    end
-
-    return true
-end
-
---- Transforms shortcut config to standard declarative config format
--- @param shortcut_config table The shortcut config
--- @return table The standard declarative config
-local function shortcut_to_declarative_config(shortcut_config)
-    local declarative_config = {
-        name = shortcut_config.name,
-        level = shortcut_config.level,
-        propagate = shortcut_config.propagate,
-        timezone = shortcut_config.timezone,
-        dispatchers = {}
-    }
-
-    -- Create the single dispatcher entry
-    local dispatcher_entry = {
-        type = shortcut_config.dispatcher,
-        presenter = shortcut_config.presenter
-    }
-
-    -- Add type-specific fields
-    if shortcut_config.dispatcher == "file" then
-        dispatcher_entry.path = shortcut_config.path
-    elseif shortcut_config.dispatcher == "console" and shortcut_config.stream then
-        dispatcher_entry.stream = shortcut_config.stream
-    end
-
-    table.insert(declarative_config.dispatchers, dispatcher_entry)
-
-    return declarative_config
-end
-
--- =============================================================================
--- DECLARATIVE API FUNCTIONS
--- =============================================================================
 
 --- Validates a single transformer configuration
 -- @param transformer table The transformer config to validate
@@ -475,28 +456,54 @@ local function validate_declarative_config(config)
         return false, "Config must be a table"
     end
 
+    -- Check if this appears to be shortcut format before normalization
+    local was_shortcut_format = config.dispatcher ~= nil or config.presenter ~= nil
+
+    -- Normalize config first (handle shortcut syntax)
+    local normalized_config
+    local ok, result = pcall(normalize_config_format, config)
+    if not ok then
+        return false, result -- Return the error message from normalization
+    end
+    normalized_config = result
+
+    -- Determine error prefix based on original format
+    local error_prefix = was_shortcut_format and "Invalid shortcut config: " or "Invalid declarative config: "
+
+    -- Helper function to add prefix only if not already present
+    local function add_error_prefix(err)
+        -- Strip any existing "Invalid declarative config: " prefix first
+        local cleaned_err = string.gsub(err, "^Invalid declarative config: ", "")
+
+        if was_shortcut_format then
+            return "Invalid shortcut config: " .. cleaned_err
+        else
+            return "Invalid declarative config: " .. cleaned_err
+        end
+    end
+
     -- Validate unknown keys
-    local valid, err = validate_declarative_known_keys(config)
+    local valid, err = validate_declarative_known_keys(normalized_config)
     if not valid then
-        return false, err
+        return false, add_error_prefix(err)
     end
 
     -- Validate basic fields
-    valid, err = validate_basic_fields(config)
+    valid, err = validate_basic_fields(normalized_config)
     if not valid then
-        return false, err
+        return false, add_error_prefix(err)
     end
 
     -- Validate level
-    valid, err = validate_level(config.level)
+    valid, err = validate_level(normalized_config.level)
     if not valid then
-        return false, err
+        return false, add_error_prefix(err)
     end
 
     -- Validate dispatchers
-    valid, err = validate_dispatchers(config.dispatchers)
+    valid, err = validate_dispatchers(normalized_config.dispatchers)
     if not valid then
-        return false, err
+        return false, add_error_prefix(err)
     end
 
     return true
@@ -603,21 +610,12 @@ function M.process_config(input_config, default_config)
     local final_declarative_config = input_config
 
     -- Check if this is a shortcut config and transform it if needed
-    if is_shortcut_config(input_config) then
-        -- Validate the shortcut config
-        local valid, err = validate_shortcut_config(input_config)
-        if not valid then
-            error("Invalid shortcut config: " .. err)
-        end
+    final_declarative_config = normalize_config_format(final_declarative_config)
 
-        -- Transform shortcut to standard declarative format
-        final_declarative_config = shortcut_to_declarative_config(input_config)
-    else
-        -- Validate the standard declarative config
-        local valid, err = validate_declarative_config(input_config)
-        if not valid then
-            error("Invalid declarative config: " .. err)
-        end
+    -- Validate the standard declarative config
+    local valid, err = validate_declarative_config(final_declarative_config)
+    if not valid then
+        error(err) -- Don't add prefix here since validate_declarative_config already handles it
     end
 
     -- Apply defaults if provided
@@ -658,20 +656,6 @@ function M.validate_canonical_config(config)
     return validate_canonical_config(config)
 end
 
---- Detects if a config is in shortcut format
--- @param config table The config to check
--- @return boolean True if shortcut format
-function M.is_shortcut_config(config)
-    return is_shortcut_config(config)
-end
-
---- Transforms shortcut config to declarative format
--- @param config table The shortcut config
--- @return table The declarative config
-function M.shortcut_to_declarative_config(config)
-    return shortcut_to_declarative_config(config)
-end
-
 --- Validates a declarative config
 -- @param config table The config to validate
 -- @return boolean, string True if valid, or false with error message
@@ -692,6 +676,21 @@ end
 -- @return table The merged config
 function M.merge_configs(user_config, default_config)
     return merge_configs(user_config, default_config)
+end
+
+--- Detects if a config is in shortcut format (compatibility function)
+-- @param config table The config to check
+-- @return boolean True if shortcut format
+function M.is_shortcut_config(config)
+    return config.dispatcher ~= nil or config.presenter ~= nil
+end
+
+--- Transforms shortcut config to declarative format (compatibility function)
+-- @param config table The shortcut config
+-- @return table The declarative config
+function M.shortcut_to_declarative_config(config)
+    local normalized = normalize_config_format(config)
+    return normalized
 end
 
 return M
