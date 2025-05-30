@@ -103,22 +103,20 @@ local function validate_type_specific_fields(dispatcher)
 
         -- Skip validation if field is optional and not provided
         if not rule.required and value == nil then
-            goto continue
-        end
-
-        -- Type-specific validation
-        if rule.type == "string" then
-            if type(value) ~= "string" then
-                return false, rule.error_msg or (field_name .. " must be a string")
+            -- Do nothing, continue to next field
+        else
+            -- Type-specific validation
+            if rule.type == "string" then
+                if type(value) ~= "string" then
+                    return false, rule.error_msg or (field_name .. " must be a string")
+                end
+            elseif rule.type == "file_handle" then
+                -- File handle validation - check it's not a primitive type
+                if type(value) == "string" or type(value) == "number" or type(value) == "boolean" then
+                    return false, rule.error_msg or (field_name .. " must be a file handle")
+                end
             end
-        elseif rule.type == "file_handle" then
-            -- File handle validation - check it's not a primitive type
-            if type(value) == "string" or type(value) == "number" or type(value) == "boolean" then
-                return false, rule.error_msg or (field_name .. " must be a file handle")
-            end
         end
-
-        ::continue::
     end
 
     return true
@@ -329,22 +327,20 @@ function M.validate_convenience_type_fields(config)
 
         -- Skip validation if field is optional and not provided
         if not rule.required and value == nil then
-            goto continue
-        end
-
-        -- Type-specific validation
-        if rule.type == "string" then
-            if type(value) ~= "string" then
-                return false, rule.error_msg or (field_name .. " must be a string")
+            -- Do nothing, continue to next field
+        else
+            -- Type-specific validation
+            if rule.type == "string" then
+                if type(value) ~= "string" then
+                    return false, rule.error_msg or (field_name .. " must be a string")
+                end
+            elseif rule.type == "file_handle" then
+                -- File handle validation - check it's not a primitive type
+                if type(value) == "string" or type(value) == "number" or type(value) == "boolean" then
+                    return false, rule.error_msg or (field_name .. " must be a file handle")
+                end
             end
-        elseif rule.type == "file_handle" then
-            -- File handle validation - check it's not a primitive type
-            if type(value) == "string" or type(value) == "number" or type(value) == "boolean" then
-                return false, rule.error_msg or (field_name .. " must be a file handle")
-            end
         end
-
-        ::continue::
     end
 
     return true
