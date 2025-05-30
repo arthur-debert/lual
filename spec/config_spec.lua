@@ -28,8 +28,8 @@ describe("Unified Config API", function()
         engine.reset_cache()
     end)
 
-    describe("Shortcut syntax detection and transformation", function()
-        it("should detect shortcut config format", function()
+    describe("Convenience syntax detection and transformation", function()
+        it("should detect convenience syntax format", function()
             local shortcut_config = { dispatcher = "console", presenter = "text" }
             local full_config = { dispatchers = { { type = "console", presenter = "text" } } }
 
@@ -37,17 +37,17 @@ describe("Unified Config API", function()
             assert.is_false(config.is_shortcut_config(full_config))
         end)
 
-        it("should detect shortcut config with only dispatcher field", function()
+        it("should detect convenience syntax with only dispatcher field", function()
             local config_table = { dispatcher = "console" }
             assert.is_true(config.is_shortcut_config(config_table))
         end)
 
-        it("should detect shortcut config with only presenter field", function()
+        it("should detect convenience syntax with only presenter field", function()
             local config_table = { presenter = "text" }
             assert.is_true(config.is_shortcut_config(config_table))
         end)
 
-        it("should transform console shortcut to full format", function()
+        it("should transform console convenience syntax to full format", function()
             local shortcut = {
                 name = "test",
                 dispatcher = "console",
@@ -66,7 +66,7 @@ describe("Unified Config API", function()
             assert.are.same("text", result.dispatchers[1].presenter)
         end)
 
-        it("should transform file shortcut to full format", function()
+        it("should transform file convenience syntax to full format", function()
             local shortcut = {
                 name = "test",
                 dispatcher = "file",
@@ -83,7 +83,7 @@ describe("Unified Config API", function()
             assert.are.same("app.log", result.dispatchers[1].path)
         end)
 
-        it("should transform console shortcut with stream to full format", function()
+        it("should transform console convenience syntax with stream to full format", function()
             local shortcut = {
                 dispatcher = "console",
                 presenter = "color",
@@ -98,7 +98,7 @@ describe("Unified Config API", function()
             assert.are.same(io.stderr, result.dispatchers[1].stream)
         end)
 
-        it("should transform shortcut with timezone", function()
+        it("should transform convenience syntax with timezone", function()
             local shortcut = {
                 dispatcher = "console",
                 presenter = "color",
@@ -114,8 +114,8 @@ describe("Unified Config API", function()
         end)
     end)
 
-    describe("Basic logger creation - shortcut syntax", function()
-        it("should create a logger with console dispatcher using shortcut syntax", function()
+    describe("Basic logger creation - convenience syntax", function()
+        it("should create a logger with console dispatcher using convenience syntax", function()
             local logger = lualog.logger({
                 name = "test.shortcut.console",
                 dispatcher = "console",
@@ -134,7 +134,7 @@ describe("Unified Config API", function()
             assert.is_table(dispatcher.dispatcher_config)
         end)
 
-        it("should create a logger with file dispatcher using shortcut syntax", function()
+        it("should create a logger with file dispatcher using convenience syntax", function()
             local logger = lualog.logger({
                 name = "test.shortcut.file",
                 dispatcher = "file",
@@ -154,7 +154,7 @@ describe("Unified Config API", function()
             assert.are.same("test.log", dispatcher.dispatcher_config.path)
         end)
 
-        it("should create a logger with minimal shortcut config", function()
+        it("should create a logger with minimal convenience config", function()
             local logger = lualog.logger({
                 dispatcher = "console",
                 presenter = "text"
@@ -335,7 +335,7 @@ describe("Unified Config API", function()
     end)
 
     describe("Level string conversion", function()
-        it("should accept string levels (case insensitive) - shortcut syntax", function()
+        it("should accept string levels (case insensitive) - convenience syntax", function()
             local test_cases = {
                 { input = "debug",    expected = lualog.levels.DEBUG },
                 { input = "DEBUG",    expected = lualog.levels.DEBUG },
@@ -387,7 +387,7 @@ describe("Unified Config API", function()
             end
         end)
 
-        it("should accept numeric levels - shortcut syntax", function()
+        it("should accept numeric levels - convenience syntax", function()
             local logger = lualog.logger({
                 name = "test.shortcut.numeric.level",
                 dispatcher = "console",
@@ -406,8 +406,8 @@ describe("Unified Config API", function()
         end)
     end)
 
-    describe("Validation - shortcut syntax", function()
-        it("should reject shortcut config without dispatcher field", function()
+    describe("Validation - convenience syntax", function()
+        it("should reject convenience config without dispatcher field", function()
             assert.has_error(function()
                 lualog.logger({
                     presenter = "text"
@@ -415,7 +415,7 @@ describe("Unified Config API", function()
             end, "Invalid shortcut config: Shortcut config must have an 'dispatcher' field")
         end)
 
-        it("should reject shortcut config without presenter field", function()
+        it("should reject convenience config without presenter field", function()
             assert.has_error(function()
                 lualog.logger({
                     dispatcher = "console"
@@ -492,7 +492,7 @@ describe("Unified Config API", function()
             end, "Invalid shortcut config: Console dispatcher 'stream' field must be a file handle")
         end)
 
-        it("should reject unknown shortcut config keys", function()
+        it("should reject unknown convenience config keys", function()
             assert.has_error(function()
                 lualog.logger({
                     dispatcher = "console",
@@ -502,7 +502,7 @@ describe("Unified Config API", function()
             end, "Invalid shortcut config: Unknown shortcut config key: unknown_key")
         end)
 
-        it("should reject invalid level in shortcut config", function()
+        it("should reject invalid level in convenience config", function()
             local expected_error = "Invalid shortcut config: " ..
                 constants.generate_expected_error_message("invalid_level", constants.VALID_LEVEL_STRINGS)
             assert.has_error(function()
@@ -515,7 +515,7 @@ describe("Unified Config API", function()
                 expected_error)
         end)
 
-        it("should reject invalid name type in shortcut config", function()
+        it("should reject invalid name type in convenience config", function()
             assert.has_error(function()
                 lualog.logger({
                     dispatcher = "console",
@@ -525,7 +525,7 @@ describe("Unified Config API", function()
             end, "Invalid shortcut config: Config.name must be a string")
         end)
 
-        it("should reject invalid propagate type in shortcut config", function()
+        it("should reject invalid propagate type in convenience config", function()
             assert.has_error(function()
                 lualog.logger({
                     dispatcher = "console",
@@ -711,7 +711,7 @@ describe("Unified Config API", function()
             assert.are.same(logger1, logger2)
         end)
 
-        it("should work with logging methods - shortcut syntax", function()
+        it("should work with logging methods - convenience syntax", function()
             local logger = lualog.logger({
                 name = "test.shortcut.integration",
                 dispatcher = "console",
@@ -839,7 +839,7 @@ describe("Unified Config API", function()
     end)
 
     describe("Examples from API", function()
-        it("should support the exact shortcut example", function()
+        it("should support the exact convenience syntax example", function()
             -- Example: {dispatcher = "console", level = "debug", presenter = "color"}
             local logger = lualog.logger({
                 dispatcher = "console",
@@ -857,7 +857,7 @@ describe("Unified Config API", function()
             assert.is_true(is_callable(dispatcher.presenter_func))
         end)
 
-        it("should work with named logger using shortcut syntax", function()
+        it("should work with named logger using convenience syntax", function()
             local logger = lualog.logger({
                 name = "app.database",
                 dispatcher = "console",

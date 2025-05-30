@@ -10,12 +10,12 @@ describe("Validation Functions", function()
     end)
 
     describe("Unified API validation", function()
-        it("should detect shortcut config", function()
+        it("should detect convenience syntax", function()
             assert.is_true(config.is_shortcut_config({ dispatcher = "console", presenter = "text" }))
             assert.is_false(config.is_shortcut_config({ dispatchers = { { type = "console", presenter = "text" } } }))
         end)
 
-        it("should transform shortcut to full format", function()
+        it("should transform convenience syntax to full format", function()
             local shortcut = {
                 name = "test",
                 dispatcher = "console",
@@ -32,7 +32,7 @@ describe("Validation Functions", function()
             assert.are.same("text", result.dispatchers[1].presenter)
         end)
 
-        it("should transform shortcut to full format with timezone", function()
+        it("should transform convenience syntax to full format with timezone", function()
             local shortcut = {
                 dispatcher = "console",
                 presenter = "color",

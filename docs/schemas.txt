@@ -11,7 +11,7 @@ that are automatically enforced.
 
 The system validates three types of configurations:
 1. Config API (standard format with dispatchers array)
-2. Shortcut configs (simplified single-dispatcher format)  
+2. Convenience syntax configs (simplified single-dispatcher format)  
 3. dispatcher configs (individual dispatcher definitions)
 
 Validation returns a result table with two keys:
@@ -43,7 +43,7 @@ VALIDATION FUNCTIONS
 
     schema.validate_config(data)        -- Config API validation
     schema.validate_dispatcher(data)    -- Single dispatcher validation  
-    schema.validate_shortcut(data)      -- Shortcut config validation
+    schema.validate_shortcut(data)      -- Convenience syntax validation
     -- lua
 
 Each function returns the same result format with `data` and `_errors` keys.
@@ -93,7 +93,7 @@ Schemas are defined as tables with field validation rules:
 Available schemas:
 - `ConfigSchema`: Main configuration validation
 - `dispatcherschema`: dispatcher configuration validation  
-- `ShortcutSchema`: Shortcut configuration validation
+- `ShortcutSchema`: Convenience syntax configuration validation
 
 
 VALIDATION FEATURES

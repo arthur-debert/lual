@@ -79,7 +79,7 @@ end
 -- CONFIG LOGGER API
 -- =============================================================================
 
---- Creates a logger from a config table (supports both full and shortcut formats)
+--- Creates a logger from a config table
 -- This is the primary API for creating loggers. Can be called with:
 -- 1. No arguments or string name: lual.logger() or lual.logger("name") - simple logger creation
 -- 2. Config table: lual.logger({name="app", level="debug", dispatchers={...}}) - configuration

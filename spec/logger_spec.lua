@@ -608,7 +608,7 @@ describe("lual.logger (Facade)", function()
 			assert.are.equal("local", local_logger.timezone)
 		end)
 
-		it("should handle timezone in shortcut API", function()
+		it("should handle timezone in convenience syntax", function()
 			local fresh_lualog = require("lual.logger")
 			local shortcut_logger = fresh_lualog.logger({
 				dispatcher = "console",

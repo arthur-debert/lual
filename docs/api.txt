@@ -49,20 +49,20 @@ lual gives various ways to construct your logger:
                     }
                 })
 
-    b) Shortcut syntax - Convenient syntax for single dispatcher cases:
+    b) Convenience syntax - Convenient syntax for single dispatcher cases:
 
         For the very common case where there is one dispatcher and one presenter, 
-        you can use this shortcut syntax:
+        you can use this convenience syntax:
 
             local lualog = require("lualog")
-            -- Shortcut for single dispatcher + presenter
+            -- Convenience syntax for single dispatcher + presenter
             local logger = lualog.logger({
                 dispatcher = "console", 
                 level = "debug", 
                 presenter = "color"
             })
 
-        The shortcut syntax is automatically transformed to the full syntax internally.
+        The convenience syntax is automatically transformed to the full syntax internally.
         Both approaches create identical logger instances.
 
 
@@ -80,7 +80,7 @@ Core approach:
 2. All logger creation goes through create_logger_from_config(config)
 3. Imperative methods become config transformations:
    - Get current config -> clone -> modify -> recreate logger
-4. Config API normalizes input to canonical config (shortcut -> full -> canonical)
+4. Config API normalizes input to canonical config (convenience -> full -> canonical)
 5. Performance cost negligible (config changes are rare)
 
 Benefits:
@@ -94,8 +94,8 @@ CONFIG API IMPLEMENTATION:
 
 The config API processes input through a unified pipeline:
 
-1. Input Detection: Automatically detect shortcut vs full syntax
-2. Normalization: Transform shortcut syntax to full syntax if needed
+1. Input Detection: Automatically detect convenience vs full syntax
+2. Normalization: Transform convenience syntax to full syntax if needed
 3. Validation: Validate the normalized config
 4. Canonicalization: Convert to internal canonical format
 5. Logger Creation: Create logger from canonical config
@@ -112,7 +112,6 @@ Key considerations:
    - Conditional validation: file dispatcher requires path field
 
 3. Error messages are context-aware:
-   - "Invalid shortcut config:" for shortcut syntax errors
    - "Invalid config:" for full syntax errors
 
 The unified approach eliminates API confusion while maintaining convenience.

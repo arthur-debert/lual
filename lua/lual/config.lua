@@ -190,12 +190,12 @@ local function validate_basic_fields(config)
 end
 
 -- =============================================================================
--- SHORTCUT API FUNCTIONS
+-- CONFIG SYNTAX PROCESSING
 -- =============================================================================
 
---- Detects conflicting configuration formats and normalizes shortcut syntax
+--- Detects conflicting configuration syntax and normalizes convenience syntax to full syntax
 -- @param config table The input config to check and normalize
--- @return table The normalized config (shortcut fields converted to full form)
+-- @return table The normalized config (convenience syntax converted to full syntax)
 local function normalize_config_format(config)
     local has_shortcut_fields = config.dispatcher ~= nil or config.presenter ~= nil
     local has_full_fields = config.dispatchers ~= nil
@@ -206,9 +206,9 @@ local function normalize_config_format(config)
             "Use either: {dispatcher='console', presenter='text'} OR {dispatchers={{type='console', presenter='text'}}}")
     end
 
-    -- If shortcut fields are present, transform to full form
+    -- If convenience syntax is used, transform to full syntax
     if has_shortcut_fields then
-        -- Validate unknown keys for shortcut format
+        -- Validate unknown keys for convenience syntax
         local valid_shortcut_keys = {
             name = true,
             level = true,
@@ -248,7 +248,7 @@ local function normalize_config_format(config)
             error("Invalid shortcut config: " .. err)
         end
 
-        -- Validate basic fields for shortcut format
+        -- Validate basic fields for convenience syntax
         if config.name ~= nil and type(config.name) ~= "string" then
             error("Invalid shortcut config: Config.name must be a string")
         end
@@ -283,7 +283,7 @@ local function normalize_config_format(config)
             normalized_config[k] = v
         end
 
-        -- Transform shortcut to full form
+        -- Transform convenience syntax to full syntax
         local dispatcher_entry = {
             type = normalized_config.dispatcher,
             presenter = normalized_config.presenter
@@ -315,7 +315,7 @@ local function normalize_config_format(config)
         return normalized_config
     end
 
-    -- Already in full form or no dispatcher config, return as-is
+    -- Already in full syntax or no dispatcher config, return as-is
     return config
 end
 
@@ -456,10 +456,10 @@ local function validate_config(config)
         return false, "Config must be a table"
     end
 
-    -- Check if this appears to be shortcut format before normalization
+    -- Check if this appears to be convenience syntax before normalization
     local was_shortcut_format = config.dispatcher ~= nil or config.presenter ~= nil
 
-    -- Normalize config first (handle shortcut syntax)
+    -- Normalize config first (handle convenience syntax)
     local normalized_config
     local ok, result = pcall(normalize_config_format, config)
     if not ok then
@@ -602,14 +602,14 @@ end
 -- PUBLIC API
 -- =============================================================================
 
---- Main function to process any config format and return a validated canonical config
--- @param input_config table The input config (can be shortcut or full format)
+--- Main function to process any config syntax and return a validated canonical config
+-- @param input_config table The input config (can be convenience or full syntax)
 -- @param default_config table Optional default config to merge with
 -- @return table The validated canonical config
 function M.process_config(input_config, default_config)
     local final_config = input_config
 
-    -- Check if this is a shortcut config and transform it if needed
+    -- Check if this uses convenience syntax and transform it if needed
     final_config = normalize_config_format(final_config)
 
     -- Validate the config
@@ -678,16 +678,16 @@ function M.merge_configs(user_config, default_config)
     return merge_configs(user_config, default_config)
 end
 
---- Detects if a config is in shortcut format (compatibility function)
+--- Detects if a config uses convenience syntax (compatibility function)
 -- @param config table The config to check
--- @return boolean True if shortcut format
+-- @return boolean True if convenience syntax
 function M.is_shortcut_config(config)
     return config.dispatcher ~= nil or config.presenter ~= nil
 end
 
---- Transforms shortcut config to full format (compatibility function)
--- @param config table The shortcut config
--- @return table The full format config
+--- Transforms convenience syntax to full syntax (compatibility function)
+-- @param config table The config using convenience syntax
+-- @return table The config in full syntax
 function M.shortcut_to_full_config(config)
     local normalized = normalize_config_format(config)
     return normalized
