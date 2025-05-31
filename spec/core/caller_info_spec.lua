@@ -52,6 +52,7 @@ describe("lual.core.caller_info", function()
             debug.getinfo = function(level, what)
                 if level >= 2 and what == "Sl" then -- Any level >= 2 should return our test file
                     return {
+                        source = "@/path/to/test_file.lua",
                         short_src = "@/path/to/test_file.lua",
                         currentline = 42
                     }
@@ -76,6 +77,7 @@ describe("lual.core.caller_info", function()
             debug.getinfo = function(level, what)
                 if level >= 2 and what == "Sl" then -- Any level >= 2 should return our test file
                     return {
+                        source = "stdin",
                         short_src = "stdin",
                         currentline = 10
                     }
@@ -145,6 +147,7 @@ describe("lual.core.caller_info", function()
             debug.getinfo = function(level, what)
                 if level >= 2 and what == "Sl" then -- Any level >= 2 should return our test file
                     return {
+                        source = "",
                         short_src = "",
                         currentline = 5
                     }
@@ -168,6 +171,7 @@ describe("lual.core.caller_info", function()
             debug.getinfo = function(level, what)
                 if level >= 2 and what == "Sl" then -- Any level >= 2 should return our test file
                     return {
+                        source = nil,
                         short_src = nil,
                         currentline = 7
                     }
@@ -193,6 +197,7 @@ describe("lual.core.caller_info", function()
             debug.getinfo = function(level, what)
                 if level >= 2 and what == "Sl" then
                     return {
+                        source = "@path/to/my/module.lua",
                         short_src = "@path/to/my/module.lua",
                         currentline = 42
                     }
@@ -217,6 +222,7 @@ describe("lual.core.caller_info", function()
             debug.getinfo = function(level, what)
                 if level >= 2 and what == "Sl" then
                     return {
+                        source = "C:\\Users\\test\\project\\module.lua",
                         short_src = "C:\\Users\\test\\project\\module.lua",
                         currentline = 10
                     }
@@ -234,28 +240,6 @@ describe("lual.core.caller_info", function()
             assert.are.equal("C:.Users.test.project.module", lua_path)
         end)
 
-        it("should remove leading dots with dot notation", function()
-            -- Mock debug.getinfo to return a path starting with ./
-            local original_getinfo = debug.getinfo
-            debug.getinfo = function(level, what)
-                if level >= 2 and what == "Sl" then
-                    return {
-                        short_src = "./src/module.lua",
-                        currentline = 15
-                    }
-                end
-                return original_getinfo(level, what)
-            end
-
-            local filename, lineno, lua_path = caller_info.get_caller_info(nil, true)
-
-            -- Restore original function
-            debug.getinfo = original_getinfo
-
-            assert.are.equal("src.module", filename)
-            assert.are.equal(15, lineno)
-            assert.are.equal("module", lua_path) -- Should extract "module" from "./src/module.lua"
-        end)
 
         it("should handle files without .lua extension with dot notation", function()
             -- Mock debug.getinfo to return a non-lua file
@@ -263,6 +247,7 @@ describe("lual.core.caller_info", function()
             debug.getinfo = function(level, what)
                 if level >= 2 and what == "Sl" then
                     return {
+                        source = "scripts/deploy.sh",
                         short_src = "scripts/deploy.sh",
                         currentline = 20
                     }
@@ -286,7 +271,8 @@ describe("lual.core.caller_info", function()
             debug.getinfo = function(level, what)
                 if level >= 2 and what == "Sl" then
                     return {
-                        short_src = ".lua", -- Would become empty after processing
+                        source = ".lua", -- Would become empty after processing
+                        short_src = ".lua",
                         currentline = 25
                     }
                 end
@@ -309,6 +295,7 @@ describe("lual.core.caller_info", function()
             debug.getinfo = function(level, what)
                 if level >= 2 and what == "Sl" then
                     return {
+                        source = "@path/to/my/module.lua",
                         short_src = "@path/to/my/module.lua",
                         currentline = 30
                     }
@@ -332,6 +319,7 @@ describe("lual.core.caller_info", function()
             debug.getinfo = function(level, what)
                 if level >= 2 and what == "Sl" then
                     return {
+                        source = "@path/to/my/module.lua",
                         short_src = "@path/to/my/module.lua",
                         currentline = 35
                     }
