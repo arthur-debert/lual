@@ -17,8 +17,7 @@ LUAL is a hierarchical logging library for Lua that provides flexible configurat
 local lual = require("lual.logger")
 
 -- Create a logger with convenience syntax
-local logger = lual.logger({
-    name = "app.database",
+local logger = lual.logger("app.database", {
     dispatcher = lual.console,
     level = lual.debug,
     presenter = lual.color,
@@ -109,11 +108,19 @@ The main API is `lual.logger()` which creates or retrieves a logger:
 ```lua
 local lual = require("lual")
 
--- Simple logger creation (recommended)
+-- Simple logger creation
 local logger = lual.logger()           -- Auto-named from filename
-local logger = lual.logger("myapp")    -- Named logger
+local logger = lual.logger("myapp")    -- Named logger with default config
 
--- Config API (full syntax)
+-- Two-parameter API: name + config
+local logger = lual.logger("myapp", {
+    level = "debug",
+    dispatchers = {
+        {type = "console", presenter = "color"}
+    }
+})
+
+-- Config table API (full syntax)
 local logger = lual.logger({
     name = "app.database",
     level = "debug",

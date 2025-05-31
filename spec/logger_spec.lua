@@ -67,6 +67,37 @@ describe("lualog Logger Object", function()
 			local logger = fresh_lualog.logger("spec_prop_test")
 			assert.is_true(logger.propagate)
 		end)
+
+		it("should support two-parameter API: logger(name, config)", function()
+			package.loaded["lual.logger"] = nil
+			local fresh_lualog = require("lual.logger")
+
+			-- Test with name and config
+			local logger = fresh_lualog.logger("custom-api-name", {
+				level = "debug",
+				timezone = "utc",
+				propagate = false
+			})
+
+			assert.are.same("custom-api-name", logger.name)
+			assert.are.same(fresh_lualog.levels.DEBUG, logger.level)
+			assert.are.same("utc", logger.timezone)
+			assert.is_false(logger.propagate)
+		end)
+
+		it("should override name in config when using two-parameter API", function()
+			package.loaded["lual.logger"] = nil
+			local fresh_lualog = require("lual.logger")
+
+			-- Test that name from first parameter overrides name in config
+			local logger = fresh_lualog.logger("first-param-name", {
+				name = "config-name", -- This should be ignored
+				level = "warning"
+			})
+
+			assert.are.same("first-param-name", logger.name) -- Should use first parameter
+			assert.are.same(fresh_lualog.levels.WARNING, logger.level)
+		end)
 	end)
 
 	describe("Logger Methods", function()
