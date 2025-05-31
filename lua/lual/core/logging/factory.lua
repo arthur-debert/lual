@@ -43,7 +43,7 @@ function M.create_simple_logger(name, parent_logger)
     local logger_name = name
     if name == nil or name == "" then
         -- Auto-generate logger name from caller's filename
-        local filename, _ = caller_info.get_caller_info(nil, true) -- Use dot notation conversion
+        local filename, _, _ = caller_info.get_caller_info(nil, true) -- Use dot notation conversion
         if filename then
             logger_name = filename
         else

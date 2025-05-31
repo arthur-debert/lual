@@ -7,7 +7,7 @@ local assert = require("luassert")
 describe("lual.core.caller_info", function()
     describe("get_caller_info()", function()
         it("should return filename and line number for direct call", function()
-            local filename, lineno = caller_info.get_caller_info()
+            local filename, lineno, lua_path = caller_info.get_caller_info()
 
             assert.is_string(filename)
             assert.is_number(lineno)
@@ -17,6 +17,10 @@ describe("lual.core.caller_info", function()
 
             -- Line number should be reasonable (not 0 or negative)
             assert.is_true(lineno > 0)
+
+            -- lua_path might be nil if not findable in package.path
+            -- Just check it's either nil or string
+            assert.truthy(lua_path == nil or type(lua_path) == "string")
         end)
 
         it("should return correct info when called through a wrapper function", function()
@@ -24,7 +28,7 @@ describe("lual.core.caller_info", function()
                 return caller_info.get_caller_info() -- Automatically skip lual internals
             end
 
-            local filename, lineno = wrapper_function() -- This line should be captured
+            local filename, lineno, lua_path = wrapper_function() -- This line should be captured
 
 
 
@@ -37,6 +41,9 @@ describe("lual.core.caller_info", function()
 
             -- Line number should be positive
             assert.is_true(lineno > 0)
+
+            -- lua_path might be nil or string
+            assert.truthy(lua_path == nil or type(lua_path) == "string")
         end)
 
         it("should handle @ prefix in filename correctly", function()
@@ -52,13 +59,15 @@ describe("lual.core.caller_info", function()
                 return original_getinfo(level, what)
             end
 
-            local filename, lineno = caller_info.get_caller_info()
+            local filename, lineno, lua_path = caller_info.get_caller_info()
 
             -- Restore original function
             debug.getinfo = original_getinfo
 
             assert.are.equal("/path/to/test_file.lua", filename)
             assert.are.equal(42, lineno)
+            -- lua_path should be generated from the mocked path
+            assert.are.equal("path.to.test_file", lua_path)
         end)
 
         it("should handle filename without @ prefix", function()
@@ -74,13 +83,15 @@ describe("lual.core.caller_info", function()
                 return original_getinfo(level, what)
             end
 
-            local filename, lineno = caller_info.get_caller_info()
+            local filename, lineno, lua_path = caller_info.get_caller_info()
 
             -- Restore original function
             debug.getinfo = original_getinfo
 
             assert.are.equal("stdin", filename)
             assert.are.equal(10, lineno)
+            -- lua_path should be generated for stdin
+            assert.are.equal("stdin", lua_path)
         end)
 
         it("should return nil values when debug info is unavailable", function()
@@ -90,27 +101,30 @@ describe("lual.core.caller_info", function()
                 return nil -- Always return nil to simulate no debug info
             end
 
-            local filename, lineno = caller_info.get_caller_info()
+            local filename, lineno, lua_path = caller_info.get_caller_info()
 
             -- Restore original function
             debug.getinfo = original_getinfo
 
             assert.is_nil(filename)
             assert.is_nil(lineno)
+            assert.is_nil(lua_path)
         end)
 
         it("should use default start level when not specified", function()
-            local filename1, lineno1 = caller_info.get_caller_info()  -- No start level specified
-            local filename2, lineno2 = caller_info.get_caller_info(2) -- Explicit start level 2
+            local filename1, lineno1, lua_path1 = caller_info.get_caller_info()  -- No start level specified
+            local filename2, lineno2, lua_path2 = caller_info.get_caller_info(2) -- Explicit start level 2
 
             assert.are.equal(filename1, filename2)
             -- Line numbers might differ by 1 due to the different call lines
             assert.is_true(math.abs(lineno1 - lineno2) <= 1)
+            -- lua_path should be the same
+            assert.are.equal(lua_path1, lua_path2)
         end)
 
         it("should automatically skip lual internal files", function()
             -- This test verifies that the function automatically finds non-lual files
-            local filename, lineno = caller_info.get_caller_info()
+            local filename, lineno, lua_path = caller_info.get_caller_info()
 
             assert.is_string(filename)
             assert.is_number(lineno)
@@ -120,6 +134,9 @@ describe("lual.core.caller_info", function()
             -- Verify it doesn't return lual internal files
             assert.is_false(string.find(filename, "caller_info.lua", 1, true) ~= nil)
             assert.is_false(string.find(filename, "engine.lua", 1, true) ~= nil)
+
+            -- lua_path check
+            assert.truthy(lua_path == nil or type(lua_path) == "string")
         end)
 
         it("should handle edge case with empty filename", function()
@@ -135,13 +152,14 @@ describe("lual.core.caller_info", function()
                 return original_getinfo(level, what)
             end
 
-            local filename, lineno = caller_info.get_caller_info()
+            local filename, lineno, lua_path = caller_info.get_caller_info()
 
             -- Restore original function
             debug.getinfo = original_getinfo
 
             assert.are.equal("", filename)
             assert.are.equal(5, lineno)
+            assert.is_nil(lua_path)
         end)
 
         it("should handle edge case with nil filename", function()
@@ -157,13 +175,14 @@ describe("lual.core.caller_info", function()
                 return original_getinfo(level, what)
             end
 
-            local filename, lineno = caller_info.get_caller_info()
+            local filename, lineno, lua_path = caller_info.get_caller_info()
 
             -- Restore original function
             debug.getinfo = original_getinfo
 
             assert.is_nil(filename)
             assert.are.equal(7, lineno)
+            assert.is_nil(lua_path)
         end)
     end)
 
@@ -181,13 +200,15 @@ describe("lual.core.caller_info", function()
                 return original_getinfo(level, what)
             end
 
-            local filename, lineno = caller_info.get_caller_info(nil, true)
+            local filename, lineno, lua_path = caller_info.get_caller_info(nil, true)
 
             -- Restore original function
             debug.getinfo = original_getinfo
 
             assert.are.equal("path.to.my.module", filename)
             assert.are.equal(42, lineno)
+            -- lua_path should be generated from the mocked path
+            assert.are.equal("path.to.my.module", lua_path)
         end)
 
         it("should handle Windows-style paths with dot notation", function()
@@ -203,13 +224,14 @@ describe("lual.core.caller_info", function()
                 return original_getinfo(level, what)
             end
 
-            local filename, lineno = caller_info.get_caller_info(nil, true)
+            local filename, lineno, lua_path = caller_info.get_caller_info(nil, true)
 
             -- Restore original function
             debug.getinfo = original_getinfo
 
             assert.are.equal("C:.Users.test.project.module", filename)
             assert.are.equal(10, lineno)
+            assert.are.equal("C:.Users.test.project.module", lua_path)
         end)
 
         it("should remove leading dots with dot notation", function()
@@ -225,13 +247,14 @@ describe("lual.core.caller_info", function()
                 return original_getinfo(level, what)
             end
 
-            local filename, lineno = caller_info.get_caller_info(nil, true)
+            local filename, lineno, lua_path = caller_info.get_caller_info(nil, true)
 
             -- Restore original function
             debug.getinfo = original_getinfo
 
             assert.are.equal("src.module", filename)
             assert.are.equal(15, lineno)
+            assert.are.equal("module", lua_path) -- Should extract "module" from "./src/module.lua"
         end)
 
         it("should handle files without .lua extension with dot notation", function()
@@ -247,13 +270,14 @@ describe("lual.core.caller_info", function()
                 return original_getinfo(level, what)
             end
 
-            local filename, lineno = caller_info.get_caller_info(nil, true)
+            local filename, lineno, lua_path = caller_info.get_caller_info(nil, true)
 
             -- Restore original function
             debug.getinfo = original_getinfo
 
             assert.are.equal("scripts.deploy.sh", filename)
             assert.are.equal(20, lineno)
+            assert.are.equal("scripts.deploy.sh", lua_path) -- Non-lua files keep their extension
         end)
 
         it("should return nil filename when dot notation results in empty string", function()
@@ -269,13 +293,14 @@ describe("lual.core.caller_info", function()
                 return original_getinfo(level, what)
             end
 
-            local filename, lineno = caller_info.get_caller_info(nil, true)
+            local filename, lineno, lua_path = caller_info.get_caller_info(nil, true)
 
             -- Restore original function
             debug.getinfo = original_getinfo
 
             assert.is_nil(filename)
             assert.are.equal(25, lineno)
+            assert.is_nil(lua_path)
         end)
 
         it("should not convert when use_dot_notation is false", function()
@@ -291,13 +316,14 @@ describe("lual.core.caller_info", function()
                 return original_getinfo(level, what)
             end
 
-            local filename, lineno = caller_info.get_caller_info(nil, false)
+            local filename, lineno, lua_path = caller_info.get_caller_info(nil, false)
 
             -- Restore original function
             debug.getinfo = original_getinfo
 
             assert.are.equal("path/to/my/module.lua", filename)
             assert.are.equal(30, lineno)
+            assert.are.equal("path.to.my.module", lua_path) -- Should extract lua_path
         end)
 
         it("should default to false for use_dot_notation when not specified", function()
@@ -313,13 +339,14 @@ describe("lual.core.caller_info", function()
                 return original_getinfo(level, what)
             end
 
-            local filename, lineno = caller_info.get_caller_info()
+            local filename, lineno, lua_path = caller_info.get_caller_info()
 
             -- Restore original function
             debug.getinfo = original_getinfo
 
             assert.are.equal("path/to/my/module.lua", filename)
             assert.are.equal(35, lineno)
+            assert.are.equal("path.to.my.module", lua_path) -- Should extract lua_path
         end)
     end)
 end)

@@ -138,7 +138,7 @@ function M._get_logger_simple(name)
         -- Auto-generate logger name from caller's filename
         local caller_info = require("lual.core.caller_info")
         -- Use caller_info to automatically find the first non-lual file
-        local filename, _ = caller_info.get_caller_info(nil, true)
+        local filename, _, _ = caller_info.get_caller_info(nil, true)
         if filename then
             logger_name = filename
         else
@@ -169,17 +169,74 @@ end
 
 --- Creates a logger from a config table
 -- This is the primary API for creating loggers. Can be called with:
--- 1. No arguments or string name: lual.logger() or lual.logger("name") - simple logger creation
--- 2. Config table: lual.logger({name="app", level="debug", dispatchers={...}}) - configuration
+-- 1. No arguments: lual.logger() - auto-named logger creation
+-- 2. String name: lual.logger("name") - simple logger creation with name
+-- 3. String name + config: lual.logger("name", {level="debug", ...}) - name from first param, config from second
+-- 4. Config table: lual.logger({name="app", level="debug", dispatchers={...}}) - full configuration
 -- @param input_config (string|table|nil) The logger name or configuration
+-- @param config_table (table|nil) Optional configuration table when first param is a string name
 -- @return table The logger instance
-function M.logger(input_config)
-    -- Handle simple cases: nil, empty string, or string name
+function M.logger(input_config, config_table)
+    -- Handle two-parameter form: logger("name", config_table)
+    if type(input_config) == "string" and type(config_table) == "table" then
+        -- Define default config
+        local default_config = {
+            name = input_config, -- Use name from first parameter
+            level = "info",
+            dispatchers = {},
+            propagate = true,
+            timezone = "local", -- Default to local time
+        }
+
+        -- Use the config module to process the input config, but override the name
+        local canonical_config = config_module.process_config(config_table, default_config)
+        canonical_config.name = input_config -- Ensure name comes from first parameter
+
+        -- Continue with config processing...
+        -- Check if logger already exists in cache and if its configuration matches
+        if canonical_config.name and _loggers_cache[canonical_config.name] then
+            local cached_logger = _loggers_cache[canonical_config.name]
+            local cached_config = cached_logger:get_config()
+
+            -- Compare key configuration fields to see if we can reuse the cached logger
+            if cached_config.level == canonical_config.level and
+                cached_config.timezone == canonical_config.timezone and
+                cached_config.propagate == canonical_config.propagate then
+                -- For dispatchers, we'll do a simple length check for now
+                -- A more sophisticated comparison could be added later if needed
+                if #(cached_config.dispatchers or {}) == #(canonical_config.dispatchers or {}) then
+                    return cached_logger
+                end
+            end
+            -- If configuration doesn't match, we'll create a new logger and update the cache
+        end
+
+        -- Determine parent based on hierarchical naming
+        local parent_name = get_parent_name(canonical_config.name)
+        local parent_logger = nil
+
+        if parent_name then
+            parent_logger = get_or_create_parent(parent_name)
+        end
+
+        canonical_config.parent = parent_logger
+
+        local new_logger = factory.create_logger_from_config(canonical_config)
+
+        -- Cache the logger if it has a name
+        if canonical_config.name then
+            _loggers_cache[canonical_config.name] = new_logger
+        end
+
+        return new_logger
+    end
+
+    -- Handle simple cases: nil, empty string, or string name (single parameter)
     if input_config == nil or input_config == "" or type(input_config) == "string" then
         return M._get_logger_simple(input_config)
     end
 
-    -- Handle table-based configuration
+    -- Handle table-based configuration (single parameter)
     if type(input_config) ~= "table" then
         error("logger() expects nil, string, or table argument, got " .. type(input_config))
     end

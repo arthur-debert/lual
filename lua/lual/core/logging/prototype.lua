@@ -39,7 +39,7 @@ function M.logger_prototype:log(level_no, ...)
         return
     end
 
-    local filename, lineno = caller_info.get_caller_info()
+    local filename, lineno, lua_path = caller_info.get_caller_info()
 
     local packed_varargs = table.pack(...)
     local msg_fmt_val
@@ -98,6 +98,8 @@ function M.logger_prototype:log(level_no, ...)
         logger_name = self.name,
         source_logger_name = self.name,      -- Initially the same as logger_name
         filename = filename,
+        file_path = filename,                -- Keep file_path for backward compatibility
+        lua_path = lua_path,                 -- Add the new lua_path field
         lineno = lineno,
     }
 
