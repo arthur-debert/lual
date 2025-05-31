@@ -17,13 +17,14 @@ describe("ingest.dispatch_log_event", function()
 	local dispatcher_calls_ok = {} -- For tests with mixed erroring/non-erroring dispatchers
 	local stderr_messages = {}
 
-	local function create_mock_logger(name, level, dispatchers, propagate, parent)
+	local function create_mock_logger(name, level, dispatchers, propagate, parent, timezone)
 		local logger = {
 			name = name,
 			level = level,
 			dispatchers = dispatchers or {},
 			propagate = propagate,
 			parent = parent,
+			timezone = timezone or "local", -- Add timezone support
 			is_enabled_for = function(self, message_level)
 				return message_level >= (self.level or mock_log_levels.INFO)
 			end,
@@ -41,6 +42,7 @@ describe("ingest.dispatch_log_event", function()
 								dispatcher_config = h_entry.dispatcher_config,
 								owner_logger_name = current.name, -- Add owner context
 								owner_logger_level = current.level, -- Add owner context
+								owner_logger_timezone = current.timezone, -- Add timezone context
 							})
 						end
 					end
@@ -792,6 +794,116 @@ describe("ingest.dispatch_log_event", function()
 			assert.are.equal(event_details.source_logger_name, dispatcher_input_params.source_logger_name)
 			assert.are.same("passthrough_h", dispatcher_calls_list[1].config.id)
 		end
+
+		assert.are.same(0, #get_stderr_messages())
+	end)
+
+	it("should pass timezone information from owning logger to presenter and dispatcher", function()
+		-- Track timezone information passed to presenters and dispatchers
+		local timezone_presenter_calls = {}
+		local timezone_dispatcher_calls = {}
+
+		local function timezone_aware_presenter(base_record)
+			table.insert(timezone_presenter_calls, {
+				logger_name = base_record.logger_name,
+				source_logger_name = base_record.source_logger_name,
+				timezone = base_record.timezone
+			})
+			return string.format("Formatted with timezone %s: %s",
+				base_record.timezone or "MISSING",
+				string.format(base_record.message_fmt, unpack(base_record.args or {})))
+		end
+
+		local function timezone_aware_dispatcher(record, config)
+			table.insert(timezone_dispatcher_calls, {
+				logger_name = record.logger_name,
+				source_logger_name = record.source_logger_name,
+				timezone = record.timezone
+			})
+		end
+
+		-- Create parent and child loggers with different timezones
+		local parent_logger = create_mock_logger("parent", _G.log.levels.INFO, {
+			{
+				presenter_func = timezone_aware_presenter,
+				dispatcher_func = timezone_aware_dispatcher,
+				dispatcher_config = { id = "parent_h" },
+			},
+		}, false, nil, "utc") -- Parent uses UTC
+
+		local child_logger = create_mock_logger("child", _G.log.levels.INFO, {
+			{
+				presenter_func = timezone_aware_presenter,
+				dispatcher_func = timezone_aware_dispatcher,
+				dispatcher_config = { id = "child_h" },
+			},
+		}, true, parent_logger, "local") -- Child uses local time
+
+		set_mock_loggers({ parent = parent_logger, child = child_logger })
+
+		local event_details = {
+			level_no = _G.log.levels.INFO,
+			level_name = "INFO",
+			message_fmt = "Test timezone propagation: %s",
+			args = { "timezone_test" },
+			timestamp = 1678886420,
+			filename = "timezone_test.lua",
+			lineno = 100,
+			source_logger_name = "child", -- Event originates from child
+			context = nil,
+		}
+
+		ingest.dispatch_log_event(event_details, mock_logger_internal, mock_log_levels)
+
+		-- Should have 2 presenter calls (child and parent)
+		assert.are.equal(2, #timezone_presenter_calls)
+
+		-- Should have 2 dispatcher calls (child and parent)
+		assert.are.equal(2, #timezone_dispatcher_calls)
+
+		-- Find the child and parent calls
+		local child_presenter_call, parent_presenter_call
+		local child_dispatcher_call, parent_dispatcher_call
+
+		for _, call in ipairs(timezone_presenter_calls) do
+			if call.logger_name == "child" then
+				child_presenter_call = call
+			elseif call.logger_name == "parent" then
+				parent_presenter_call = call
+			end
+		end
+
+		for _, call in ipairs(timezone_dispatcher_calls) do
+			if call.logger_name == "child" then
+				child_dispatcher_call = call
+			elseif call.logger_name == "parent" then
+				parent_dispatcher_call = call
+			end
+		end
+
+		-- Verify child presenter received child's timezone
+		assert.is_not_nil(child_presenter_call)
+		assert.are.equal("child", child_presenter_call.logger_name)
+		assert.are.equal("child", child_presenter_call.source_logger_name)
+		assert.are.equal("local", child_presenter_call.timezone)
+
+		-- Verify parent presenter received parent's timezone (not child's)
+		assert.is_not_nil(parent_presenter_call)
+		assert.are.equal("parent", parent_presenter_call.logger_name)
+		assert.are.equal("child", parent_presenter_call.source_logger_name) -- Source is still child
+		assert.are.equal("utc", parent_presenter_call.timezone)       -- Parent's timezone, not child's
+
+		-- Verify child dispatcher received child's timezone
+		assert.is_not_nil(child_dispatcher_call)
+		assert.are.equal("child", child_dispatcher_call.logger_name)
+		assert.are.equal("child", child_dispatcher_call.source_logger_name)
+		assert.are.equal("local", child_dispatcher_call.timezone)
+
+		-- Verify parent dispatcher received parent's timezone (not child's)
+		assert.is_not_nil(parent_dispatcher_call)
+		assert.are.equal("parent", parent_dispatcher_call.logger_name)
+		assert.are.equal("child", parent_dispatcher_call.source_logger_name) -- Source is still child
+		assert.are.equal("utc", parent_dispatcher_call.timezone)       -- Parent's timezone, not child's
 
 		assert.are.same(0, #get_stderr_messages())
 	end)

@@ -248,6 +248,96 @@ describe("Hierarchical Logging System", function()
             assert.are.equal("utc", root_logger.timezone)
             assert.are.equal("local", app_logger.timezone)
         end)
+
+        it("should use owning logger's timezone in propagation model", function()
+            -- This is the critical test for the timezone propagation fix
+            local timezone_calls = {}
+
+            local function create_timezone_aware_presenter(name)
+                return function(record)
+                    table.insert(timezone_calls, {
+                        presenter_name = name,
+                        logger_name = record.logger_name,
+                        source_logger_name = record.source_logger_name,
+                        timezone = record.timezone, -- This is the key field
+                        message_fmt = record.message_fmt
+                    })
+                    -- Format with timezone info for verification
+                    return string.format("[%s|%s] %s: %s",
+                        record.level_name,
+                        record.timezone or "MISSING",
+                        record.logger_name,
+                        record.message_fmt or "")
+                end
+            end
+
+            -- Create hierarchy with different timezones
+            local root_logger = lual.config({
+                level = "info",
+                timezone = "utc"
+            })
+            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"),
+                create_timezone_aware_presenter("root_presenter"))
+
+            local app_logger = lual.logger({
+                name = "app",
+                level = "info",
+                timezone = "local"
+            })
+            app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"),
+                create_timezone_aware_presenter("app_presenter"))
+
+            local db_logger = lual.logger({
+                name = "app.database",
+                level = "info",
+                timezone = "utc" -- Different from app (local), same as root but that's OK for this test
+            })
+            db_logger:add_dispatcher(create_mock_dispatcher("db_dispatcher"),
+                create_timezone_aware_presenter("db_presenter"))
+
+            -- Log from the deepest logger
+            db_logger:warn("Database connection issue")
+
+            -- Should have called 3 presenters (db, app, root)
+            assert.are.equal(3, #timezone_calls)
+
+            -- Find each presenter call and verify timezone
+            local db_call, app_call, root_call
+            for _, call in ipairs(timezone_calls) do
+                if call.presenter_name == "db_presenter" then
+                    db_call = call
+                elseif call.presenter_name == "app_presenter" then
+                    app_call = call
+                elseif call.presenter_name == "root_presenter" then
+                    root_call = call
+                end
+            end
+
+            -- Verify each presenter received its owning logger's timezone
+            assert.is_not_nil(db_call)
+            assert.are.equal("app.database", db_call.logger_name)        -- DB logger owns this dispatcher
+            assert.are.equal("app.database", db_call.source_logger_name) -- DB logger originated the message
+            assert.are.equal("utc", db_call.timezone)                    -- DB logger's timezone setting
+
+            assert.is_not_nil(app_call)
+            assert.are.equal("app", app_call.logger_name)                 -- App logger owns this dispatcher
+            assert.are.equal("app.database", app_call.source_logger_name) -- DB logger originated the message
+            assert.are.equal("local", app_call.timezone)                  -- App logger's timezone setting
+
+            assert.is_not_nil(root_call)
+            assert.are.equal("root", root_call.logger_name)                -- Root logger owns this dispatcher
+            assert.are.equal("app.database", root_call.source_logger_name) -- DB logger originated the message
+            assert.are.equal("utc", root_call.timezone)                    -- Root logger's timezone setting
+
+            -- Also verify the dispatchers received timezone information
+            assert.are.equal(3, #mock_dispatcher_calls)
+            for _, call in ipairs(mock_dispatcher_calls) do
+                -- Source should always be the same
+                assert.are.equal("app.database", call.source_logger_name)
+                -- The message should include timezone info from the formatted output
+                assert.truthy(call.message:find("|")) -- Should contain timezone separator
+            end
+        end)
     end)
 
     describe("Multi-Level Configuration Examples", function()

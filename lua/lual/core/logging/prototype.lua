@@ -120,17 +120,39 @@ function M.logger_prototype:get_effective_dispatchers()
     local effective_dispatchers = {}
     local current_logger = self
 
+    -- Get logger configuration fields from schema for consistency and maintainability
+    local config_schema = require("lual.schema.config_schema")
+    local owner_config_fields = {}
+
+    -- Extract field names from ConfigSchema, excluding fields that shouldn't be propagated
+    local excluded_fields = {
+        dispatchers = true, -- Handled separately in propagation logic
+        -- Add other fields here if they shouldn't be propagated to dispatcher context
+    }
+
+    for field_name, _ in pairs(config_schema.ConfigSchema) do
+        if not excluded_fields[field_name] then
+            table.insert(owner_config_fields, field_name)
+        end
+    end
+
     while current_logger do
         -- Add dispatchers from current logger
         for _, dispatcher_item in ipairs(current_logger.dispatchers or {}) do
-            table.insert(effective_dispatchers, {
+            local effective_dispatcher = {
                 dispatcher_func = dispatcher_item.dispatcher_func,
                 presenter_func = dispatcher_item.presenter_func,
                 transformer_funcs = dispatcher_item.transformer_funcs or {},
                 dispatcher_config = dispatcher_item.dispatcher_config,
-                owner_logger_name = current_logger.name,
-                owner_logger_level = current_logger.level,
-            })
+            }
+
+            -- Add owner logger configuration fields based on schema
+            for _, field in ipairs(owner_config_fields) do
+                local owner_field_name = "owner_logger_" .. field
+                effective_dispatcher[owner_field_name] = current_logger[field]
+            end
+
+            table.insert(effective_dispatchers, effective_dispatcher)
         end
 
         -- Check if we should continue propagating

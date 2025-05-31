@@ -33,18 +33,18 @@ describe("Unified Config API", function()
             local shortcut_config = { dispatcher = "console", presenter = "text" }
             local full_config = { dispatchers = { { type = "console", presenter = "text" } } }
 
-            assert.is_true(config.is_shortcut_config(shortcut_config))
-            assert.is_false(config.is_shortcut_config(full_config))
+            assert.is_true(config.is_convenience_config_syntax(shortcut_config))
+            assert.is_false(config.is_convenience_config_syntax(full_config))
         end)
 
         it("should detect convenience syntax with only dispatcher field", function()
             local config_table = { dispatcher = "console" }
-            assert.is_true(config.is_shortcut_config(config_table))
+            assert.is_true(config.is_convenience_config_syntax(config_table))
         end)
 
         it("should detect convenience syntax with only presenter field", function()
             local config_table = { presenter = "text" }
-            assert.is_true(config.is_shortcut_config(config_table))
+            assert.is_true(config.is_convenience_config_syntax(config_table))
         end)
 
         it("should transform console convenience syntax to full format", function()
@@ -56,7 +56,7 @@ describe("Unified Config API", function()
                 propagate = false
             }
 
-            local result = config.shortcut_to_full_config(shortcut)
+            local result = config.transform_convenience_config_to_full(shortcut)
 
             assert.are.same("test", result.name)
             assert.are.same("debug", result.level)
@@ -74,7 +74,7 @@ describe("Unified Config API", function()
                 presenter = "color"
             }
 
-            local result = config.shortcut_to_full_config(shortcut)
+            local result = config.transform_convenience_config_to_full(shortcut)
 
             assert.are.same("test", result.name)
             assert.are.same(1, #result.dispatchers)
@@ -90,7 +90,7 @@ describe("Unified Config API", function()
                 stream = io.stderr
             }
 
-            local result = config.shortcut_to_full_config(shortcut)
+            local result = config.transform_convenience_config_to_full(shortcut)
 
             assert.are.same(1, #result.dispatchers)
             assert.are.same("console", result.dispatchers[1].type)
@@ -105,7 +105,7 @@ describe("Unified Config API", function()
                 timezone = "utc"
             }
 
-            local result = config.shortcut_to_full_config(shortcut)
+            local result = config.transform_convenience_config_to_full(shortcut)
 
             assert.are.same("utc", result.timezone)
             assert.are.same(1, #result.dispatchers)

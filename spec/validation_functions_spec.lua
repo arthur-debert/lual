@@ -11,8 +11,8 @@ describe("Validation Functions", function()
 
     describe("Unified API validation", function()
         it("should detect convenience syntax", function()
-            assert.is_true(config.is_shortcut_config({ dispatcher = "console", presenter = "text" }))
-            assert.is_false(config.is_shortcut_config({ dispatchers = { { type = "console", presenter = "text" } } }))
+            assert.is_true(config.is_convenience_config_syntax({ dispatcher = "console", presenter = "text" }))
+            assert.is_false(config.is_convenience_config_syntax({ dispatchers = { { type = "console", presenter = "text" } } }))
         end)
 
         it("should transform convenience syntax to full format", function()
@@ -23,7 +23,7 @@ describe("Validation Functions", function()
                 level = "debug"
             }
 
-            local result = config.shortcut_to_full_config(shortcut)
+            local result = config.transform_convenience_config_to_full(shortcut)
 
             assert.are.same("test", result.name)
             assert.are.same("debug", result.level)
@@ -39,7 +39,7 @@ describe("Validation Functions", function()
                 timezone = "utc"
             }
 
-            local result = config.shortcut_to_full_config(shortcut)
+            local result = config.transform_convenience_config_to_full(shortcut)
 
             assert.are.same("utc", result.timezone)
             assert.are.same(1, #result.dispatchers)
