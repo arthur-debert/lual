@@ -33,17 +33,46 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Check if version is provided
-if [ -z "$1" ]; then
-    print_error "Usage: $0 <version> [--dry-run]"
-    print_error "Example: $0 0.2.0"
-    exit 1
+# Check if version is provided, otherwise read from releases/VERSION
+DRY_RUN=""
+
+# Handle different argument patterns
+if [ "$1" = "--dry-run" ]; then
+    # Only --dry-run provided, read version from file
+    DRY_RUN="--dry-run"
+    NEW_VERSION=""
+elif [ "$2" = "--dry-run" ]; then
+    # Version and --dry-run provided
+    NEW_VERSION="$1"
+    DRY_RUN="--dry-run"
+elif [ -n "$1" ]; then
+    # Only version provided
+    NEW_VERSION="$1"
+else
+    # No arguments provided
+    NEW_VERSION=""
 fi
 
-NEW_VERSION="$1"
-DRY_RUN=""
-if [ "$2" = "--dry-run" ]; then
-    DRY_RUN="--dry-run"
+# If no version specified, read from VERSION file
+if [ -z "$NEW_VERSION" ]; then
+    VERSION_FILE="releases/VERSION"
+    if [ ! -f "$VERSION_FILE" ]; then
+        print_error "No version provided and VERSION file not found: $VERSION_FILE"
+        print_error "Usage: $0 [version] [--dry-run]"
+        print_error "Example: $0 0.2.0"
+        exit 1
+    fi
+
+    NEW_VERSION=$(cat "$VERSION_FILE" | tr -d '\n' | tr -d '\r')
+    if [ -z "$NEW_VERSION" ]; then
+        print_error "VERSION file is empty: $VERSION_FILE"
+        exit 1
+    fi
+
+    print_status "Using version from $VERSION_FILE: $NEW_VERSION"
+fi
+
+if [ -n "$DRY_RUN" ]; then
     print_warning "DRY RUN MODE - No actual changes will be made"
 fi
 
