@@ -1,6 +1,6 @@
 rockspec_format = "3.0"
-package = "lual"
-version = "0.8.1-1"
+package = "lualextras"
+version = "0.8.2-1"
 source = {
    url = "git+https://github.com/arthur-debert/lual.git"
 }
@@ -14,6 +14,9 @@ description = {
 }
 dependencies = {
    "lua >= 5.1",
+   "dkjson >= 2.5",
+   "luasocket >= 3.0rc1-2",
+   "busted >= 2.0.0"
 }
 build = {
    type = "builtin",
@@ -25,7 +28,6 @@ build = {
    }
 }
 test_dependencies = {
-   "busted >= 2.0.0"
 }
 test = {
    type = "busted"
