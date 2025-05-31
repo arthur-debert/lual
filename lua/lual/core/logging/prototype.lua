@@ -114,11 +114,14 @@ function M.logger_prototype:is_enabled_for(message_level_no)
 end
 
 --- Gets all effective dispatchers for this logger (including parent dispatchers via propagation)
+-- This implements the propagation model where each logger fires its own dispatchers,
+-- then the event propagates upward to parent loggers
 function M.logger_prototype:get_effective_dispatchers()
     local effective_dispatchers = {}
     local current_logger = self
 
     while current_logger do
+        -- Add dispatchers from current logger
         for _, dispatcher_item in ipairs(current_logger.dispatchers or {}) do
             table.insert(effective_dispatchers, {
                 dispatcher_func = dispatcher_item.dispatcher_func,
@@ -130,11 +133,13 @@ function M.logger_prototype:get_effective_dispatchers()
             })
         end
 
+        -- Check if we should continue propagating
         if not current_logger.propagate or not current_logger.parent then
             break
         end
         current_logger = current_logger.parent
     end
+
     return effective_dispatchers
 end
 

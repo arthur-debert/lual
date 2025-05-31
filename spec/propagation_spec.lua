@@ -19,11 +19,6 @@ describe("Logger Propagation", function()
         -- Track dispatcher and presenter calls
         mock_dispatcher_calls = {}
         mock_presenter_calls = {}
-
-        -- Clear any default dispatchers that might be set up
-        local root_logger = lual.logger("root")
-        -- Clear dispatchers directly for test setup (this is acceptable for tests)
-        root_logger.dispatchers = {}
     end)
 
     local function create_mock_dispatcher(name)
@@ -53,12 +48,17 @@ describe("Logger Propagation", function()
 
     describe("Basic Propagation", function()
         it("should propagate messages from child to parent loggers", function()
-            local root_logger = lual.logger("root")
+            -- Configure a root logger to enable full hierarchy propagation
+            local root_logger = lual.config({
+                level = "info",
+                dispatchers = {}
+            })
+            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_presenter("root_presenter"))
+
             local app_logger = lual.logger("app")
             local db_logger = lual.logger("app.database")
 
             -- Add dispatchers to different levels
-            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_presenter("root_presenter"))
             app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_presenter("app_presenter"))
 
             -- Log from the deepest logger
@@ -125,11 +125,16 @@ describe("Logger Propagation", function()
 
     describe("Propagation Control", function()
         it("should stop propagation when propagate is false", function()
-            local root_logger = lual.logger("root")
+            -- Configure root logger for full hierarchy
+            local root_logger = lual.config({
+                level = "info",
+                dispatchers = {}
+            })
+            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_presenter("root_presenter"))
+
             local app_logger = lual.logger("app")
             local security_logger = lual.logger("app.security")
 
-            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_presenter("root_presenter"))
             app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_presenter("app_presenter"))
             security_logger:add_dispatcher(create_mock_dispatcher("security_dispatcher"),
                 create_mock_presenter("security_presenter"))
@@ -147,12 +152,17 @@ describe("Logger Propagation", function()
         end)
 
         it("should stop propagation at the logger where propagate is false", function()
-            local root_logger = lual.logger("root")
+            -- Configure root logger for full hierarchy
+            local root_logger = lual.config({
+                level = "info",
+                dispatchers = {}
+            })
+            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_presenter("root_presenter"))
+
             local app_logger = lual.logger("app")
             local db_logger = lual.logger("app.database")
             local conn_logger = lual.logger("app.database.connection")
 
-            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_presenter("root_presenter"))
             app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_presenter("app_presenter"))
             db_logger:add_dispatcher(create_mock_dispatcher("db_dispatcher"), create_mock_presenter("db_presenter"))
             conn_logger:add_dispatcher(create_mock_dispatcher("conn_dispatcher"), create_mock_presenter("conn_presenter"))
@@ -181,16 +191,20 @@ describe("Logger Propagation", function()
 
     describe("Level Filtering in Propagation", function()
         it("should apply level filtering at each logger in the hierarchy", function()
-            local root_logger = lual.logger("root")
+            -- Configure root logger for full hierarchy
+            local root_logger = lual.config({
+                level = "warning", -- Only warnings and above
+                dispatchers = {}
+            })
+            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_presenter("root_presenter"))
+
             local app_logger = lual.logger("app")
             local debug_logger = lual.logger("app.debug")
 
             -- Set different levels
-            root_logger:set_level(lual.levels.WARNING) -- Only warnings and above
-            app_logger:set_level(lual.levels.INFO)     -- Info and above
-            debug_logger:set_level(lual.levels.DEBUG)  -- Everything
+            app_logger:set_level(lual.levels.INFO)    -- Info and above
+            debug_logger:set_level(lual.levels.DEBUG) -- Everything
 
-            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_presenter("root_presenter"))
             app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_presenter("app_presenter"))
             debug_logger:add_dispatcher(create_mock_dispatcher("debug_dispatcher"),
                 create_mock_presenter("debug_presenter"))
@@ -234,8 +248,14 @@ describe("Logger Propagation", function()
 
     describe("Complex Hierarchy Propagation", function()
         it("should handle deep hierarchies correctly", function()
+            -- Configure root logger to enable full hierarchy propagation
+            local root_logger = lual.config({
+                level = "info",
+                dispatchers = {}
+            })
+
             local loggers = {
-                lual.logger("root"),
+                root_logger,
                 lual.logger("webapp"),
                 lual.logger("webapp.api"),
                 lual.logger("webapp.api.v1"),
@@ -299,12 +319,15 @@ describe("Logger Propagation", function()
 
     describe("Edge Cases", function()
         it("should handle logger with no dispatchers but propagating parents", function()
-            local root_logger = lual.logger("root")
+            -- Configure root logger to enable propagation to it
+            local root_logger = lual.config({
+                level = "info",
+                dispatchers = {}
+            })
+            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_presenter("root_presenter"))
+
             local app_logger = lual.logger("app")
             local db_logger = lual.logger("app.database")
-
-            -- Only root has dispatchers
-            root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_presenter("root_presenter"))
 
             -- app_logger and db_logger have no dispatchers
 
@@ -318,10 +341,14 @@ describe("Logger Propagation", function()
         end)
 
         it("should handle root logger with propagate=false", function()
-            local root_logger = lual.logger("root")
-            local app_logger = lual.logger("app")
-
+            -- Configure root logger
+            local root_logger = lual.config({
+                level = "info",
+                dispatchers = {}
+            })
             root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_presenter("root_presenter"))
+
+            local app_logger = lual.logger("app")
             app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_presenter("app_presenter"))
 
             -- Disable propagation on root (shouldn't matter since it has no parent)

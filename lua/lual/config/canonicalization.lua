@@ -59,8 +59,14 @@ local function get_dispatcher_function(dispatcher_type, config)
     if dispatcher_type == "console" then
         return all_dispatchers.console_dispatcher
     elseif dispatcher_type == "file" then
-        -- File dispatcher is a factory, call it with config to get the actual function
-        return all_dispatchers.file_dispatcher(config)
+        -- File dispatcher is a callable module (factory pattern)
+        local file_dispatcher = all_dispatchers.file_dispatcher
+        local success, result = pcall(file_dispatcher, config)
+        if success and type(result) == "function" then
+            return result
+        else
+            error("Failed to create file dispatcher: " .. tostring(result))
+        end
     end
 
     error("Unknown dispatcher type: " .. tostring(dispatcher_type))

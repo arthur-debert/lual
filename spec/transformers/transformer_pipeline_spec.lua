@@ -73,9 +73,8 @@ describe("Transformer pipeline integration", function()
             assert.is_function(lual.transformers.noop_transformer)
         end)
 
-        it("should expose transformer shortcuts in lib (backward compatibility)", function()
-            assert.is_not_nil(lual.lib.noop)
-            assert.is_true(type(lual.lib.noop) == "table" or type(lual.lib.noop) == "function")
+        it("should have transformer constants in flat namespace", function()
+            assert.are.equal("noop", lual.noop)
         end)
 
         it("should have flat namespace constant lual.noop", function()

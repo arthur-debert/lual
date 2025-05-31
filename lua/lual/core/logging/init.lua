@@ -13,6 +13,9 @@ local M = {}
 -- Logger cache
 local _loggers_cache = {}
 
+-- Root logger reference (only set when lual.config() is called)
+local _root_logger = nil
+
 -- =============================================================================
 -- CACHE MANAGEMENT
 -- =============================================================================
@@ -24,9 +27,86 @@ local function update_cache(name, logger)
     _loggers_cache[name] = logger
 end
 
---- Resets the logger cache
+--- Resets the logger cache and root logger
 function M.reset_cache()
     _loggers_cache = {}
+    _root_logger = nil
+end
+
+-- =============================================================================
+-- ROOT LOGGER CONFIGURATION (NEW API)
+-- =============================================================================
+
+--- Creates and configures the root logger. This is the only way to enable a root logger.
+--- @param config table The root logger configuration
+--- @return table The root logger instance
+function M.config_root_logger(config)
+    -- Set default config for root logger
+    local default_config = {
+        name = "root",
+        level = "info",
+        dispatchers = {},
+        propagate = false, -- Root logger doesn't propagate (no parent)
+        timezone = "local",
+    }
+
+    -- Process the configuration
+    local canonical_config = config_module.process_config(config, default_config)
+    canonical_config.name = "root"     -- Ensure root logger is always named "root"
+    canonical_config.parent = nil      -- Root logger has no parent
+    canonical_config.propagate = false -- Root logger doesn't propagate
+
+    -- Create the root logger
+    _root_logger = factory.create_logger_from_config(canonical_config)
+    _loggers_cache["root"] = _root_logger
+
+    return _root_logger
+end
+
+--- Gets the root logger if it exists
+--- @return table|nil The root logger or nil if not configured
+function M.get_root_logger()
+    return _root_logger
+end
+
+-- =============================================================================
+-- HIERARCHY UTILITIES
+-- =============================================================================
+
+--- Determines the parent logger name based on hierarchical naming
+--- @param logger_name string The logger name
+--- @return string|nil The parent logger name or nil if this is a top-level logger
+local function get_parent_name(logger_name)
+    if logger_name == "root" then
+        return nil -- Root logger has no parent
+    end
+
+    -- Find the last dot to determine parent
+    local parent_name = logger_name:match("(.+)%.[^%.]+$")
+
+    -- If no dot found, parent is root (if root logger exists)
+    if not parent_name then
+        return _root_logger and "root" or nil
+    end
+
+    return parent_name
+end
+
+--- Gets or creates a parent logger
+--- @param parent_name string The parent logger name
+--- @return table|nil The parent logger or nil
+local function get_or_create_parent(parent_name)
+    if not parent_name then
+        return nil
+    end
+
+    -- If parent is already in cache, return it
+    if _loggers_cache[parent_name] then
+        return _loggers_cache[parent_name]
+    end
+
+    -- Create parent with default configuration
+    return M._get_logger_simple(parent_name)
 end
 
 -- =============================================================================
@@ -70,7 +150,15 @@ function M._get_logger_simple(name)
         return _loggers_cache[logger_name]
     end
 
-    local new_logger = factory.create_simple_logger(logger_name, M._get_logger_simple)
+    -- Determine parent based on hierarchical naming
+    local parent_name = get_parent_name(logger_name)
+    local parent_logger = nil
+
+    if parent_name then
+        parent_logger = get_or_create_parent(parent_name)
+    end
+
+    local new_logger = factory.create_simple_logger(logger_name, parent_logger)
     _loggers_cache[logger_name] = new_logger
     return new_logger
 end
@@ -126,7 +214,17 @@ function M.logger(input_config)
         -- If configuration doesn't match, we'll create a new logger and update the cache
     end
 
-    local new_logger = factory.create_logger(input_config, default_config, M.logger)
+    -- Determine parent based on hierarchical naming
+    local parent_name = get_parent_name(canonical_config.name)
+    local parent_logger = nil
+
+    if parent_name then
+        parent_logger = get_or_create_parent(parent_name)
+    end
+
+    canonical_config.parent = parent_logger
+
+    local new_logger = factory.create_logger_from_config(canonical_config)
 
     -- Cache the logger if it has a name
     if canonical_config.name then

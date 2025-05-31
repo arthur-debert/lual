@@ -4,8 +4,11 @@ package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lu
 local unpack = unpack or table.unpack
 local lualog = require("lual.logger")
 
-describe("lualog.lib.text", function()
+describe("text presenter", function()
 	it("should format a basic log record", function()
+		local all_presenters = require("lual.presenters.init")
+		local text_presenter = all_presenters.text()
+
 		local record = {
 			timestamp = 1678886400, -- 2023-03-15 10:00:00 UTC
 			timezone = "utc", -- Explicitly set timezone for predictable test
@@ -16,10 +19,13 @@ describe("lualog.lib.text", function()
 		}
 		local expected_timestamp = os.date("!%Y-%m-%d %H:%M:%S", record.timestamp)
 		local expected_dispatcher = expected_timestamp .. " INFO [test.logger] User jane.doe logged in from 10.0.0.1"
-		assert.are.same(expected_dispatcher, lualog.lib.text(record))
+		assert.are.same(expected_dispatcher, text_presenter(record))
 	end)
 
 	it("should handle nil arguments gracefully", function()
+		local all_presenters = require("lual.presenters.init")
+		local text_presenter = all_presenters.text()
+
 		local record = {
 			timestamp = 1678886401, -- 2023-03-15 10:00:01 UTC
 			timezone = "utc", -- Explicitly set timezone for predictable test
@@ -30,10 +36,13 @@ describe("lualog.lib.text", function()
 		}
 		local expected_timestamp = os.date("!%Y-%m-%d %H:%M:%S", record.timestamp)
 		local expected_dispatcher = expected_timestamp .. " DEBUG [nil.args.test] Test message with no args"
-		assert.are.same(expected_dispatcher, lualog.lib.text(record))
+		assert.are.same(expected_dispatcher, text_presenter(record))
 	end)
 
 	it("should handle empty arguments table", function()
+		local all_presenters = require("lual.presenters.init")
+		local text_presenter = all_presenters.text()
+
 		local record = {
 			timestamp = 1678886402, -- 2023-03-15 10:00:02 UTC
 			timezone = "utc", -- Explicitly set timezone for predictable test
@@ -44,10 +53,13 @@ describe("lualog.lib.text", function()
 		}
 		local expected_timestamp = os.date("!%Y-%m-%d %H:%M:%S", record.timestamp)
 		local expected_dispatcher = expected_timestamp .. " WARNING [empty.args.test] Test message with empty args"
-		assert.are.same(expected_dispatcher, lualog.lib.text(record))
+		assert.are.same(expected_dispatcher, text_presenter(record))
 	end)
 
 	it("should use fallbacks for missing optional record fields", function()
+		local all_presenters = require("lual.presenters.init")
+		local text_presenter = all_presenters.text()
+
 		local ts = 1678886403 -- 2023-03-15 10:00:03 UTC
 		local expected_timestamp = os.date("!%Y-%m-%d %H:%M:%S", ts)
 
@@ -60,7 +72,7 @@ describe("lualog.lib.text", function()
 			args = {},
 		}
 		local expected_dispatcher1 = expected_timestamp .. " UNKNOWN_LEVEL [test.missing.level] Message with nil level"
-		assert.are.same(expected_dispatcher1, lualog.lib.text(record1))
+		assert.are.same(expected_dispatcher1, text_presenter(record1))
 
 		local record2 = {
 			timestamp = ts,
@@ -71,7 +83,7 @@ describe("lualog.lib.text", function()
 			args = {},
 		}
 		local expected_dispatcher2 = expected_timestamp .. " ERROR [UNKNOWN_LOGGER] Message with nil logger name"
-		assert.are.same(expected_dispatcher2, lualog.lib.text(record2))
+		assert.are.same(expected_dispatcher2, text_presenter(record2))
 
 		local record3 = {
 			timestamp = ts,
@@ -82,11 +94,11 @@ describe("lualog.lib.text", function()
 			args = nil, -- Missing args
 		}
 		local expected_dispatcher3 = expected_timestamp .. " CRITICAL [test.missing.args] Message with missing args"
-		assert.are.same(expected_dispatcher3, lualog.lib.text(record3))
+		assert.are.same(expected_dispatcher3, text_presenter(record3))
 	end)
 end)
 
-describe("lualog.lib.console", function()
+describe("console dispatcher", function()
 	local mock_stream
 	local original_stdout
 	local mock_stderr_stream
@@ -131,13 +143,17 @@ describe("lualog.lib.console", function()
 	end)
 
 	it("should write to default stream (io.stdout) if no stream specified in config", function()
+		local all_dispatchers = require("lual.dispatchers.init")
+
 		local record = { message = "Hello default stdout" }
-		lualog.lib.console(record, {}) -- Empty config
+		all_dispatchers.console_dispatcher(record, {}) -- Empty config
 		assert.are.same("Hello default stdout\n", mock_stream.written_data)
 		assert.is_true(mock_stream.flushed)
 	end)
 
 	it("should write to a custom stream if specified in config", function()
+		local all_dispatchers = require("lual.dispatchers.init")
+
 		local custom_mock_stream = {
 			written_data = "",
 			flushed = false,
@@ -151,7 +167,7 @@ describe("lualog.lib.console", function()
 			end,
 		}
 		local record = { message = "Hello custom stream" }
-		lualog.lib.console(record, { stream = custom_mock_stream })
+		all_dispatchers.console_dispatcher(record, { stream = custom_mock_stream })
 
 		assert.are.same("Hello custom stream\n", custom_mock_stream.written_data)
 		assert.is_true(custom_mock_stream.flushed)
@@ -159,6 +175,8 @@ describe("lualog.lib.console", function()
 	end)
 
 	it("should handle stream write error and report to io.stderr", function()
+		local all_dispatchers = require("lual.dispatchers.init")
+
 		local erroring_mock_stream = {
 			write = function(self, ...)
 				error("Simulated stream write error")
@@ -170,7 +188,7 @@ describe("lualog.lib.console", function()
 		local record = { message = "Message that will fail to write" }
 
 		-- Call the dispatcher with the erroring stream
-		lualog.lib.console(record, { stream = erroring_mock_stream })
+		all_dispatchers.console_dispatcher(record, { stream = erroring_mock_stream })
 
 		-- Check that an error message was written to our mock_stderr_stream
 		assert.is_not_nil(string.find(mock_stderr_stream.written_data, "Error writing to stream:", 1, true))
