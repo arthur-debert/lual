@@ -1,4 +1,3 @@
-local dkjson = require("dkjson")
 local time_utils = require("lual.utils.time")
 
 --- Factory that creates a JSON presenter function
@@ -14,6 +13,12 @@ local function json_presenter_factory(config)
 
     -- Create the actual presenter function
     local function presenter_func(record)
+        -- Load dkjson when needed
+        local success, dkjson = pcall(require, "dkjson")
+        if not success then
+            error("JSON presenter requires the 'dkjson' package. Install it with: luarocks install dkjson")
+        end
+
         -- Prepare the JSON object
         local json_record = {
             timestamp = record.timestamp,
