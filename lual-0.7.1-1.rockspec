@@ -14,8 +14,6 @@ description = {
 }
 dependencies = {
    "lua >= 5.1",
-   "dkjson >= 2.5",
-   "luasocket >= 3.0rc1-2"
 }
 build = {
    type = "builtin",
