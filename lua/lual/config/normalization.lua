@@ -3,6 +3,7 @@
 
 local schema = require("lual.config.schema")
 local validation = require("lual.config.validation")
+local table_utils = require("lual.utils.table")
 
 local M = {}
 
@@ -92,20 +93,7 @@ end
 -- NORMALIZATION FUNCTIONS
 -- =============================================================================
 
---- Creates a deep copy of a table
--- @param original table The table to copy
--- @return table The copied table
-local function deep_copy(original)
-    local copy = {}
-    for k, v in pairs(original) do
-        if type(v) == "table" then
-            copy[k] = deep_copy(v)
-        else
-            copy[k] = v
-        end
-    end
-    return copy
-end
+
 
 --- Validates convenience syntax config and returns error with proper prefix
 -- @param config table The config to validate
@@ -151,7 +139,7 @@ end
 -- @param config table The convenience syntax config
 -- @return table The normalized config in full syntax
 local function transform_convenience_to_full(config)
-    local normalized = deep_copy(config)
+    local normalized = table_utils.deepcopy(config)
     local dispatcher_entry = {}
 
     -- Apply core field mappings

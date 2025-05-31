@@ -72,13 +72,6 @@ function M.create_canonical_config(config)
     return canonicalization.create_canonical_config(config)
 end
 
---- Clones a config table
--- @param config table The config to clone
--- @return table The cloned config
-function M.clone_config(config)
-    return canonicalization.clone_config(config)
-end
-
 --- Merges configs with user config taking precedence
 -- @param user_config table The user config
 -- @param default_config table The default config
@@ -106,7 +99,7 @@ function M.validate_config(config)
         local normalized = normalization.normalize_config_format(config)
         local is_convenience = schema.is_convenience_syntax(config)
 
-        local valid, err = validation.validate_unknown_keys(normalized, is_convenience)
+        local valid, err = validation.validate_unknown_keys(normalized, false)
         if not valid then
             return false, err
         end

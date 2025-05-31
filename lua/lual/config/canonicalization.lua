@@ -2,6 +2,7 @@
 -- This module converts validated configs to runtime (canonical) format
 
 local schema = require("lual.config.schema")
+local table_utils = require("lual.utils.table")
 
 local M = {}
 
@@ -9,29 +10,7 @@ local M = {}
 -- CANONICALIZATION FUNCTIONS
 -- =============================================================================
 
---- Deep clones a config table, specifically handling dispatchers
--- @param config table The config to clone
--- @return table The cloned config
-local function clone_config(config)
-    local cloned = {}
-    for k, v in pairs(config) do
-        if type(v) == "table" and k == "dispatchers" then
-            -- Deep clone dispatchers array
-            cloned[k] = {}
-            for i, dispatcher in ipairs(v) do
-                cloned[k][i] = {
-                    dispatcher_func = dispatcher.dispatcher_func,
-                    presenter_func = dispatcher.presenter_func,
-                    transformer_funcs = dispatcher.transformer_funcs or {},
-                    dispatcher_config = dispatcher.dispatcher_config or {}
-                }
-            end
-        else
-            cloned[k] = v
-        end
-    end
-    return cloned
-end
+
 
 --- Creates a canonical config with default values
 -- @param config table Optional initial config values
@@ -176,22 +155,29 @@ local function convert_dispatchers_to_canonical(dispatchers_config)
     return canonical_dispatchers
 end
 
---- Merges user config with default config, with user config taking precedence
+--- Merges user config with default config using table diffing, with user config taking precedence
 -- @param user_config table The user's partial config
 -- @param default_config table The default config
 -- @return table The merged config
 local function merge_configs(user_config, default_config)
-    local merged = {}
+    -- Deep copy the default config to avoid modifying the original
+    local merged = table_utils.deepcopy(default_config)
 
-    -- Start with default config
-    for k, v in pairs(default_config) do
-        merged[k] = v
+    -- Use table diff to understand what the user is changing/adding
+    local diff = table_utils.key_diff(default_config, user_config)
+
+    -- Apply user overrides for existing keys that changed
+    for key, change_info in pairs(diff.changed_keys) do
+        merged[key] = change_info.new_value
     end
 
-    -- Override with user config
-    for k, v in pairs(user_config) do
-        merged[k] = v
+    -- Add new keys that user provided (not in defaults)
+    for _, key in ipairs(diff.added_keys) do
+        merged[key] = user_config[key]
     end
+
+    -- Keys that were removed (in default but not in user config) remain from default
+    -- This preserves default values for unspecified user keys
 
     return merged
 end
@@ -228,19 +214,75 @@ function M.create_canonical_config(config)
     return create_canonical_config(config)
 end
 
---- Clones a config table
--- @param config table The config to clone
--- @return table The cloned config
-function M.clone_config(config)
-    return clone_config(config)
-end
-
 --- Merges configs with user config taking precedence
 -- @param user_config table The user config
 -- @param default_config table The default config
 -- @return table The merged config
 function M.merge_configs(user_config, default_config)
     return merge_configs(user_config, default_config)
+end
+
+--- Formats config differences for readable debugging output
+-- @param user_config table The user config
+-- @param default_config table The default config
+-- @return string Formatted diff information for debugging
+function M.format_config_diff(user_config, default_config)
+    local diff = table_utils.key_diff(default_config, user_config)
+
+    local output = {}
+    output[#output + 1] = "Config Diff Analysis:"
+
+    if #diff.added_keys > 0 then
+        output[#output + 1] = "\nAdded keys (new in user config):"
+        for _, key in ipairs(diff.added_keys) do
+            output[#output + 1] = "  + " .. key .. " = " .. tostring(user_config[key])
+        end
+    end
+
+    if #diff.removed_keys > 0 then
+        output[#output + 1] = "\nRemoved keys (missing from user config):"
+        for _, key in ipairs(diff.removed_keys) do
+            output[#output + 1] = "  - " .. key .. " = " .. tostring(default_config[key])
+        end
+    end
+
+    if next(diff.changed_keys) then
+        output[#output + 1] = "\nChanged keys:"
+        for key, change_info in pairs(diff.changed_keys) do
+            output[#output + 1] = "  ~ " .. key .. ":"
+            output[#output + 1] = "    old: " .. tostring(change_info.old_value)
+            output[#output + 1] = "    new: " .. tostring(change_info.new_value)
+        end
+    end
+
+    if #diff.added_keys == 0 and #diff.removed_keys == 0 and not next(diff.changed_keys) then
+        output[#output + 1] = "\nNo differences found."
+    end
+
+    return table.concat(output, "\n")
+end
+
+--- Validates that user config doesn't contain extraneous keys beyond schema
+-- @param user_config table The user config to validate
+-- @param schema_keys table Table of valid schema keys (set format)
+-- @return boolean, table True if valid, or false with details about extra keys
+function M.validate_no_extraneous_keys(user_config, schema_keys)
+    -- Create a template with all valid keys set to placeholder values (since nil removes keys)
+    local schema_template = {}
+    for key, _ in pairs(schema_keys) do
+        schema_template[key] = true
+    end
+
+    local diff = table_utils.key_diff(schema_template, user_config)
+
+    if #diff.added_keys > 0 then
+        return false, {
+            extraneous_keys = diff.added_keys,
+            message = "Config contains extraneous keys: " .. table.concat(diff.added_keys, ", ")
+        }
+    end
+
+    return true, nil
 end
 
 return M

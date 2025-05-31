@@ -55,6 +55,9 @@ fi
 
 print_status "Current version: $CURRENT_VERSION"
 
+# Store original version for potential rollback
+ORIGINAL_VERSION="$CURRENT_VERSION"
+
 # Ask user what to do
 echo
 print_status "Choose action:"
@@ -76,9 +79,9 @@ while true; do
         # Get bump type from user
         echo
         print_status "Select bump type:"
-        echo "1. Major ($(./bin/bump-version major))"
+        echo "1. Patch ($(./bin/bump-version patch))"
         echo "2. Minor ($(./bin/bump-version minor))"
-        echo "3. Patch ($(./bin/bump-version patch))"
+        echo "3. Major ($(./bin/bump-version major))"
         echo
 
         while true; do
@@ -87,7 +90,7 @@ while true; do
 
             case $bump_choice in
             1)
-                BUMP_TYPE="major"
+                BUMP_TYPE="patch"
                 break
                 ;;
             2)
@@ -95,7 +98,7 @@ while true; do
                 break
                 ;;
             3)
-                BUMP_TYPE="patch"
+                BUMP_TYPE="major"
                 break
                 ;;
             *)
@@ -171,7 +174,25 @@ fi
 echo
 print_status "Running release process..."
 if [ -z "$DRY_RUN" ]; then
-    ./bin/_release.sh "$NEW_VERSION"
+    if ./bin/_release.sh "$NEW_VERSION"; then
+        print_success "Release completed successfully!"
+    else
+        print_error "Release failed! Rolling back version changes..."
+
+        # Revert VERSION file if it was changed
+        if [ "$NEW_VERSION" != "$ORIGINAL_VERSION" ]; then
+            echo "$ORIGINAL_VERSION" >"$VERSION_FILE"
+            print_status "Reverted VERSION file to: $ORIGINAL_VERSION"
+
+            # Commit the rollback
+            git add releases/VERSION
+            git commit -m "Rollback version to $ORIGINAL_VERSION after failed release"
+            git push origin "$(git branch --show-current)"
+            print_status "Rollback committed and pushed"
+        fi
+
+        exit 1
+    fi
 else
     ./bin/_release.sh "$NEW_VERSION" --dry-run
 fi

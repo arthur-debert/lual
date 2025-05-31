@@ -2,6 +2,7 @@
 -- This module provides reusable validation functions and patterns
 
 local schema = require("lual.config.schema")
+local table_utils = require("lual.utils.table")
 
 local M = {}
 
@@ -35,20 +36,29 @@ local function validate_field(field_name, value, is_convenience)
     return true
 end
 
---- Validates unknown keys in config
+--- Validates unknown keys in config using table diffing
 -- @param config table The config to validate
 -- @param is_convenience boolean Whether this is convenience syntax
 -- @return boolean, string True if valid, or false with error message
 local function validate_known_keys(config, is_convenience)
     local valid_keys = schema.get_valid_keys(is_convenience)
 
-    for key, _ in pairs(config) do
-        if not valid_keys[key] then
-            if is_convenience then
-                return false, "Unknown convenience config key: " .. tostring(key)
-            else
-                return false, "Unknown config key: " .. tostring(key)
-            end
+    -- Use table diff to find unknown keys
+    -- Create schema template with placeholder values (since nil removes keys)
+    local schema_template = {}
+    for key, _ in pairs(valid_keys) do
+        schema_template[key] = true -- Mark as valid with placeholder value
+    end
+
+    local diff = table_utils.key_diff(schema_template, config)
+
+    -- Check for unknown keys (keys in config but not in schema)
+    if #diff.added_keys > 0 then
+        local unknown_key = diff.added_keys[1] -- Report first unknown key
+        if is_convenience then
+            return false, "Unknown convenience config key: " .. tostring(unknown_key)
+        else
+            return false, "Unknown config key: " .. tostring(unknown_key)
         end
     end
 
