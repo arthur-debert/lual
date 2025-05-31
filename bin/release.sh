@@ -1,22 +1,21 @@
 #!/usr/bin/env bash
 set -e
 
-# LuaRocks Release Script for lual
-# Usage: ./bin/release.sh <version> [--dry-run]
-# Example: ./bin/release.sh 0.2.0
+# Release Orchestrator Script for lual
+# Usage: ./bin/release.sh [--dry-run]
 
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 PROJECT_ROOT="$SCRIPT_DIR/.."
 cd "$PROJECT_ROOT"
 
-# Colors for dispatcher
+# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Function to print colored dispatcher
+# Function to print colored output
 print_status() {
     echo -e "${BLUE}[INFO]${NC} $1"
 }
@@ -33,208 +32,116 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Check if version is provided, otherwise read from releases/VERSION
+# Check for dry-run flag
 DRY_RUN=""
-
-# Handle different argument patterns
 if [ "$1" = "--dry-run" ]; then
-    # Only --dry-run provided, read version from file
     DRY_RUN="--dry-run"
-    NEW_VERSION=""
-elif [ "$2" = "--dry-run" ]; then
-    # Version and --dry-run provided
-    NEW_VERSION="$1"
-    DRY_RUN="--dry-run"
-elif [ -n "$1" ]; then
-    # Only version provided
-    NEW_VERSION="$1"
-else
-    # No arguments provided
-    NEW_VERSION=""
-fi
-
-# If no version specified, read from VERSION file
-if [ -z "$NEW_VERSION" ]; then
-    VERSION_FILE="releases/VERSION"
-    if [ ! -f "$VERSION_FILE" ]; then
-        print_error "No version provided and VERSION file not found: $VERSION_FILE"
-        print_error "Usage: $0 [version] [--dry-run]"
-        print_error "Example: $0 0.2.0"
-        exit 1
-    fi
-
-    NEW_VERSION=$(cat "$VERSION_FILE" | tr -d '\n' | tr -d '\r')
-    if [ -z "$NEW_VERSION" ]; then
-        print_error "VERSION file is empty: $VERSION_FILE"
-        exit 1
-    fi
-
-    print_status "Using version from $VERSION_FILE: $NEW_VERSION"
-fi
-
-if [ -n "$DRY_RUN" ]; then
     print_warning "DRY RUN MODE - No actual changes will be made"
 fi
 
-# Validate version format (basic semantic versioning)
-if ! echo "$NEW_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-    print_error "Version must follow semantic versioning format: MAJOR.MINOR.PATCH (e.g., 0.2.0)"
+# Check if VERSION file exists
+VERSION_FILE="releases/VERSION"
+if [ ! -f "$VERSION_FILE" ]; then
+    print_error "VERSION file not found: $VERSION_FILE"
     exit 1
 fi
 
-# Find current rockspec
-CURRENT_ROCKSPEC=$(find . -maxdepth 1 -name "lual-*.rockspec" | head -1)
-if [ -z "$CURRENT_ROCKSPEC" ]; then
-    print_error "No current rockspec found (lual-*.rockspec)"
+# Read current version
+CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '\n' | tr -d '\r')
+if [ -z "$CURRENT_VERSION" ]; then
+    print_error "VERSION file is empty: $VERSION_FILE"
     exit 1
 fi
 
-NEW_ROCKSPEC="lual-${NEW_VERSION}-1.rockspec"
+print_status "Current version: $CURRENT_VERSION"
 
-print_status "Current rockspec: $CURRENT_ROCKSPEC"
-print_status "New rockspec: $NEW_ROCKSPEC"
-print_status "New version: $NEW_VERSION"
+# Ask user what to do
+echo
+print_status "Choose action:"
+echo "1. Use current version ($CURRENT_VERSION)"
+echo "2. Bump version"
+echo
 
-# Check if we're on main/master branch
-CURRENT_BRANCH=$(git branch --show-current)
-if [ "$CURRENT_BRANCH" != "main" ] && [ "$CURRENT_BRANCH" != "master" ]; then
-    print_warning "You're not on main/master branch (current: $CURRENT_BRANCH)"
-    read -p "Continue anyway? (y/N): " -n 1 -r
+while true; do
+    read -p "Select action (1-2): " -n 1 -r choice
     echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+
+    case $choice in
+    1)
+        print_status "Using current version: $CURRENT_VERSION"
+        NEW_VERSION="$CURRENT_VERSION"
+        break
+        ;;
+    2)
+        # Get bump type from user
+        echo
+        print_status "Select bump type:"
+        echo "1. Major ($(./bin/bump-version major))"
+        echo "2. Minor ($(./bin/bump-version minor))"
+        echo "3. Patch ($(./bin/bump-version patch))"
+        echo
+
+        while true; do
+            read -p "Select bump type (1-3): " -n 1 -r bump_choice
+            echo
+
+            case $bump_choice in
+            1)
+                BUMP_TYPE="major"
+                break
+                ;;
+            2)
+                BUMP_TYPE="minor"
+                break
+                ;;
+            3)
+                BUMP_TYPE="patch"
+                break
+                ;;
+            *)
+                print_error "Invalid choice. Please select 1, 2, or 3."
+                ;;
+            esac
+        done
+
+        # Get new version from bump-version script
+        NEW_VERSION=$(./bin/bump-version "$BUMP_TYPE")
+        print_status "$BUMP_TYPE version bump: $CURRENT_VERSION → $NEW_VERSION"
+
+        # Update VERSION file
+        if [ -z "$DRY_RUN" ]; then
+            echo "$NEW_VERSION" >"$VERSION_FILE"
+            print_success "VERSION file updated: $NEW_VERSION"
+        else
+            print_status "Would update VERSION file to: $NEW_VERSION"
+        fi
+        break
+        ;;
+    *)
+        print_error "Invalid choice. Please select 1 or 2."
+        ;;
+    esac
+done
+
+# Generate rockspecs
+echo
+print_status "Generating rockspecs..."
+if [ -z "$DRY_RUN" ]; then
+    if ./bin/create-specs; then
+        print_success "Rockspecs generated successfully!"
+    else
+        print_error "Failed to generate rockspecs"
         exit 1
     fi
-fi
-
-# Check for uncommitted changes
-if ! git diff-index --quiet HEAD --; then
-    print_error "You have uncommitted changes. Please commit or stash them first."
-    exit 1
-fi
-
-# Check if tag already exists
-if git tag -l | grep -q "^v${NEW_VERSION}$"; then
-    print_error "Tag v${NEW_VERSION} already exists"
-    exit 1
-fi
-
-# Validate current rockspec
-print_status "Validating current rockspec..."
-if [ -z "$DRY_RUN" ]; then
-    luarocks lint "$CURRENT_ROCKSPEC"
-fi
-
-# Update dependencies to ensure fresh environment
-print_status "Updating dependencies with fresh install..."
-if [ -z "$DRY_RUN" ]; then
-    ./bin/update-deps.sh
-    # Rebuild local module after dependency refresh
-    print_status "Rebuilding local module..."
-    luarocks --tree ./.luarocks make "$CURRENT_ROCKSPEC"
 else
-    print_status "Would run: ./bin/update-deps.sh"
-    print_status "Would rebuild local module"
+    print_status "Would run: ./bin/create-specs"
 fi
 
-# Create new version using luarocks
-print_status "Creating new rockspec version..."
-if [ -z "$DRY_RUN" ]; then
-    luarocks new_version "$CURRENT_ROCKSPEC" "$NEW_VERSION"
-else
-    print_status "Would run: luarocks new_version $CURRENT_ROCKSPEC $NEW_VERSION"
-fi
-
-# Update the source.url in the new rockspec to point to the correct repository
-# (luarocks new_version might not set this correctly)
-if [ -z "$DRY_RUN" ]; then
-    # Get the repository URL from git
-    REPO_URL=$(git config --get remote.origin.url)
-    if [[ "$REPO_URL" == git@* ]]; then
-        # Convert SSH URL to HTTPS
-        REPO_URL=$(echo "$REPO_URL" | sed 's/git@github.com:/https:\/\/github.com\//')
-        REPO_URL=$(echo "$REPO_URL" | sed 's/\.git$//')
-    fi
-
-    print_status "Updating source URL in rockspec to: $REPO_URL"
-
-    # Update the rockspec with correct source URL and tag
-    sed -i.bak "s|url = \".*\"|url = \"git+${REPO_URL}\"|" "$NEW_ROCKSPEC"
-    sed -i.bak "s|tag = \".*\"|tag = \"v${NEW_VERSION}\"|" "$NEW_ROCKSPEC"
-    rm "${NEW_ROCKSPEC}.bak"
-fi
-
-# Validate new rockspec
-print_status "Validating new rockspec..."
-if [ -z "$DRY_RUN" ]; then
-    luarocks lint "$NEW_ROCKSPEC"
-fi
-
-# Show what will be committed
-print_status "Changes to be committed:"
-if [ -z "$DRY_RUN" ]; then
-    git add "$NEW_ROCKSPEC"
-    git status --porcelain
-else
-    print_status "Would add: $NEW_ROCKSPEC"
-fi
-
-# Commit the new rockspec
-print_status "Committing new rockspec..."
-if [ -z "$DRY_RUN" ]; then
-    git commit -m "Release v${NEW_VERSION}"
-else
-    print_status "Would commit with message: Release v${NEW_VERSION}"
-fi
-
-# Create and push tag
-print_status "Creating and pushing tag v${NEW_VERSION}..."
-if [ -z "$DRY_RUN" ]; then
-    git tag "v${NEW_VERSION}"
-    git push origin "v${NEW_VERSION}"
-    git push origin "$CURRENT_BRANCH"
-else
-    print_status "Would create tag: v${NEW_VERSION}"
-    print_status "Would push tag and branch"
-fi
-
-# Build and test the rock
-print_status "Building rock..."
-if [ -z "$DRY_RUN" ]; then
-    luarocks --tree ./.luarocks make "$NEW_ROCKSPEC"
-fi
-
-# Pack the rock
-print_status "Packing rock..."
-if [ -z "$DRY_RUN" ]; then
-    luarocks pack "$NEW_ROCKSPEC"
-    ROCK_FILE="lual-${NEW_VERSION}-1.all.rock"
-    if [ -f "$ROCK_FILE" ]; then
-        print_success "Rock created: $ROCK_FILE"
-    fi
-fi
-
-# Clean up old rockspec (optional)
-print_warning "Old rockspec: $CURRENT_ROCKSPEC"
-if [ -z "$DRY_RUN" ]; then
-    read -p "Remove old rockspec? (y/N): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        rm "$CURRENT_ROCKSPEC"
-        git add "$CURRENT_ROCKSPEC"
-        git commit -m "Remove old rockspec $CURRENT_ROCKSPEC"
-        git push origin "$CURRENT_BRANCH"
-        print_success "Old rockspec removed"
-    fi
-fi
-
-print_success "Release v${NEW_VERSION} prepared successfully!"
+# Run the actual release
 echo
-
-print_status "Next steps:"
-echo "1. Test the rock: luarocks install $NEW_ROCKSPEC"
-echo "2. Publish rockspec to LuaRocks: luarocks upload $NEW_ROCKSPEC --api-key=YOUR_API_KEY"
-echo "   (This uploads the rockspec only; LuaRocks builds the rock from source)"
-echo "3. Create GitHub release (optional)"
-echo
-print_status "Rock file: lual-${NEW_VERSION}-1.all.rock"
-print_status "Rockspec: $NEW_ROCKSPEC"
+print_status "Running release process..."
+if [ -z "$DRY_RUN" ]; then
+    ./bin/_release.sh "$NEW_VERSION"
+else
+    ./bin/_release.sh "$NEW_VERSION" --dry-run
+fi

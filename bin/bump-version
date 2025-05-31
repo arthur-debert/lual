@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -e
+
+# Script to bump version numbers with semantic versioning
+# Usage: ./bin/bump-version [major|minor|patch]
+# If no argument provided, defaults to patch
+
+SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
+PROJECT_ROOT="$SCRIPT_DIR/.."
+cd "$PROJECT_ROOT"
+
+# Get bump type from argument, default to patch
+BUMP_TYPE="${1:-patch}"
+
+# Validate bump type
+case "$BUMP_TYPE" in
+major | minor | patch) ;;
+*)
+    echo "Usage: $0 [major|minor|patch]" >&2
+    echo "Invalid bump type: $BUMP_TYPE" >&2
+    exit 1
+    ;;
+esac
+
+# Check if VERSION file exists
+VERSION_FILE="releases/VERSION"
+if [ ! -f "$VERSION_FILE" ]; then
+    echo "VERSION file not found: $VERSION_FILE" >&2
+    exit 1
+fi
+
+# Read current version
+CURRENT_VERSION=$(cat "$VERSION_FILE" | tr -d '\n' | tr -d '\r')
+if [ -z "$CURRENT_VERSION" ]; then
+    echo "VERSION file is empty: $VERSION_FILE" >&2
+    exit 1
+fi
+
+# Parse version components
+if ! echo "$CURRENT_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+    echo "Version must follow semantic versioning format: MAJOR.MINOR.PATCH (e.g., 0.8.3)" >&2
+    echo "Current version: $CURRENT_VERSION" >&2
+    exit 1
+fi
+
+# Extract major, minor, patch
+MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
+MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
+PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3)
+
+# Calculate new version based on bump type
+case "$BUMP_TYPE" in
+major)
+    NEW_VERSION="$((MAJOR + 1)).0.0"
+    ;;
+minor)
+    NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
+    ;;
+patch)
+    NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+    ;;
+esac
+
+# Output the new version
+echo "$NEW_VERSION"
