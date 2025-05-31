@@ -137,6 +137,36 @@ else
     print_status "Would run: ./bin/create-specs"
 fi
 
+# Commit the changes (VERSION file and rockspecs) before running release
+echo
+print_status "Committing version and rockspec changes..."
+if [ -z "$DRY_RUN" ]; then
+    # Check if we have changes to commit
+    if ! git diff-index --quiet HEAD --; then
+        print_status "Adding files to git..."
+        git add releases/VERSION
+        git add "lual-${NEW_VERSION}-1.rockspec"
+        git add "lualextras-${NEW_VERSION}-1.rockspec"
+
+        print_status "Committing changes..."
+        git commit -m "Prepare release v${NEW_VERSION}"
+
+        print_status "Pushing changes..."
+        git push origin "$(git branch --show-current)"
+
+        print_success "Changes committed and pushed"
+    else
+        print_status "No changes to commit"
+    fi
+else
+    print_status "Would add and commit:"
+    print_status "  - releases/VERSION"
+    print_status "  - lual-${NEW_VERSION}-1.rockspec"
+    print_status "  - lualextras-${NEW_VERSION}-1.rockspec"
+    print_status "Would commit with message: Prepare release v${NEW_VERSION}"
+    print_status "Would push changes"
+fi
+
 # Run the actual release
 echo
 print_status "Running release process..."
