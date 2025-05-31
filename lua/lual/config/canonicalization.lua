@@ -10,29 +10,7 @@ local M = {}
 -- CANONICALIZATION FUNCTIONS
 -- =============================================================================
 
---- Deep clones a config table, specifically handling dispatchers
--- @param config table The config to clone
--- @return table The cloned config
-local function clone_config(config)
-    local cloned = {}
-    for k, v in pairs(config) do
-        if type(v) == "table" and k == "dispatchers" then
-            -- Deep clone dispatchers array
-            cloned[k] = {}
-            for i, dispatcher in ipairs(v) do
-                cloned[k][i] = {
-                    dispatcher_func = dispatcher.dispatcher_func,
-                    presenter_func = dispatcher.presenter_func,
-                    transformer_funcs = dispatcher.transformer_funcs or {},
-                    dispatcher_config = dispatcher.dispatcher_config or {}
-                }
-            end
-        else
-            cloned[k] = v
-        end
-    end
-    return cloned
-end
+
 
 --- Creates a canonical config with default values
 -- @param config table Optional initial config values
@@ -236,13 +214,6 @@ function M.create_canonical_config(config)
     return create_canonical_config(config)
 end
 
---- Clones a config table
--- @param config table The config to clone
--- @return table The cloned config
-function M.clone_config(config)
-    return clone_config(config)
-end
-
 --- Merges configs with user config taking precedence
 -- @param user_config table The user config
 -- @param default_config table The default config
@@ -251,12 +222,44 @@ function M.merge_configs(user_config, default_config)
     return merge_configs(user_config, default_config)
 end
 
---- Analyzes config differences for debugging purposes
+--- Formats config differences for readable debugging output
 -- @param user_config table The user config
 -- @param default_config table The default config
--- @return table Detailed diff information including added, removed, and changed keys
-function M.analyze_config_diff(user_config, default_config)
-    return table_utils.key_diff(default_config, user_config)
+-- @return string Formatted diff information for debugging
+function M.format_config_diff(user_config, default_config)
+    local diff = table_utils.key_diff(default_config, user_config)
+
+    local output = {}
+    output[#output + 1] = "Config Diff Analysis:"
+
+    if #diff.added_keys > 0 then
+        output[#output + 1] = "\nAdded keys (new in user config):"
+        for _, key in ipairs(diff.added_keys) do
+            output[#output + 1] = "  + " .. key .. " = " .. tostring(user_config[key])
+        end
+    end
+
+    if #diff.removed_keys > 0 then
+        output[#output + 1] = "\nRemoved keys (missing from user config):"
+        for _, key in ipairs(diff.removed_keys) do
+            output[#output + 1] = "  - " .. key .. " = " .. tostring(default_config[key])
+        end
+    end
+
+    if next(diff.changed_keys) then
+        output[#output + 1] = "\nChanged keys:"
+        for key, change_info in pairs(diff.changed_keys) do
+            output[#output + 1] = "  ~ " .. key .. ":"
+            output[#output + 1] = "    old: " .. tostring(change_info.old_value)
+            output[#output + 1] = "    new: " .. tostring(change_info.new_value)
+        end
+    end
+
+    if #diff.added_keys == 0 and #diff.removed_keys == 0 and not next(diff.changed_keys) then
+        output[#output + 1] = "\nNo differences found."
+    end
+
+    return table.concat(output, "\n")
 end
 
 --- Validates that user config doesn't contain extraneous keys beyond schema
@@ -264,10 +267,10 @@ end
 -- @param schema_keys table Table of valid schema keys (set format)
 -- @return boolean, table True if valid, or false with details about extra keys
 function M.validate_no_extraneous_keys(user_config, schema_keys)
-    -- Create a template with all valid keys set to nil
+    -- Create a template with all valid keys set to placeholder values (since nil removes keys)
     local schema_template = {}
     for key, _ in pairs(schema_keys) do
-        schema_template[key] = nil
+        schema_template[key] = true
     end
 
     local diff = table_utils.key_diff(schema_template, user_config)
