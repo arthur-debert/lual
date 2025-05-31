@@ -156,6 +156,10 @@ describe("lual.core.engine auto-naming", function()
         end)
 
         it("should create proper hierarchy with auto-generated names", function()
+            -- First configure a root logger to enable full hierarchy
+            local lual = require("lual.logger")
+            lual.config({ level = "info" })
+
             -- Mock caller_info to return a nested path
             local original_get_caller_info = caller_info.get_caller_info
             caller_info.get_caller_info = function(start_level, use_dot_notation)

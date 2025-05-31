@@ -80,16 +80,49 @@ end
 
 --- Gets the current configuration of a logger
 -- @param logger table The logger instance
--- @return table The current configuration as a canonical config table
-function M.get_config(logger)
-    return config_module.create_canonical_config({
-        name = logger.name,
-        level = logger.level,
-        dispatchers = logger.dispatchers or {},
-        propagate = logger.propagate,
-        parent = logger.parent,
-        timezone = logger.timezone,
-    })
+-- @param full_tree boolean If true, returns configs for entire hierarchy; if false/nil, returns just this logger's config
+-- @return table The current configuration (or hierarchy of configurations)
+function M.get_config(logger, full_tree)
+    if full_tree then
+        -- Return table with logger names as keys and their configs as values
+        local hierarchy_configs = {}
+        local current_logger = logger
+
+        while current_logger do
+            -- Create canonical config for this logger
+            local canonical_config = config_module.create_canonical_config({
+                name = current_logger.name,
+                level = current_logger.level,
+                dispatchers = current_logger.dispatchers or {},
+                propagate = current_logger.propagate,
+                parent = current_logger.parent,
+                timezone = current_logger.timezone,
+            })
+
+            -- Add parent name reference for clarity
+            canonical_config.parent_name = current_logger.parent and current_logger.parent.name or nil
+
+            hierarchy_configs[current_logger.name] = canonical_config
+
+            -- Move up the hierarchy
+            if not current_logger.parent then
+                break
+            end
+            current_logger = current_logger.parent
+        end
+
+        return hierarchy_configs
+    else
+        -- Return just this logger's configuration (existing behavior)
+        return config_module.create_canonical_config({
+            name = logger.name,
+            level = logger.level,
+            dispatchers = logger.dispatchers or {},
+            propagate = logger.propagate,
+            parent = logger.parent,
+            timezone = logger.timezone,
+        })
+    end
 end
 
 --- Adds management methods to a logger prototype
@@ -109,8 +142,8 @@ function M.add_management_methods(logger_prototype, create_logger_func, update_c
         M.set_propagate(self, propagate, create_logger_func, update_cache_func)
     end
 
-    function logger_prototype:get_config()
-        return M.get_config(self)
+    function logger_prototype:get_config(full_tree)
+        return M.get_config(self, full_tree)
     end
 end
 

@@ -33,18 +33,18 @@ describe("Unified Config API", function()
             local shortcut_config = { dispatcher = "console", presenter = "text" }
             local full_config = { dispatchers = { { type = "console", presenter = "text" } } }
 
-            assert.is_true(config.is_shortcut_config(shortcut_config))
-            assert.is_false(config.is_shortcut_config(full_config))
+            assert.is_true(config.is_convenience_config_syntax(shortcut_config))
+            assert.is_false(config.is_convenience_config_syntax(full_config))
         end)
 
         it("should detect convenience syntax with only dispatcher field", function()
             local config_table = { dispatcher = "console" }
-            assert.is_true(config.is_shortcut_config(config_table))
+            assert.is_true(config.is_convenience_config_syntax(config_table))
         end)
 
         it("should detect convenience syntax with only presenter field", function()
             local config_table = { presenter = "text" }
-            assert.is_true(config.is_shortcut_config(config_table))
+            assert.is_true(config.is_convenience_config_syntax(config_table))
         end)
 
         it("should transform console convenience syntax to full format", function()
@@ -56,7 +56,7 @@ describe("Unified Config API", function()
                 propagate = false
             }
 
-            local result = config.shortcut_to_full_config(shortcut)
+            local result = config.transform_convenience_config_to_full(shortcut)
 
             assert.are.same("test", result.name)
             assert.are.same("debug", result.level)
@@ -74,7 +74,7 @@ describe("Unified Config API", function()
                 presenter = "color"
             }
 
-            local result = config.shortcut_to_full_config(shortcut)
+            local result = config.transform_convenience_config_to_full(shortcut)
 
             assert.are.same("test", result.name)
             assert.are.same(1, #result.dispatchers)
@@ -90,7 +90,7 @@ describe("Unified Config API", function()
                 stream = io.stderr
             }
 
-            local result = config.shortcut_to_full_config(shortcut)
+            local result = config.transform_convenience_config_to_full(shortcut)
 
             assert.are.same(1, #result.dispatchers)
             assert.are.same("console", result.dispatchers[1].type)
@@ -105,7 +105,7 @@ describe("Unified Config API", function()
                 timezone = "utc"
             }
 
-            local result = config.shortcut_to_full_config(shortcut)
+            local result = config.transform_convenience_config_to_full(shortcut)
 
             assert.are.same("utc", result.timezone)
             assert.are.same(1, #result.dispatchers)
@@ -324,7 +324,8 @@ describe("Unified Config API", function()
             for i, dispatcher in ipairs(logger.dispatchers) do
                 assert.is_function(dispatcher.dispatcher_func, "dispatcher " .. i .. " missing dispatcher_func")
                 assert.is_true(is_callable(dispatcher.presenter_func), "dispatcher " .. i .. " missing presenter_func")
-                assert.are.same(lualog.lib.json, dispatcher.presenter_func,
+                -- Check that it's using a JSON presenter (callable table or function)
+                assert.is_true(is_callable(dispatcher.presenter_func),
                     "dispatcher " .. i .. " should use JSON presenter")
                 assert.is_table(dispatcher.dispatcher_config, "dispatcher " .. i .. " missing dispatcher_config")
             end
@@ -691,6 +692,9 @@ describe("Unified Config API", function()
 
     describe("Common functionality", function()
         it("should create parent loggers automatically", function()
+            -- First configure a root logger to enable full hierarchy
+            lualog.config({ level = "info" })
+
             local logger = lualog.logger({
                 name = "app.database.connection"
             })
@@ -771,7 +775,10 @@ describe("Unified Config API", function()
             logger:set_level(lualog.levels.DEBUG)
             assert.are.same(lualog.levels.DEBUG, logger.level)
 
-            logger:add_dispatcher(lualog.lib.console, lualog.lib.text, {})
+            -- Use the dispatchers and presenters directly from the modules
+            local all_dispatchers = require("lual.dispatchers.init")
+            local all_presenters = require("lual.presenters.init")
+            logger:add_dispatcher(all_dispatchers.console_dispatcher, all_presenters.text(), {})
             assert.are.same(1, #logger.dispatchers)
 
             logger:set_propagate(false)

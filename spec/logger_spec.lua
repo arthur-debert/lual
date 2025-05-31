@@ -48,9 +48,8 @@ describe("lualog Logger Object", function()
 			assert.are.same("spec_a.spec_b", logger_a_b.name)
 			assert.is_not_nil(logger_a_b.parent)
 			assert.are.same("spec_a", logger_a_b.parent.name)
-			assert.is_not_nil(logger_a_b.parent.parent)
-			assert.are.same("root", logger_a_b.parent.parent.name)
-			assert.is_nil(logger_a_b.parent.parent.parent)
+			-- In the new system, without calling lual.config(), there's no automatic root logger
+			assert.is_nil(logger_a_b.parent.parent)
 		end)
 
 		it("should cache loggers", function()
@@ -415,11 +414,11 @@ describe("lualog Logger Object", function()
 				logger_root:add_dispatcher(mock_h_fn, mock_f_fn, { id = "h_root" })
 
 				local c_dispatchers = logger_c:get_effective_dispatchers()
-				assert.are.same(4, #c_dispatchers) -- Expect 3 local + 1 from actual root
+				-- In the new system, no automatic root logger, so only 3 dispatchers
+				assert.are.same(3, #c_dispatchers)
 				assert.are.same("eff_root.p.c", c_dispatchers[1].owner_logger_name)
 				assert.are.same("eff_root.p", c_dispatchers[2].owner_logger_name)
 				assert.are.same("eff_root", c_dispatchers[3].owner_logger_name)
-				assert.are.same("root", c_dispatchers[4].owner_logger_name) -- Check the propagated root dispatcher
 			end)
 
 			it("should stop collecting if propagate is false on child", function()
@@ -500,41 +499,66 @@ describe("lual.logger (Facade)", function()
 		lualog = require("lual.logger")
 	end)
 
-	describe("log.init_default_config()", function()
-		it("should add one default dispatcher to the root logger", function()
-			local root_logger = lualog.logger("root")
+	describe("log.config() API", function()
+		it("should create a root logger with dispatchers when called", function()
+			-- Before calling config, no root logger should exist
+			local engine = require("lual.core.logging")
+			assert.is_nil(engine.get_root_logger())
+
+			-- Configure root logger
+			local root_logger = lualog.config({
+				level = "info",
+				dispatchers = {
+					{ type = "console", presenter = "text" }
+				}
+			})
+
 			assert.is_not_nil(root_logger)
-			assert.are.same(1, #root_logger.dispatchers, "Root logger should have 1 dispatcher after init.")
+			assert.are.same("root", root_logger.name)
+			assert.are.same(1, #root_logger.dispatchers, "Root logger should have 1 dispatcher after config.")
 			if #root_logger.dispatchers == 1 then
 				local dispatcher_entry = root_logger.dispatchers[1]
 				assert.is_function(dispatcher_entry.dispatcher_func)
-				assert.is_function(dispatcher_entry.presenter_func)
+				-- Presenter can be a function or a callable table
+				assert.truthy(type(dispatcher_entry.presenter_func) == "function" or
+					(type(dispatcher_entry.presenter_func) == "table" and
+						getmetatable(dispatcher_entry.presenter_func) and
+						getmetatable(dispatcher_entry.presenter_func).__call))
 			end
 		end)
 
-		it("calling init_default_config multiple times should still result in one default dispatcher", function()
-			lualog.init_default_config() -- Call again
-			lualog.init_default_config() -- Call yet again
+		it("should be quiet by default without config", function()
+			-- Without calling lual.config(), no root logger should exist
+			local engine = require("lual.core.logging")
+			assert.is_nil(engine.get_root_logger())
 
-			local root_logger = lualog.logger("root")
-			assert.are.same(1, #root_logger.dispatchers,
-				"Root logger should still have 1 dispatcher after multiple inits.")
+			local test_logger = lualog.logger("test")
+			assert.are.same(0, #test_logger.dispatchers, "Logger should have no dispatchers by default.")
 		end)
 	end)
 
 	describe("log.reset_config()", function()
-		it("should clear logger cache and re-initialize default config", function()
+		it("should clear logger cache and reset root logger", function()
+			-- First create a root logger with config
+			lualog.config({
+				level = "debug",
+				dispatchers = {
+					{ type = "console", presenter = "text" }
+				}
+			})
+
 			local logger1 = lualog.logger("testcache.reset")
 			logger1:set_level(lualog.levels.DEBUG)
 
 			lualog.reset_config()
 
+			-- After reset, no root logger should exist
+			local engine = require("lual.core.logging")
+			assert.is_nil(engine.get_root_logger())
+
 			local logger2 = lualog.logger("testcache.reset")
 			assert.are_not_same(logger1, logger2, "Logger instance should be new after reset.")
 			assert.are.same(lualog.levels.INFO, logger2.level, "Logger level should be default INFO after reset.")
-
-			local root_logger = lualog.logger("root")
-			assert.are.same(1, #root_logger.dispatchers, "Root logger should have 1 default dispatcher after reset.")
 		end)
 	end)
 

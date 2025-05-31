@@ -40,6 +40,9 @@ describe("lual.core.logging", function()
 			local fresh_engine = require("lual.core.logging")
 			fresh_engine.reset_cache()
 
+			-- Configure root logger to enable full hierarchy
+			fresh_engine.config_root_logger({ level = "info" })
+
 			local logger_a_b = fresh_engine.logger("spec_a.spec_b")
 			assert.are.same("spec_a.spec_b", logger_a_b.name)
 			assert.is_not_nil(logger_a_b.parent)

@@ -18,7 +18,6 @@ local all_transformers = require("lual.transformers.init") -- Require the new tr
 
 log.levels = core_levels.definition
 log.logger = engine.logger          -- Primary API for creating loggers
-log.logger = engine.logger          -- Backward compatibility alias
 log.dispatchers = all_dispatchers   -- Assign the dispatchers table
 log.presenters = all_presenters     -- Assign the presenters table
 log.transformers = all_transformers -- Assign the transformers table
@@ -52,24 +51,27 @@ log.utc = "utc"
 log.noop = "noop"
 
 -- =============================================================================
--- BACKWARD COMPATIBILITY: lib namespace (deprecated)
+-- NEW ROOT LOGGER CONFIGURATION API
 -- =============================================================================
 
--- Keep lib namespace for backward compatibility but mark as deprecated
-log.lib = {
-  -- dispatcher references
-  console = all_dispatchers.console_dispatcher,
-  file = all_dispatchers.file_dispatcher,
-  syslog = all_dispatchers.syslog_dispatcher,
+--- Creates and configures the root logger. This is the only way to enable a root logger.
+--- Until this is called, loggers are quiet by default (no automatic root logger exists).
+--- @param config table The root logger configuration
+--- @return table The root logger instance
+function log.config(config)
+  return engine.config_root_logger(config or {})
+end
 
-  -- PRESENTER references (call factories with default config for backward compatibility)
-  text = all_presenters.text(),
-  color = all_presenters.color(),
-  json = all_presenters.json(),
-
-  -- TRANSFORMER references (call factories with default config for backward compatibility)
-  noop = all_transformers.noop_transformer()
-}
+--- Gets the configuration of the root logger
+--- @return table|nil The root logger configuration, or nil if no root logger exists
+function log.get_config()
+  local root_logger = engine.get_root_logger()
+  if root_logger then
+    return root_logger:get_config()
+  else
+    return nil
+  end
+end
 
 -- Add LEVELS mapping for external validation and use
 log.LEVELS = {
@@ -81,62 +83,19 @@ log.LEVELS = {
   none = core_levels.definition.NONE
 }
 
--- Removed _loggers_cache and the entire log.logger function body
--- as well as the new_logger table definition and its methods.
--- These are now in core.engine.lua
-
 -- =============================================================================
 -- 1. Logger Creation / Retrieval
 -- =============================================================================
 -- The actual log.logger is now assigned from engine above.
 
--- =============================================================================
--- 2. Core Logging Functions (Convenience on the main 'log' module) - REMOVED
---    These facade functions mixed logger names with logging parameters
--- =============================================================================
-
--- =============================================================================
--- 3. Configuration - REMOVED FACADE FUNCTIONS
--- =============================================================================
-
 --- Resets all logging configuration to defaults.
 function log.reset_config()
   engine.reset_cache()
-  log.init_default_config()
+  -- Note: No automatic default config initialization anymore
 end
 
 -- =============================================================================
--- 4. dispatcher Definitions (Function Signatures) - REMOVED
+-- Remove automatic initialization - root logger only created via lual.config({})
 -- =============================================================================
--- log.dispatchers = {} -- This line is removed
--- All function log.dispatchers.console_dispatcher(...) etc. are removed.
-
--- =============================================================================
--- 5. PRESENTER Definitions (Function Signatures) - REMOVED
--- =============================================================================
--- log.presenters = {} -- This line is removed
--- All function log.presenters.text(...) etc. are removed.
-
--- =============================================================================
--- Initialization (Example: Set up a default root logger)
--- =============================================================================
-function log.init_default_config()
-  local root_logger = log.logger("root")
-  if root_logger then
-    root_logger.dispatchers = {} -- Clear existing default dispatchers
-    if root_logger.set_level then
-      root_logger:set_level(log.levels.INFO)
-    end
-    if root_logger.add_dispatcher and log.dispatchers and log.dispatchers.console_dispatcher and log.presenters and log.presenters.text then
-      root_logger:add_dispatcher(
-        log.dispatchers.console_dispatcher,
-        log.presenters.text,
-        { stream = io.stdout }
-      )
-    end
-  end
-end
-
-log.init_default_config()
 
 return log

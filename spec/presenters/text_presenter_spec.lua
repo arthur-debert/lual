@@ -154,14 +154,19 @@ describe("lual.presenters.text", function()
     end)
 
     describe("Integration with lual constants", function()
-        it("should be accessible via lual.lib.text (backward compatibility)", function()
+        it("should be accessible via flat namespace", function()
             local lualog = require("lual.logger")
 
-            assert.is_not_nil(lualog.lib.text)
-            -- lib.text should be a callable presenter object (created by calling the factory)
-            assert.is_table(lualog.lib.text)
-            assert.is_not_nil(getmetatable(lualog.lib.text))
-            assert.is_function(getmetatable(lualog.lib.text).__call)
+            -- Check flat namespace constant
+            assert.are.equal("text", lualog.text)
+
+            -- Get the actual presenter function
+            local all_presenters = require("lual.presenters.init")
+            local text_presenter = all_presenters.text()
+
+            assert.is_table(text_presenter)
+            assert.is_not_nil(getmetatable(text_presenter))
+            assert.is_function(getmetatable(text_presenter).__call)
 
             -- Test that it actually works as a presenter
             local test_record = {
@@ -172,7 +177,7 @@ describe("lual.presenters.text", function()
                 message_fmt = "test message",
                 args = {}
             }
-            local result = lualog.lib.text(test_record)
+            local result = text_presenter(test_record)
             assert.is_string(result)
             assert.truthy(result:find("INFO"))
             assert.truthy(result:find("test message"))

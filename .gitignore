@@ -5,3 +5,4 @@ luacov.stats.out
 local
 .DS_Store
 examples
+tmp/

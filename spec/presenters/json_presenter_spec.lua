@@ -429,14 +429,19 @@ describe("lual.presenters.json", function()
     end)
 
     describe("Integration with lual constants", function()
-        it("should be accessible via lual.lib.json (backward compatibility)", function()
+        it("should be accessible via flat namespace", function()
             local lualog = require("lual.logger")
 
-            assert.is_not_nil(lualog.lib.json)
-            -- lib.json should be a callable presenter object (created by calling the factory)
-            assert.is_table(lualog.lib.json)
-            assert.is_not_nil(getmetatable(lualog.lib.json))
-            assert.is_function(getmetatable(lualog.lib.json).__call)
+            -- Check flat namespace constant
+            assert.are.equal("json", lualog.json)
+
+            -- Get the actual presenter function
+            local all_presenters = require("lual.presenters.init")
+            local json_presenter = all_presenters.json()
+
+            assert.is_table(json_presenter)
+            assert.is_not_nil(getmetatable(json_presenter))
+            assert.is_function(getmetatable(json_presenter).__call)
 
             -- Test that it actually works as a presenter
             local test_record = {
@@ -447,7 +452,7 @@ describe("lual.presenters.json", function()
                 message_fmt = "test message",
                 args = {}
             }
-            local result = lualog.lib.json(test_record)
+            local result = json_presenter(test_record)
             assert.is_string(result)
             local parsed = require("dkjson").decode(result)
             assert.is_table(parsed)

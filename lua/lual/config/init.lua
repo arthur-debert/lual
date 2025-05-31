@@ -137,18 +137,20 @@ end
 -- =============================================================================
 -- BACKWARD COMPATIBILITY FUNCTIONS
 -- =============================================================================
+-- These functions are deprecated and will be removed in a future version.
+-- They are aliases for functions that use the term "convenience syntax".
 
 --- Detects if a config uses convenience syntax (backward compatibility)
 -- @param config table The config to check
 -- @return boolean True if convenience syntax
-function M.is_shortcut_config(config)
+function M.is_convenience_config_syntax(config)
     return schema.is_convenience_syntax(config)
 end
 
 --- Transforms convenience syntax to full syntax (backward compatibility)
 -- @param config table The config using convenience syntax
 -- @return table The config in full syntax
-function M.shortcut_to_full_config(config)
+function M.transform_convenience_config_to_full(config)
     return normalization.convenience_to_full_config(config)
 end
 

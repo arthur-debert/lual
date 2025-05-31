@@ -36,32 +36,19 @@ function M.create_logger_from_config(config)
 end
 
 --- Creates a simple logger with minimal configuration
--- @param name string|nil The logger name (auto-generated if nil)
--- @param get_logger_func function Function to get parent loggers
+-- @param name string The logger name
+-- @param parent_logger table|nil The parent logger (if any)
 -- @return table The logger instance
-function M.create_simple_logger(name, get_logger_func)
+function M.create_simple_logger(name, parent_logger)
     local logger_name = name
     if name == nil or name == "" then
         -- Auto-generate logger name from caller's filename
-        -- Use caller_info to automatically find the first non-lual file
         local filename, _ = caller_info.get_caller_info(nil, true) -- Use dot notation conversion
         if filename then
             logger_name = filename
         else
             logger_name = "root"
         end
-    end
-
-    local parent_logger = nil
-    if logger_name ~= "root" then
-        local parent_name_end = string.match(logger_name, "(.+)%.[^%.]+$")
-        local parent_name
-        if parent_name_end then
-            parent_name = parent_name_end
-        else
-            parent_name = "root"
-        end
-        parent_logger = get_logger_func(parent_name) -- Use injected function
     end
 
     -- Create logger using config-based approach
@@ -77,26 +64,14 @@ function M.create_simple_logger(name, get_logger_func)
     return M.create_logger_from_config(config)
 end
 
---- Creates a logger from configuration
+--- Creates a logger from configuration (kept for backward compatibility)
 -- @param input_config table The config
 -- @param default_config table Default configuration to merge with
--- @param get_logger_func function Function to get parent loggers
+-- @param get_logger_func function Function to get parent loggers (deprecated, parent should be in config)
 -- @return table The logger instance
 function M.create_logger(input_config, default_config, get_logger_func)
     -- Use the config module to process the input config
     local canonical_config = config_module.process_config(input_config, default_config)
-
-    -- Handle parent logger creation if needed
-    if canonical_config.name and canonical_config.name ~= "root" then
-        local parent_name_end = string.match(canonical_config.name, "(.+)%.[^%.]+$")
-        local parent_name
-        if parent_name_end then
-            parent_name = parent_name_end
-        else
-            parent_name = "root"
-        end
-        canonical_config.parent = get_logger_func(parent_name)
-    end
 
     return M.create_logger_from_config(canonical_config)
 end
