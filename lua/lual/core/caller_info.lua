@@ -81,41 +81,13 @@ local function escape_lua_pattern(str)
     return str:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")
 end
 
---- Converts a file path to a Lua-style module identifier using package.path
+--- Internal function that performs the actual module path discovery
 -- This implements the core algorithm from the article: reversing require's lookup
 -- by matching the file path against package.path templates
--- @param filepath (string) The file path to convert (should be absolute)
+-- @param abs_filepath (string) The normalized absolute file path
+-- @param original_filepath (string) The original file path before normalization
 -- @return string|nil The module name if found, nil otherwise
-local function convert_filepath_to_module_id_via_package_path(filepath)
-    if not filepath or type(filepath) ~= "string" then
-        return nil
-    end
-
-    -- Store original filepath for pattern matching before normalization
-    local original_filepath = filepath
-
-    -- Remove leading @ if present (from debug.getinfo().source)
-    -- The article specifically mentions this prefix must be stripped
-    if filepath:sub(1, 1) == "@" then
-        filepath = filepath:sub(2)
-        original_filepath = filepath
-    end
-
-    -- Check again after removing @ prefix
-    if filepath == "" then
-        return nil
-    end
-
-    -- Convert to absolute, normalized path for reliable matching
-    -- The article emphasizes the importance of path canonicalization
-    local abs_filepath = to_absolute_path(filepath)
-
-    -- Check cache first to avoid expensive recomputation
-    -- The article strongly recommends caching due to performance overhead
-    if module_name_cache[abs_filepath] then
-        return module_name_cache[abs_filepath]
-    end
-
+local function _get_module_path(abs_filepath, original_filepath)
     -- Get current package.path - this is the source of truth for module loading
     -- The article advocates using package.path instead of hardcoded directories
     local package_path = package.path or ""
@@ -179,8 +151,6 @@ local function convert_filepath_to_module_id_via_package_path(filepath)
             module_name = module_name:gsub("^%.+", ""):gsub("%.+$", "")
 
             if module_name ~= "" then
-                -- Cache the result for future calls
-                module_name_cache[abs_filepath] = module_name
                 return module_name
             end
         end
@@ -194,7 +164,6 @@ local function convert_filepath_to_module_id_via_package_path(filepath)
 
     -- For empty or very short paths, return nil
     if abs_filepath == "" or abs_filepath == ".lua" then
-        module_name_cache[abs_filepath] = nil
         return nil
     end
 
@@ -233,9 +202,64 @@ local function convert_filepath_to_module_id_via_package_path(filepath)
         end
     end
 
-    -- Cache the fallback result (might be nil)
-    module_name_cache[abs_filepath] = fallback_name
     return fallback_name
+end
+
+--- Processes and normalizes a file path for module discovery
+-- Handles @ prefix removal, empty string checks, and path normalization
+-- @param file_path (string) The raw file path to process
+-- @return string|nil, string|nil The normalized absolute path and original path, or nil if invalid
+local function process_path(file_path)
+    -- Verify input parameters
+    if not file_path or type(file_path) ~= "string" then
+        return nil, nil
+    end
+
+    -- Store original filepath for pattern matching before normalization
+    local original_filepath = file_path
+
+    -- Remove leading @ if present (from debug.getinfo().source)
+    -- The article specifically mentions this prefix must be stripped
+    if file_path:sub(1, 1) == "@" then
+        file_path = file_path:sub(2)
+        original_filepath = file_path
+    end
+
+    -- Check for empty strings after @ removal
+    if file_path == "" then
+        return nil, nil
+    end
+
+    -- Normalize paths for reliable matching
+    -- The article emphasizes the importance of path canonicalization
+    local abs_filepath = to_absolute_path(file_path)
+
+    return abs_filepath, original_filepath
+end
+
+--- Converts a file path to a Lua-style module identifier using package.path
+-- This is the main entry point for module path discovery
+-- @param file_path (string) The file path to convert
+-- @return string|nil The module name if found, nil otherwise
+local function get_module_path(file_path)
+    -- Transform path and validate
+    local abs_filepath, original_filepath = process_path(file_path)
+    if not abs_filepath then
+        return nil
+    end
+
+    -- Check cache first to avoid expensive recomputation
+    -- The article strongly recommends caching due to performance overhead
+    if module_name_cache[abs_filepath] then
+        return module_name_cache[abs_filepath]
+    end
+
+    -- Find the module path using the core algorithm
+    local result = _get_module_path(abs_filepath, original_filepath)
+
+    -- Cache the result for future calls
+    module_name_cache[abs_filepath] = result
+    return result
 end
 
 --- Checks if a filename is part of the lual logging infrastructure.
@@ -289,7 +313,7 @@ function caller_info.get_caller_info(start_level, use_dot_notation)
             -- Found a non-lual file, this is our caller
             -- Attempt to get the Lua module path using the enhanced algorithm
             -- This now uses package.path parsing instead of hardcoded roots
-            local lua_path = convert_filepath_to_module_id_via_package_path(source_path)
+            local lua_path = get_module_path(source_path)
 
             -- Clean the filename for display purposes
             if filename and string.sub(filename, 1, 1) == "@" then
@@ -338,6 +362,14 @@ function caller_info.get_cache_size()
         count = count + 1
     end
     return count
+end
+
+--- Converts a file path to a Lua-style module identifier
+-- This is the main entry point for module path discovery
+-- @param file_path (string) The file path to convert
+-- @return string|nil The module name if found, nil otherwise
+function caller_info.get_module_path(file_path)
+    return get_module_path(file_path)
 end
 
 return caller_info
