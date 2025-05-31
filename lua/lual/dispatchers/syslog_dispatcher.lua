@@ -81,10 +81,12 @@ end
 -- @return string The hostname or "localhost" if detection fails.
 local function get_hostname()
     -- Try to get hostname via socket.dns
-    local socket = require("socket")
-    local hostname = socket.dns.gethostname()
-    if hostname and hostname ~= "" then
-        return hostname
+    local success, socket = pcall(require, "socket")
+    if success then
+        local hostname = socket.dns.gethostname()
+        if hostname and hostname ~= "" then
+            return hostname
+        end
     end
 
     -- Fallback to localhost
@@ -196,8 +198,13 @@ local function syslog_dispatcher_factory(config)
     local tag = config.tag or "lual"
     local hostname = config.hostname or get_hostname()
 
+    -- Load luasocket when needed
+    local socket_success, socket = pcall(require, "socket")
+    if not socket_success then
+        error("Syslog dispatcher requires the 'luasocket' package. Install it with: luarocks install luasocket")
+    end
+
     -- Create UDP socket
-    local socket = require("socket")
     local udp_socket = socket.udp()
     if not udp_socket then
         io.stderr:write("lual: Failed to create UDP socket for syslog\n")
