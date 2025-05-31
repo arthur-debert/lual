@@ -441,8 +441,13 @@ describe("Hierarchical Logging System", function()
     describe("Edge Cases and Error Handling", function()
         it("should handle logger with no name", function()
             local auto_logger = lual.logger()
+            
+            -- Debug: Show what we actually got vs expected
+            print("DEBUG: auto_logger.name =", auto_logger.name)
+            print("DEBUG: expected to contain 'hierarchical_logging_spec'")
+            
             assert.is_string(auto_logger.name)
-            assert.truthy(auto_logger.name:find("hierarchical_logging_spec"))
+            assert.are.equal("spec.hierarchical_logging_spec", auto_logger.name, "auto_logger.name should be 'hierarchical_logging_spec'")
         end)
 
         it("should handle propagate=false correctly", function()

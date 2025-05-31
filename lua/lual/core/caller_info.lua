@@ -164,10 +164,8 @@ end
 -- @param original_filepath (string) The original file path before normalization
 -- @return string|nil A fallback module name or nil
 local function generate_fallback_name(abs_filepath, original_filepath)
-    -- For empty or very short paths, return nil
-    if abs_filepath == "" or abs_filepath == ".lua" then
-        return nil
-    end
+    -- Note: Early exit cases are now handled in process_path()
+    -- This function assumes abs_filepath is a valid, resolvable path
 
     -- Try to extract a reasonable name from the file path
     local basename = abs_filepath:match("([^/\\]+)$") or abs_filepath
@@ -243,6 +241,13 @@ local function process_path(file_path)
 
     -- Check for empty strings after @ removal
     if file_path == "" then
+        return nil, nil
+    end
+
+    -- Early exit for clearly unresolvable paths
+    -- These are common debug.getinfo() results that cannot be module paths
+    if file_path == "(tail call)" or file_path == "=(tail call)" or
+       file_path == "[C]" or file_path == ".lua" then
         return nil, nil
     end
 

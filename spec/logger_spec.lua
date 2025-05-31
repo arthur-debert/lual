@@ -30,8 +30,14 @@ describe("lualog Logger Object", function()
 			local fresh_lualog = require("lual.logger")
 
 			local auto_logger = fresh_lualog.logger()
+
+			-- Debug: Show what we actually got vs expected
+			print("DEBUG: auto_logger.name =", auto_logger.name)
+			print("DEBUG: expected to contain 'speclogger_spec'")
+
 			-- Should use the test filename (without .lua extension)
-			assert.truthy(string.find(auto_logger.name, "logger_spec", 1, true))
+			assert.are.equal("string", type(auto_logger.name), "auto_logger.name should be a string")
+			assert.are.equal("spec.logger_spec", auto_logger.name, "specauto_logger.name should be 'spec.logger_spec'")
 			assert.is_false(string.find(auto_logger.name, ".lua", 1, true) ~= nil)
 			assert.are.same(fresh_lualog.levels.INFO, auto_logger.level) -- Default level
 
