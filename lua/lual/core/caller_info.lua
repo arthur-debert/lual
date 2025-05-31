@@ -327,10 +327,12 @@ function caller_info.get_caller_info(start_level, use_dot_notation)
         local source_path = info.source or info.short_src
         local filename = source_path
 
-        -- Skip special debug entries like "(tail call)", "[C]", etc.
-        if source_path == "(tail call)" or source_path == "[C]" then
-            -- Continue to next iteration (empty branch is intentional)
-        elseif not is_lual_internal_file(source_path) then
+        -- Skip special debug entries like "(tail call)", "=(tail call)", "[C]", etc.
+        local is_special_entry = source_path == "(tail call)" or
+                                source_path == "=(tail call)" or
+                                source_path == "[C]"
+
+        if not is_special_entry and not is_lual_internal_file(source_path) then
             -- Found a non-lual file, this is our caller
             -- Attempt to get the Lua module path using the enhanced algorithm
             -- This now uses package.path parsing instead of hardcoded roots
