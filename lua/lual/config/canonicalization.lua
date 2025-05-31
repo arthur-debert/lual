@@ -2,6 +2,7 @@
 -- This module converts validated configs to runtime (canonical) format
 
 local schema = require("lual.config.schema")
+local table_utils = require("lual.utils.table")
 
 local M = {}
 
@@ -176,22 +177,29 @@ local function convert_dispatchers_to_canonical(dispatchers_config)
     return canonical_dispatchers
 end
 
---- Merges user config with default config, with user config taking precedence
+--- Merges user config with default config using table diffing, with user config taking precedence
 -- @param user_config table The user's partial config
 -- @param default_config table The default config
 -- @return table The merged config
 local function merge_configs(user_config, default_config)
-    local merged = {}
+    -- Deep copy the default config to avoid modifying the original
+    local merged = table_utils.deepcopy(default_config)
 
-    -- Start with default config
-    for k, v in pairs(default_config) do
-        merged[k] = v
+    -- Use table diff to understand what the user is changing/adding
+    local diff = table_utils.key_diff(default_config, user_config)
+
+    -- Apply user overrides for existing keys that changed
+    for key, change_info in pairs(diff.changed_keys) do
+        merged[key] = change_info.new_value
     end
 
-    -- Override with user config
-    for k, v in pairs(user_config) do
-        merged[k] = v
+    -- Add new keys that user provided (not in defaults)
+    for _, key in ipairs(diff.added_keys) do
+        merged[key] = user_config[key]
     end
+
+    -- Keys that were removed (in default but not in user config) remain from default
+    -- This preserves default values for unspecified user keys
 
     return merged
 end
@@ -241,6 +249,37 @@ end
 -- @return table The merged config
 function M.merge_configs(user_config, default_config)
     return merge_configs(user_config, default_config)
+end
+
+--- Analyzes config differences for debugging purposes
+-- @param user_config table The user config
+-- @param default_config table The default config
+-- @return table Detailed diff information including added, removed, and changed keys
+function M.analyze_config_diff(user_config, default_config)
+    return table_utils.key_diff(default_config, user_config)
+end
+
+--- Validates that user config doesn't contain extraneous keys beyond schema
+-- @param user_config table The user config to validate
+-- @param schema_keys table Table of valid schema keys (set format)
+-- @return boolean, table True if valid, or false with details about extra keys
+function M.validate_no_extraneous_keys(user_config, schema_keys)
+    -- Create a template with all valid keys set to nil
+    local schema_template = {}
+    for key, _ in pairs(schema_keys) do
+        schema_template[key] = nil
+    end
+
+    local diff = table_utils.key_diff(schema_template, user_config)
+
+    if #diff.added_keys > 0 then
+        return false, {
+            extraneous_keys = diff.added_keys,
+            message = "Config contains extraneous keys: " .. table.concat(diff.added_keys, ", ")
+        }
+    end
+
+    return true, nil
 end
 
 return M
