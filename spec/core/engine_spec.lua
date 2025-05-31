@@ -24,8 +24,14 @@ describe("lual.core.logging", function()
 			fresh_engine.reset_cache() -- Ensure cache is clean
 
 			local auto_logger = fresh_engine.logger()
+
+			-- Debug: Show what we actually got vs expected
+			print("DEBUG: current_test_filename =", current_test_filename)
+			print("DEBUG: auto_logger.name =", auto_logger.name)
+
 			-- Should use the test filename (without .lua extension)
-			assert.truthy(string.find(auto_logger.name, current_test_filename, 1, true))
+			assert.are.equal("string", type(auto_logger.name), "auto_logger.name should be a string")
+			assert.are.equal(current_test_filename, auto_logger.name, "auto_logger.name should match current_test_filename")
 			assert.is_false(string.find(auto_logger.name, ".lua", 1, true) ~= nil)
 			assert.are.same(fresh_core_levels.definition.INFO, auto_logger.level) -- Default level
 

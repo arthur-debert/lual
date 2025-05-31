@@ -81,34 +81,219 @@ local function escape_lua_pattern(str)
     return str:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")
 end
 
---- Converts a file path to a Lua-style module identifier using package.path
--- This implements the core algorithm from the article: reversing require's lookup
--- by matching the file path against package.path templates
--- @param filepath (string) The file path to convert (should be absolute)
--- @return string|nil The module name if found, nil otherwise
-local function convert_filepath_to_module_id_via_package_path(filepath)
-    if not filepath or type(filepath) ~= "string" then
+--- Parses package.path into individual templates
+-- @return table Array of path templates from package.path
+local function parse_package_path()
+    local package_path = package.path or ""
+    local path_templates = {}
+    for template in package_path:gmatch("[^;]+") do
+        if template and template ~= "" and template ~= ";;" then
+            table.insert(path_templates, template)
+        end
+    end
+    return path_templates
+end
+
+--- Attempts to match a file path against a single package.path template
+-- @param abs_filepath (string) The absolute file path to match
+-- @param template (string) The package.path template (e.g., "./?.lua")
+-- @return string|nil The extracted module name if matched, nil otherwise
+local function match_template(abs_filepath, template)
+    -- Normalize the template path
+    template = normalize_path(template)
+
+    -- Find the position of ? in the template
+    local question_pos = template:find("?", 1, true)
+    if not question_pos then
         return nil
+    end
+
+    -- Split template into prefix and suffix around the ?
+    local template_prefix = template:sub(1, question_pos - 1)
+    local template_suffix = template:sub(question_pos + 1)
+
+    -- Convert template prefix to absolute path if it's relative
+    local abs_template_prefix = to_absolute_path(template_prefix)
+
+    -- Check if the file path matches this template structure
+    local escaped_prefix = escape_lua_pattern(abs_template_prefix)
+    local escaped_suffix = escape_lua_pattern(template_suffix)
+
+    -- Create pattern to capture the module part (what ? represents)
+    local pattern = "^" .. escaped_prefix .. "(.-)" .. escaped_suffix .. "$"
+    local module_part = abs_filepath:match(pattern)
+
+    if module_part then
+        -- Convert the captured part to module name
+        local module_name = module_part:gsub("[/\\]", ".")
+
+        -- Handle init.lua special case as described in the article
+        if template_suffix == ".lua" and module_name:match("%.init$") then
+            module_name = module_name:gsub("%.init$", "")
+        end
+
+        -- Remove any leading/trailing dots
+        module_name = module_name:gsub("^%.+", ""):gsub("%.+$", "")
+
+        if module_name ~= "" then
+            return module_name
+        end
+    end
+
+    return nil
+end
+
+--- Tries to match file path against all package.path templates
+-- @param abs_filepath (string) The absolute file path
+-- @return string|nil The module name if any template matches, nil otherwise
+local function try_package_path_matching(abs_filepath)
+    local path_templates = parse_package_path()
+
+    for _, template in ipairs(path_templates) do
+        local module_name = match_template(abs_filepath, template)
+        if module_name then
+            return module_name
+        end
+    end
+
+    return nil
+end
+
+--- Generates a fallback module name when package.path matching fails
+-- This function now only handles cases that couldn't be determined early in process_path()
+-- @param abs_filepath (string) The absolute file path
+-- @return string|nil A fallback module name or nil
+local function generate_fallback_name(abs_filepath)
+    -- Note: Most common early exit cases are now handled in process_path() for performance:
+    -- - Non-lua files (converted to full path with dots)
+    -- - init.lua files (use parent directory name)
+    -- - ./src/module.lua pattern (use just basename)
+    -- This function only handles remaining .lua files that need basename extraction
+
+    -- Extract basename from the file path
+    local basename = abs_filepath:match("([^/\\]+)$") or abs_filepath
+    if not basename then
+        return nil
+    end
+
+    -- At this point, we should only have .lua files that weren't caught by early patterns
+    -- Remove .lua extension and return the basename as the module name
+    if basename:match("%.lua$") then
+        return basename:gsub("%.lua$", "")
+    end
+
+    -- Fallback for any unexpected cases - return basename as-is
+    return basename
+end
+
+--- Internal function that performs the actual module path discovery
+-- This implements the core algorithm from the article: reversing require's lookup
+-- @param abs_filepath (string) The normalized absolute file path
+-- @param original_filepath (string) The original file path before normalization
+-- @return string|nil The module name if found, nil otherwise
+local function _get_module_path(abs_filepath, original_filepath)
+    -- First try to match against package.path templates
+    local module_name = try_package_path_matching(abs_filepath)
+    if module_name then
+        return module_name
+    end
+
+    -- If no package.path match, use fallback strategy
+    return generate_fallback_name(abs_filepath, original_filepath)
+end
+
+--- Processes and normalizes a file path for module discovery
+-- Handles @ prefix removal, empty string checks, path normalization, and early fallback detection
+-- @param file_path (string) The raw file path to process
+-- @return string|nil, string|nil, string|nil The normalized absolute path, original path,
+--   and early fallback name (if determinable), or nil if invalid
+local function process_path(file_path)
+    -- Verify input parameters
+    if not file_path or type(file_path) ~= "string" then
+        return nil, nil, nil
     end
 
     -- Store original filepath for pattern matching before normalization
-    local original_filepath = filepath
+    local original_filepath = file_path
 
     -- Remove leading @ if present (from debug.getinfo().source)
     -- The article specifically mentions this prefix must be stripped
-    if filepath:sub(1, 1) == "@" then
-        filepath = filepath:sub(2)
-        original_filepath = filepath
+    if file_path:sub(1, 1) == "@" then
+        file_path = file_path:sub(2)
+        original_filepath = file_path
     end
 
-    -- Check again after removing @ prefix
-    if filepath == "" then
+    -- Check for empty strings after @ removal
+    if file_path == "" then
+        return nil, nil, nil
+    end
+
+    -- Early exit for clearly unresolvable paths
+    -- These are common debug.getinfo() results that cannot be module paths
+    if file_path == "(tail call)" or file_path == "=(tail call)" or
+       file_path == "[C]" or file_path == ".lua" then
+        return nil, nil, nil
+    end
+
+    -- Normalize paths for reliable matching
+    -- The article emphasizes the importance of path canonicalization
+    local abs_filepath = to_absolute_path(file_path)
+
+    -- Early fallback detection: Check for patterns that can be resolved without package.path matching
+    -- This optimization avoids expensive package.path processing for common cases
+
+    -- Extract basename for early pattern detection
+    local basename = abs_filepath:match("([^/\\]+)$") or abs_filepath
+    if not basename then
+        return nil, nil, nil
+    end
+
+    -- Early exit case 1: Non-lua files
+    -- For non-lua files, we always use the full path converted to dots as fallback
+    -- This can be determined immediately without trying package.path matching
+    if not basename:match("%.lua$") then
+        local full_path = abs_filepath
+        -- Remove leading ./ if present
+        full_path = full_path:gsub("^%./", "")
+        -- Convert path separators to dots
+        local fallback_name = full_path:gsub("[/\\]", ".")
+        return abs_filepath, original_filepath, fallback_name
+    end
+
+    -- Early exit case 2: Special ./src/module.lua pattern
+    -- Files directly in ./src/ directory get just the basename as module name
+    -- This is a common project structure pattern that can be detected early
+    if original_filepath:match("^%./src/[^/\\]+%.lua$") then
+        local module_name = basename:gsub("%.lua$", "")
+        return abs_filepath, original_filepath, module_name
+    end
+
+    -- Early exit case 3: init.lua files
+    -- init.lua files should use their parent directory name as module name
+    -- This follows Lua's convention where require("mymodule") loads mymodule/init.lua
+    if basename == "init.lua" then
+        local parent = abs_filepath:match("([^/\\]+)[/\\]init%.lua$")
+        if parent then
+            return abs_filepath, original_filepath, parent
+        end
+        -- If we can't extract parent, return nil fallback (will be handled later)
+        return abs_filepath, original_filepath, nil
+    end
+
+    -- No early fallback detected, continue with normal processing
+    return abs_filepath, original_filepath, nil
+end
+
+--- Converts a file path to a Lua-style module identifier using package.path
+-- This is the main entry point for module path discovery
+-- @param file_path (string) The file path to convert
+-- @return string|nil The module name if found, nil otherwise
+local function get_module_path(file_path)
+    -- Transform path and validate, with early fallback detection
+    local abs_filepath, original_filepath, early_fallback = process_path(file_path)
+    if not abs_filepath then
         return nil
     end
-
-    -- Convert to absolute, normalized path for reliable matching
-    -- The article emphasizes the importance of path canonicalization
-    local abs_filepath = to_absolute_path(filepath)
 
     -- Check cache first to avoid expensive recomputation
     -- The article strongly recommends caching due to performance overhead
@@ -116,126 +301,19 @@ local function convert_filepath_to_module_id_via_package_path(filepath)
         return module_name_cache[abs_filepath]
     end
 
-    -- Get current package.path - this is the source of truth for module loading
-    -- The article advocates using package.path instead of hardcoded directories
-    local package_path = package.path or ""
-
-    -- Split package.path by semicolons to get individual templates
-    -- Each template defines how module names map to file paths
-    local path_templates = {}
-    for template in package_path:gmatch("[^;]+") do
-        if template and template ~= "" then
-            table.insert(path_templates, template)
-        end
+    -- If we have an early fallback, use it directly (performance optimization)
+    -- This avoids expensive package.path processing for common patterns
+    if early_fallback then
+        module_name_cache[abs_filepath] = early_fallback
+        return early_fallback
     end
 
-    -- Try to match against each template in package.path
-    -- This reverses the process that require() uses to find modules
-    for _, template in ipairs(path_templates) do
-        -- Skip empty templates or the special ";;" default path marker
-        if template == "" or template == ";;" then
-            goto continue
-        end
+    -- Find the module path using the core algorithm
+    local result = _get_module_path(abs_filepath, original_filepath)
 
-        -- Normalize the template path
-        template = normalize_path(template)
-
-        -- Find the position of ? in the template
-        -- The ? represents where the module name goes
-        local question_pos = template:find("?", 1, true)
-        if not question_pos then
-            goto continue
-        end
-
-        -- Split template into prefix and suffix around the ?
-        local template_prefix = template:sub(1, question_pos - 1)
-        local template_suffix = template:sub(question_pos + 1)
-
-        -- Convert template prefix to absolute path if it's relative
-        -- This ensures consistent matching regardless of current directory
-        local abs_template_prefix = to_absolute_path(template_prefix)
-
-        -- Check if the file path matches this template structure
-        local escaped_prefix = escape_lua_pattern(abs_template_prefix)
-        local escaped_suffix = escape_lua_pattern(template_suffix)
-
-        -- Create pattern to capture the module part (what ? represents)
-        local pattern = "^" .. escaped_prefix .. "(.-)" .. escaped_suffix .. "$"
-        local module_part = abs_filepath:match(pattern)
-
-        if module_part then
-            -- Found a match! Convert the captured part to module name
-            -- Replace directory separators with dots as per Lua convention
-            local module_name = module_part:gsub("[/\\]", ".")
-
-            -- Handle init.lua special case as described in the article
-            -- If template was specifically for init.lua (?/init.lua), module_name is correct
-            -- If template was general (?.lua) but matched init.lua, strip .init suffix
-            if template_suffix == ".lua" and module_name:match("%.init$") then
-                module_name = module_name:gsub("%.init$", "")
-            end
-
-            -- Remove any leading/trailing dots
-            module_name = module_name:gsub("^%.+", ""):gsub("%.+$", "")
-
-            if module_name ~= "" then
-                -- Cache the result for future calls
-                module_name_cache[abs_filepath] = module_name
-                return module_name
-            end
-        end
-
-        ::continue::
-    end
-
-    -- No match found in package.path - use fallback strategy
-    -- The article suggests several fallback approaches for this case
-    local fallback_name = nil
-
-    -- For empty or very short paths, return nil
-    if abs_filepath == "" or abs_filepath == ".lua" then
-        module_name_cache[abs_filepath] = nil
-        return nil
-    end
-
-    -- Try to extract a reasonable name from the file path
-    local basename = abs_filepath:match("([^/\\]+)$") or abs_filepath
-    if basename then
-        -- For non-lua files, use the full path converted to dots
-        if not basename:match("%.lua$") then
-            local full_path = abs_filepath
-            -- Remove leading ./ if present
-            full_path = full_path:gsub("^%./", "")
-            -- Convert path separators to dots
-            fallback_name = full_path:gsub("[/\\]", ".")
-        else
-            -- For .lua files, try to be smarter about module extraction
-            -- Remove .lua extension
-            basename = basename:gsub("%.lua$", "")
-            -- Handle init.lua case
-            if basename == "init" then
-                -- Use parent directory name
-                local parent = abs_filepath:match("([^/\\]+)[/\\]init%.lua$")
-                if parent then
-                    fallback_name = parent
-                end
-            else
-                -- Special case: if path is like "./src/module.lua", extract just "module"
-                -- This handles common project structures where src/ is a source root
-                if original_filepath:match("^%./src/[^/\\]+%.lua$") then
-                    -- For "./src/module.lua" pattern, return just the module name
-                    fallback_name = basename
-                else
-                    -- Default case
-                    fallback_name = basename
-                end
-            end
-        end
-    end
-
-    -- Cache the fallback result (might be nil)
-    module_name_cache[abs_filepath] = fallback_name
-    return fallback_name
+    -- Cache the result for future calls
+    module_name_cache[abs_filepath] = result
+    return result
 end
 
 --- Checks if a filename is part of the lual logging infrastructure.
@@ -282,14 +360,16 @@ function caller_info.get_caller_info(start_level, use_dot_notation)
         local source_path = info.source or info.short_src
         local filename = source_path
 
-        -- Skip special debug entries like "(tail call)", "[C]", etc.
-        if source_path == "(tail call)" or source_path == "[C]" then
-            -- Continue to next iteration (empty branch is intentional)
-        elseif not is_lual_internal_file(source_path) then
+        -- Skip special debug entries like "(tail call)", "=(tail call)", "[C]", etc.
+        local is_special_entry = source_path == "(tail call)" or
+                                source_path == "=(tail call)" or
+                                source_path == "[C]"
+
+        if not is_special_entry and not is_lual_internal_file(source_path) then
             -- Found a non-lual file, this is our caller
             -- Attempt to get the Lua module path using the enhanced algorithm
             -- This now uses package.path parsing instead of hardcoded roots
-            local lua_path = convert_filepath_to_module_id_via_package_path(source_path)
+            local lua_path = get_module_path(source_path)
 
             -- Clean the filename for display purposes
             if filename and string.sub(filename, 1, 1) == "@" then
@@ -338,6 +418,36 @@ function caller_info.get_cache_size()
         count = count + 1
     end
     return count
+end
+
+--- Converts a file path to a Lua-style module identifier
+-- This is the main entry point for module path discovery
+-- @param file_path (string) The file path to convert
+-- @return string|nil The module name if found, nil otherwise
+function caller_info.get_module_path(file_path)
+    return get_module_path(file_path)
+end
+
+--- Parses package.path into individual templates (exposed for testing)
+-- @return table Array of path templates from package.path
+function caller_info.parse_package_path()
+    return parse_package_path()
+end
+
+--- Attempts to match a file path against a single package.path template (exposed for testing)
+-- @param abs_filepath (string) The absolute file path to match
+-- @param template (string) The package.path template (e.g., "./?.lua")
+-- @return string|nil The extracted module name if matched, nil otherwise
+function caller_info.match_template(abs_filepath, template)
+    return match_template(abs_filepath, template)
+end
+
+--- Generates a fallback module name when package.path matching fails (exposed for testing)
+-- @param abs_filepath (string) The absolute file path
+-- @param original_filepath (string) The original file path before normalization
+-- @return string|nil A fallback module name or nil
+function caller_info.generate_fallback_name(abs_filepath, original_filepath)
+    return generate_fallback_name(abs_filepath, original_filepath)
 end
 
 return caller_info

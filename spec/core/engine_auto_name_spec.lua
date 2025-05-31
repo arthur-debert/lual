@@ -19,8 +19,13 @@ describe("lual.core.engine auto-naming", function()
         it("should use filename as logger name when no name provided", function()
             local logger = engine.logger()
 
+            -- Debug: Show what we actually got vs expected
+            print("DEBUG: current_test_filename =", current_test_filename)
+            print("DEBUG: logger.name =", logger.name)
+
             -- Should use the test filename (without .lua extension)
-            assert.truthy(string.find(logger.name, current_test_filename, 1, true))
+            assert.are.equal("string", type(logger.name), "logger.name should be a string")
+            assert.are.equal(current_test_filename, logger.name, "logger.name should match current_test_filename")
             assert.is_false(string.find(logger.name, ".lua", 1, true) ~= nil)
         end)
 
@@ -143,8 +148,13 @@ describe("lual.core.engine auto-naming", function()
         it("should still use provided name even when empty string", function()
             local logger = engine.logger("")
 
+            -- Debug: Show what we actually got vs expected
+            print("DEBUG: current_test_filename =", current_test_filename)
+            print("DEBUG: logger.name =", logger.name)
+
             -- Empty string should trigger auto-naming
-            assert.truthy(string.find(logger.name, current_test_filename, 1, true))
+            assert.are.equal("string", type(logger.name), "logger.name should be a string")
+            assert.are.equal(current_test_filename, logger.name, "logger.name should match current_test_filename")
         end)
 
         it("should cache loggers with auto-generated names", function()
