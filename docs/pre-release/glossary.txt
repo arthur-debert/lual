@@ -1,0 +1,138 @@
+The project has it's complexities and nuances, and having a common language to address it's 
+concepts is quite helpful
+
+1. Foundational Concepts:
+
+    1.1. Module Path:
+        The name for a lua file as what would the require(<module path>) to load it would be. 
+        e.g lual.logger or lual.config.constants
+        
+    1.2. Logger Name:
+        A string that identifies that logger, will be either: 
+            - root: special logger, created internally by the machinery 
+            - user supplied: can be an arbitrary string except root
+            - auto generated: is the module path
+
+    1.3. Dispatcher:
+        A component responsible for sending the fully processed log record to a specific output destination 
+        (file, stdout, network socket, etc.). In most logging libraries, these are called "handlers" 
+        (Python logging, log4j, logback) or "appenders" (log4net, log4cxx).
+
+    1.4. Transformer:
+        A component that modifies the raw log record data, typically changing keys or values in the record table. 
+        In most logging libraries, these are called "filters" (when they modify data) or "processors" 
+        (structured logging libs like structlog).
+
+    1.5. Presenter:
+        A component that changes the visual presentation of the log record (colors, emojis, layout). 
+        In most logging libraries, these are called "formatters" (Python logging, log4j, etc.) or 
+        "layouts" (log4net, logback).
+
+2. Basic Logging Events:
+
+    2.1. Log Event: 
+        When code runs any variants of the logger.log (info, warn, etc)
+
+    2.2. Log Record:
+        A table that describes the data for a log event, with message, time, logger name, file path, line number, extra data.
+        This record is standard throughout the system (the values vary per event, of course)
+
+    2.3. Emission / Emit:
+        The log event is emitted from the source logger
+
+3. Filtering and Matching:
+
+    3.1. Level Matching:
+        - Compares the log event level against the logger's level.
+        - The name given if the log event level is equal to or higher than a logger.level.
+        - For example, a .debug event will only level match loggers with level debug
+        - A .info log event will match debug and info, and so on.
+        - We say that the logger level matches the event if that is true.
+
+4. Configuration:
+
+    4.1 Logger Default Conf
+
+        The default config table for the lual library. Not user defined
+
+    4.1. Logger User Conf:
+        Table that has the user requested options for that specific logger. This is the result of : 
+            logger({time: lual.utc, presenter: color})
+        A logger name is not part of the logger conf
+
+
+    4.2. Logger Chain Conf:
+        This is the result of merging of configs in the 
+        logger chain, starting from the root log. This config has to be generated when logging since 
+        changes to the config of any logger in the chain can invalidate it (or smartly cached)
+
+    4.3. Logger Conf Full: 
+        The actual configuration to be applied to that logger. 
+        Its the final merge of the user's conf merged into the chain conf
+
+5. Logger Chains:
+
+    5.1. Logger Candidate Chain:
+        - The table list that starts closest to the event source and moves upwards until the root logger. 
+        - This chain in dotted name path spaced. That is to say: 
+            logger name: foo.bar.zoo.zar, the possible chain is: 
+                - foo.bar.zoo.zar -> starts with the most specific, the deepest node.
+                - each uplevel is a potential logger: foo.bar.zoo, foo.bar, foo, root.
+                - that doesn't mean there are such loggers. Only loggers that have been configured will make the list here.
+        - This chain does not represent which loggers will log this event for two reasons: 
+            - each logger has to level match the event (see above) to actually log it
+            - if any of these loggers have propagate = false, all subsequent (upper) loggers are voided.
+
+    5.2. Propagatable Logger Chain:
+        Here, we examine if any of the loggers in the chain will halt propagation. 
+        If one does, we can prune the chain, that is, that logger where propagate = false is the last one 
+        that _could_ log the event. This is key: the event should not be propagated, hence no further loggers should see the event. 
+        This allows us to prune the chain. This is desirable because - if no upper loggers should log it,
+        this saves us from running code that will never be useful.
+        In this phase we begin with: 
+
+            logger_chain_candidates -> logger_chain_actual
+
+        Does this mean that these loggers will log it? No, it means that the event should propagate here, but whereas a given log will dispatch that event requires level matching. 
+
+
+
+6. Processing Pipeline:
+
+    6.1. Log Record Processing: 
+        The sequence of operations a log record will undergo when we have a logger that should log it. 
+        Transformation-> using the loggers transformers gets the raw log record table and process 
+            it. usually involves changing keys or values in the data
+        Presenter-> after all transformers have worked on the data, presenters will change its presentation 
+        (like color, emojis, etc)
+        Dispatcher: responsible from sending the fully processed event into a given output, like stdin, stdout, file, etc
+
+    6.2. Dispatch Loop: 
+        We are ready to iterate through the logger chain actual. For each logger (again, bottom up the chain). 
+        - Does it level match? If no, next item.
+        - If yes, here's what needs to be done: 
+            - This logger's config must be built.
+            - The config is the merged table resulting from merging all logger chain candidates up to there.
+            This has a subtle point: loggers up the chain from a propagate termination will not log events, but their configs will base the loggers down.
+            In the example above: 
+                - App logger: config merges the root config and the app config
+                - Connection logger: config merges the root config, the app config and the app.db.connection config.
+
+            The merging rule is deeper loggers config will overwrite keys existent in the previous table. 
+
+            Say you have a chain of root, root.a, root.a.b, root.a.b.c, root.a.b.c.d. If an event is logged in root.a.b.c.d this logger's config is the merge of root, root.a, root.a.b, root.a.b.c where the latter items overwrite the formers. Even if root.a.b has propagate = false, its parents (root and root.a) configs will create the baseline for this. 
+
+    6.3. Dispatch at Logger X:
+        Now, we've built the candidate chain, pruned items before propagate = false and know that this logger X level matches the event.
+        1. Build the config for logger X (as explained above), this is logger_x config
+        2. Runs the transformers in that config, from there we have the final lua table for the log record.
+        3. Loops through all dispatchers in logger_x config.
+            1. For each dispatcher, pass the log record 
+                - The dispatcher will run the presenter
+                - Then it will dispatch the received log record table, then alter by the presenter. 
+
+7. Output:
+
+    7.1. Dispatch Event:
+        A log event is dispatched by a dispatcher (that is, in common parlance: logged), written to disk, 
+        streamed to stdout, posted as a UDP socket etc
