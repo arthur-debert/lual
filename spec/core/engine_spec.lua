@@ -11,7 +11,8 @@ local caller_info = require("lual.core.caller_info")
 -- local utils = require("luassert.utils") -- For stringify - remove debug prints later
 
 -- Get the current test file's name dynamically
-local current_test_filename = caller_info.get_caller_info(1, true) or "unknown_test"
+local current_test_filename, _, _ = caller_info.get_caller_info(1, true)
+current_test_filename = current_test_filename or "unknown_test"
 
 describe("lual.core.logging", function()
 	describe("engine.logger(name)", function()

@@ -138,7 +138,7 @@ function M._get_logger_simple(name)
         -- Auto-generate logger name from caller's filename
         local caller_info = require("lual.core.caller_info")
         -- Use caller_info to automatically find the first non-lual file
-        local filename, _ = caller_info.get_caller_info(nil, true)
+        local filename, _, _ = caller_info.get_caller_info(nil, true)
         if filename then
             logger_name = filename
         else
