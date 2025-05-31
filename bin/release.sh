@@ -201,31 +201,10 @@ fi
 print_success "Release v${NEW_VERSION} prepared successfully!"
 echo
 
-# Check if we should upload to LuaRocks automatically
-if [ -n "$LUAROCKS_API_KEY" ] && [ -z "$DRY_RUN" ]; then
-    print_status "LUAROCKS_API_KEY found in environment"
-    read -p "Upload to LuaRocks automatically? (y/N): " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        print_status "Uploading to LuaRocks..."
-        if luarocks upload "$NEW_ROCKSPEC" --api-key="$LUAROCKS_API_KEY"; then
-            print_success "Successfully uploaded to LuaRocks!"
-        else
-            print_error "Failed to upload to LuaRocks"
-        fi
-    fi
-elif [ -n "$LUAROCKS_API_KEY" ] && [ -n "$DRY_RUN" ]; then
-    print_status "Would upload to LuaRocks using LUAROCKS_API_KEY (dry run)"
-fi
-
 print_status "Next steps:"
 echo "1. Test the rock: luarocks install $NEW_ROCKSPEC"
-if [ -z "$LUAROCKS_API_KEY" ]; then
-    echo "2. Publish to LuaRocks: luarocks upload $NEW_ROCKSPEC --api-key=YOUR_API_KEY"
-    echo "   (Or set LUAROCKS_API_KEY environment variable for automatic upload)"
-else
-    echo "2. Rock upload: ${GREEN}Already uploaded${NC} or declined above"
-fi
+echo "2. Publish rockspec to LuaRocks: luarocks upload $NEW_ROCKSPEC --api-key=YOUR_API_KEY"
+echo "   (This uploads the rockspec only; LuaRocks builds the rock from source)"
 echo "3. Create GitHub release (optional)"
 echo
 print_status "Rock file: lual-${NEW_VERSION}-1.all.rock"
