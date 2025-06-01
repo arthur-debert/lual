@@ -55,18 +55,18 @@ concepts is quite helpful
 
         The default config table for the lual library. Not user defined
 
-    4.1. Logger User Conf:
+    4.1. User Logger Config:
         Table that has the user requested options for that specific logger. This is the result of : 
             logger({time: lual.utc, presenter: color})
         A logger name is not part of the logger conf
 
 
-    4.2. Logger Chain Conf:
+    4.2. Chained Logger Config:
         This is the result of merging of configs in the 
         logger chain, starting from the root log. This config has to be generated when logging since 
         changes to the config of any logger in the chain can invalidate it (or smartly cached)
 
-    4.3. Logger Conf Full: 
+    4.3. Full Logger Confiig: 
         The actual configuration to be applied to that logger. 
         Its the final merge of the user's conf merged into the chain conf
 
@@ -122,14 +122,6 @@ concepts is quite helpful
 
             Say you have a chain of root, root.a, root.a.b, root.a.b.c, root.a.b.c.d. If an event is logged in root.a.b.c.d this logger's config is the merge of root, root.a, root.a.b, root.a.b.c where the latter items overwrite the formers. Even if root.a.b has propagate = false, its parents (root and root.a) configs will create the baseline for this. 
 
-    6.3. Dispatch at Logger X:
-        Now, we've built the candidate chain, pruned items before propagate = false and know that this logger X level matches the event.
-        1. Build the config for logger X (as explained above), this is logger_x config
-        2. Runs the transformers in that config, from there we have the final lua table for the log record.
-        3. Loops through all dispatchers in logger_x config.
-            1. For each dispatcher, pass the log record 
-                - The dispatcher will run the presenter
-                - Then it will dispatch the received log record table, then alter by the presenter. 
 
 7. Output:
 

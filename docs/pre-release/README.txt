@@ -1,8 +1,8 @@
-As the software is feature complete and soon to be released, we're workiing on the final 
-documentation and  testing. In thiis process, we've found problems from minor to significant.
+As the software is feature complete and soon to be released, we're working on the final 
+documentation and  testing. In this process, we've found problems from minor to significant.
 
-As the library grew organically, without a hiigh level design, as the many refactors and renamings 
-took place the code  has, in variious places, become hard to understand , inconsistent and complex.
+As the library grew organically, without a high level design, as the many refactors and renaming 
+took place the code  has, in various places, become hard to understand , inconsistent and complex.
 
 
 As a final push, we're doing : 
@@ -17,7 +17,7 @@ As a final push, we're doing :
     STATUS: WIP
 
     1.2. The log event flow: 
-        A high level descriptiion of the expected behavior  from logger.log up to the final output for that event.
+        A high level description of the expected behavior  from logger.log up to the final output for that event.
 
     1.3. Hierarchy and Propagation
         How multiple loggers interact.
@@ -27,7 +27,7 @@ As a final push, we're doing :
 
 
 2. The current system
-    Here we document the code's behaviour
+    Here we document the code's behavior
 
     2.1 The log event flow
 
@@ -37,4 +37,4 @@ As a final push, we're doing :
 
 
 All the material should be docs/pre-release to keep it a part from the older work.
-All of it must be in plain text, no markdown. Follow the formatting from this file and glossay.txt for a ref.
+All of it must be in plain text, no markdown. Follow the formatting from this file and glossary.txt for a ref.
