@@ -6,13 +6,13 @@
 #          Git tagging/committing, and publishing to LuaRocks.
 #
 # Execution Flow:
-#   1. Defines and exports key paths and package name (PKG_NAME).
+#   1. Defines key paths. Calls read-pkg-name.sh to get PKG_NAME from spec.template and exports it.
 #   2. Parses command-line arguments for release options.
 #   3. Calls manage-version.sh (which reads/writes version in spec.template)
-#      to determine/set the release version.
-#   4. (Optional) Pre-flight check on LuaRocks if the version already exists.
+#      to determine/set the release version. FINAL_VERSION is exported.
+#   4. (Optional) Pre-flight check on LuaRocks if the version for PKG_NAME already exists.
 #   5. Calls gen-rockspecs.sh to generate the rockspec file from spec.template
-#      (which now has the final version).
+#      (which now has the final version and correct package name).
 #   6. Calls build-rocks.sh to pack the generated rockspec into a .rock file.
 #   7. Calls commit-and-tag-release.sh to commit changes (including spec.template),
 #      create/push Git tag.
@@ -20,6 +20,7 @@
 #   9. (Optional) Verifies the published package on LuaRocks.
 #
 # Scripts Called (from ./scripts/ relative to this file's location):
+#   - read-pkg-name.sh: Reads package name from spec.template.
 #   - manage-version.sh: Handles version determination using spec.template.
 #   - gen-rockspecs.sh: Generates the rockspec file.
 #   - build-rocks.sh: Packs the rockspec.
@@ -33,16 +34,14 @@
 #   --bump <patch|minor|major>      : Automatically bump the version in spec.template by the specified type.
 #
 # Environment Variables Set/Used:
-#   - PKG_NAME (string)               : The base name of the package
-#                                       Read from env, must be set
+#   - PKG_NAME (string)               : The base name of the package. Sourced from spec.template. Exported.
 #   - PROJECT_ROOT_ABS (path)         : Absolute path to the project's root directory. Exported.
 #   - SCRIPTS_DIR (path)              : Absolute path to the ./scripts/ directory. Exported.
 #   - SPEC_TEMPLATE_ABS (path)        : Absolute path to the releases/spec.template file. Exported.
 #   - FINAL_VERSION (string)          : The determined semantic version string (e.g., "0.9.0"). Exported.
 #
 # Current Working Directory (CWD) Convention:
-#   This script changes the CWD to PROJECT_ROOT_ABS. Sub-scripts are expected to operate
-#   with this CWD, or use the absolute paths provided via exported variables.
+#   This script changes the CWD to PROJECT_ROOT_ABS. Sub-scripts operate with this CWD.
 #
 set -e
 
@@ -70,13 +69,14 @@ print_error() {
     exit 1
 }
 
-# --- Environment Variable Check for PKG_NAME ---
-if [ -z "$PKG_NAME" ]; then
-    print_error "PKG_NAME environment variable not set, aborting"
-else
-    export PKG_NAME # Ensure it's exported if already set
+# --- Determine and Export PKG_NAME from spec.template ---
+print_status "Determining package name from $SPEC_TEMPLATE_ABS..."
+TEMP_PKG_NAME=$("$SCRIPTS_DIR/read-pkg-name.sh" "$SPEC_TEMPLATE_ABS")
+if [ -z "$TEMP_PKG_NAME" ]; then
+    print_error "Failed to read package name from $SPEC_TEMPLATE_ABS using read-pkg-name.sh. Aborting."
 fi
-print_status "Using PKG_NAME: $PKG_NAME"
+export PKG_NAME="$TEMP_PKG_NAME"
+print_success "Using PKG_NAME: $PKG_NAME (from spec.template)"
 
 # --- Argument Parsing ---
 DRY_RUN_FLAG=""

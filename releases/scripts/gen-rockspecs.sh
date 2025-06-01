@@ -2,7 +2,7 @@
 #
 # Script: gen-rockspecs.sh
 # Purpose: Generates the main rockspec file for the project from its template.
-#          It replaces placeholders in the template with actual values for package name and version.
+#          It updates the version placeholder in the copied template.
 #          It also validates the generated rockspec using `luarocks lint`.
 #          Outputs the filename of the generated rockspec to stdout.
 #
@@ -11,16 +11,16 @@
 #
 # Environment Variables Expected (set by caller, e.g., do-release.sh):
 #   - PROJECT_ROOT_ABS    : Absolute path to the project root.
-#   - PKG_NAME            : Base name of the main package.
+#   - PKG_NAME            : Base name of the main package (read from spec.template by do-release).
 #   - FINAL_VERSION       : The version string for the release (e.g., "0.9.0").
 #   - SPEC_TEMPLATE_ABS   : Absolute path to the main rockspec template (e.g., .../releases/spec.template).
+#                           This template should have the correct final package name already set.
 #
 # Called by: releases/do-release.sh
 # Assumptions:
 #   - CWD is PROJECT_ROOT_ABS when this script is called.
 #   - Rockspec template (spec.template) exists at the path specified by SPEC_TEMPLATE_ABS.
-#   - Template uses "@@PACKAGE_NAME@@" for the package name placeholder and
-#     "@@VERSION-1" for the version placeholder (where -1 is the rockspec revision).
+#   - Template uses "@@VERSION-1" for the version placeholder (where -1 is the rockspec revision).
 #   - Rockspec is generated in the CWD (PROJECT_ROOT_ABS).
 #
 set -e
@@ -62,7 +62,6 @@ if [ ! -f "$SPEC_TEMPLATE_ABS" ]; then
 fi
 
 cp "$SPEC_TEMPLATE_ABS" "$MAIN_ROCKSPEC_FILENAME"
-sed -i.bak "s|package = \"@@PACKAGE_NAME@@\"|package = \"${PKG_NAME}\"|g" "$MAIN_ROCKSPEC_FILENAME"
 sed -i.bak "s|version = \"@@VERSION-1\"|version = \"${FINAL_VERSION}-${ROCK_REVISION}\"|g" "$MAIN_ROCKSPEC_FILENAME"
 rm -f "${MAIN_ROCKSPEC_FILENAME}.bak"
 
