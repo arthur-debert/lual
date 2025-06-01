@@ -8,34 +8,37 @@
 # Execution Flow:
 #   1. Defines and exports key paths and package name (PKG_NAME).
 #   2. Parses command-line arguments for release options.
-#   3. Calls manage-version.sh to determine/set the release version.
+#   3. Calls manage-version.sh (which reads/writes version in spec.template)
+#      to determine/set the release version.
 #   4. (Optional) Pre-flight check on LuaRocks if the version already exists.
-#   5. Calls gen-rockspecs.sh to generate the rockspec file from template.
+#   5. Calls gen-rockspecs.sh to generate the rockspec file from spec.template
+#      (which now has the final version).
 #   6. Calls build-rocks.sh to pack the generated rockspec into a .rock file.
-#   7. Calls commit-and-tag-release.sh to commit changes, create/push Git tag.
+#   7. Calls commit-and-tag-release.sh to commit changes (including spec.template),
+#      create/push Git tag.
 #   8. Calls publish-to-luarocks.sh to upload the rockspec to LuaRocks.
 #   9. (Optional) Verifies the published package on LuaRocks.
 #
 # Scripts Called (from ./scripts/ relative to this file's location):
-#   - manage-version.sh: Handles version determination (interactive or via flags).
+#   - manage-version.sh: Handles version determination using spec.template.
 #   - gen-rockspecs.sh: Generates the rockspec file.
 #   - build-rocks.sh: Packs the rockspec.
 #   - commit-and-tag-release.sh: Handles Git commit and tag.
 #   - publish-to-luarocks.sh: Handles LuaRocks upload.
 #
 # Command-line Options:
-#   --dry-run                         : Simulate the release without making permanent changes (commits, tags, uploads).
-#   --use-version-file              : Use the version string directly from releases/VERSION without prompting.
-#   --bump <patch|minor|major>      : Automatically bump the version by the specified type without prompting.
+#   --dry-run                         : Simulate the release. NOTE: manage-version.sh will still modify
+#                                       spec.template if a version bump occurs, even in dry-run mode for do-release.
+#   --use-version-file              : Use the version string directly from spec.template without prompting.
+#   --bump <patch|minor|major>      : Automatically bump the version in spec.template by the specified type.
 #
 # Environment Variables Set/Used:
 #   - PKG_NAME (string)               : The base name of the package
 #                                       Read from env, must be set
 #   - PROJECT_ROOT_ABS (path)         : Absolute path to the project's root directory. Exported.
 #   - SCRIPTS_DIR (path)              : Absolute path to the ./scripts/ directory. Exported.
-#   - VERSION_FILE_ABS (path)         : Absolute path to the releases/VERSION file. Exported.
 #   - SPEC_TEMPLATE_ABS (path)        : Absolute path to the releases/spec.template file. Exported.
-#   - FINAL_VERSION (string)          : The determined version string for the release (e.g., "0.9.0"). Exported.
+#   - FINAL_VERSION (string)          : The determined semantic version string (e.g., "0.9.0"). Exported.
 #
 # Current Working Directory (CWD) Convention:
 #   This script changes the CWD to PROJECT_ROOT_ABS. Sub-scripts are expected to operate
@@ -47,8 +50,8 @@ set -e
 RELEASES_ROOT=$(dirname "$(readlink -f "$0")") # Absolute path to releases/
 export SCRIPTS_DIR="$RELEASES_ROOT/scripts"
 export PROJECT_ROOT_ABS=$(readlink -f "$RELEASES_ROOT/..") # Absolute path to the project root
-export VERSION_FILE_ABS="$RELEASES_ROOT/VERSION"
 export SPEC_TEMPLATE_ABS="$RELEASES_ROOT/spec.template"
+# VERSION_FILE_ABS is no longer used.
 
 cd "$PROJECT_ROOT_ABS" # Set current working directory to project root for all subsequent commands
 
@@ -69,8 +72,7 @@ print_error() {
 
 # --- Environment Variable Check for PKG_NAME ---
 if [ -z "$PKG_NAME" ]; then
-    print_warning "PKG_NAME environment variable not set, aborting"
-    exit 1
+    print_error "PKG_NAME environment variable not set, aborting"
 else
     export PKG_NAME # Ensure it's exported if already set
 fi
@@ -85,13 +87,13 @@ while [[ "$#" -gt 0 ]]; do
     case $1 in
     --dry-run)
         DRY_RUN_FLAG="--dry-run"
-        print_warning "DRY RUN MODE ENABLED"
+        print_warning "DRY RUN MODE ENABLED (Note: spec.template may still be modified by version bumping)"
         shift
         ;;
     --use-version-file)
         if [ -n "$VERSION_ACTION_ARG" ]; then print_error "Error: --use-version-file and --bump cannot be used together."; fi
         VERSION_ACTION_ARG="--use-current"
-        print_status "Using version from $VERSION_FILE_ABS directly."
+        print_status "Using version from $SPEC_TEMPLATE_ABS directly."
         shift
         ;;
     --bump)
@@ -109,13 +111,12 @@ while [[ "$#" -gt 0 ]]; do
     esac
 done
 
-# --- Step 1: Manage Version ---
-print_status "Step 1: Managing version..."
-# manage-version.sh needs VERSION_FILE_ABS and SCRIPTS_DIR (for bump-version) passed explicitly for this stage
-# It will output the chosen version string.
-export FINAL_VERSION=$("$SCRIPTS_DIR/manage-version.sh" "$VERSION_FILE_ABS" "$SCRIPTS_DIR" $VERSION_ACTION_ARG $BUMP_TYPE_ARG)
+# --- Step 1: Manage Version (from spec.template) ---
+print_status "Step 1: Managing version (from $SPEC_TEMPLATE_ABS)..."
+# manage-version.sh now needs SPEC_TEMPLATE_ABS and SCRIPTS_DIR.
+export FINAL_VERSION=$("$SCRIPTS_DIR/manage-version.sh" "$SPEC_TEMPLATE_ABS" "$SCRIPTS_DIR" $VERSION_ACTION_ARG $BUMP_TYPE_ARG)
 if [ -z "$FINAL_VERSION" ]; then print_error "Failed to determine final version."; fi
-print_success "Version decided: $FINAL_VERSION for $PKG_NAME"
+print_success "Version decided: $FINAL_VERSION for $PKG_NAME (spec.template updated if changed)"
 echo
 
 # --- Pre-flight Check: Verify Version Availability on LuaRocks (if not dry run) ---
@@ -131,8 +132,8 @@ fi
 
 # --- Step 2: Generate Rockspecs ---
 print_status "Step 2: Generating rockspec for $PKG_NAME version $FINAL_VERSION..."
-# gen-rockspecs.sh will use exported env vars: PROJECT_ROOT_ABS, PKG_NAME, FINAL_VERSION, SPEC_TEMPLATE_ABS
-GENERATED_ROCKSPECS_OUTPUT=$("$SCRIPTS_DIR/gen-rockspecs.sh") # No longer needs WITH_EXTRAS_FLAG
+# gen-rockspecs.sh uses exported env vars including SPEC_TEMPLATE_ABS (already updated by manage-version.sh)
+GENERATED_ROCKSPECS_OUTPUT=$("$SCRIPTS_DIR/gen-rockspecs.sh")
 if [ -z "$GENERATED_ROCKSPECS_OUTPUT" ]; then print_error "Failed to generate rockspec."; fi
 mapfile -t GENERATED_ROCKSPEC_FILES < <(echo "$GENERATED_ROCKSPECS_OUTPUT")
 
@@ -152,8 +153,9 @@ echo
 
 # --- Step 4: Commit & Tag Release ---
 print_status "Step 4: Committing and tagging release for $PKG_NAME v$FINAL_VERSION..."
-# commit-and-tag-release.sh uses exported FINAL_VERSION and operates on filenames relative to CWD.
-"$SCRIPTS_DIR/commit-and-tag-release.sh" "$DRY_RUN_FLAG" "${GENERATED_ROCKSPEC_FILES[@]}"
+# Pass SPEC_TEMPLATE_ABS (relative path from project root) to be committed along with generated rockspecs
+SPEC_TEMPLATE_COMMIT_PATH="$(basename "$RELEASES_ROOT")/$(basename "$SPEC_TEMPLATE_ABS")" # e.g. releases/spec.template
+"$SCRIPTS_DIR/commit-and-tag-release.sh" "$DRY_RUN_FLAG" "$SPEC_TEMPLATE_COMMIT_PATH" "${GENERATED_ROCKSPEC_FILES[@]}"
 print_success "Release committed and tagged (or would be in dry run)."
 echo
 
