@@ -155,14 +155,28 @@ echo
 print_status "Step 4: Committing and tagging release for $PKG_NAME v$FINAL_VERSION..."
 # Pass SPEC_TEMPLATE_ABS (relative path from project root) to be committed along with generated rockspecs
 SPEC_TEMPLATE_COMMIT_PATH="$(basename "$RELEASES_ROOT")/$(basename "$SPEC_TEMPLATE_ABS")" # e.g. releases/spec.template
-"$SCRIPTS_DIR/commit-and-tag-release.sh" "$DRY_RUN_FLAG" "$SPEC_TEMPLATE_COMMIT_PATH" "${GENERATED_ROCKSPEC_FILES[@]}"
+
+ARGS_FOR_COMMIT=()
+if [ -n "$DRY_RUN_FLAG" ]; then
+    ARGS_FOR_COMMIT+=("$DRY_RUN_FLAG")
+fi
+ARGS_FOR_COMMIT+=("$SPEC_TEMPLATE_COMMIT_PATH")
+ARGS_FOR_COMMIT+=("${GENERATED_ROCKSPEC_FILES[@]}")
+
+"$SCRIPTS_DIR/commit-and-tag-release.sh" "${ARGS_FOR_COMMIT[@]}"
 print_success "Release committed and tagged (or would be in dry run)."
 echo
 
 # --- Step 5: Publish to LuaRocks ---
 print_status "Step 5: Publishing to LuaRocks..."
 # publish-to-luarocks.sh operates on filenames relative to CWD.
-"$SCRIPTS_DIR/publish-to-luarocks.sh" "$DRY_RUN_FLAG" "${GENERATED_ROCKSPEC_FILES[@]}"
+ARGS_FOR_PUBLISH=()
+if [ -n "$DRY_RUN_FLAG" ]; then
+    ARGS_FOR_PUBLISH+=("$DRY_RUN_FLAG")
+fi
+ARGS_FOR_PUBLISH+=("${GENERATED_ROCKSPEC_FILES[@]}")
+
+"$SCRIPTS_DIR/publish-to-luarocks.sh" "${ARGS_FOR_PUBLISH[@]}"
 print_success "Publish process to LuaRocks completed (or would be in dry run)."
 echo
 
