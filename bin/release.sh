@@ -25,8 +25,6 @@ set -e
 #   ├── ${LIBNAME}extras.spec.template -> (optional) extras
 #   └── VERSION -> keeps current version, can be auto-generated
 
-1 directory, 5 files
-
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 PROJECT_ROOT="$SCRIPT_DIR/.."
 cd "$PROJECT_ROOT"
