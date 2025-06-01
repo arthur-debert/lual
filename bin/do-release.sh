@@ -2,7 +2,7 @@
 set -e
 
 # Main Release Orchestrator Script for lual
-# Usage: ./bin/do-release.sh [--with-extras] [--dry-run]
+# Usage: ./bin/do-release.sh [--with-extras] [--dry-run] [--use-version-file | --bump <patch|minor|major>]
 
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 PROJECT_ROOT="$SCRIPT_DIR/.."
@@ -18,26 +18,48 @@ NC='\033[0m' # No Color
 print_status() { echo -e "${BLUE}[INFO]${NC} $1"; }
 print_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 print_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
-print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+print_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+    exit 1
+}
 
 # --- Argument Parsing ---
 WITH_EXTRAS_FLAG=""
-DRY_RUN_FLAG="" # Basic dry run for now, mainly for commit/tag/publish
+DRY_RUN_FLAG=""
+VERSION_ACTION=""
+BUMP_TYPE_ARG=""
 
-for arg in "$@"; do
-    case $arg in
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
     --with-extras)
         WITH_EXTRAS_FLAG="--with-extras"
         print_status "Including lualextras in this release."
-        shift # Remove --with-extras from processing
+        shift # past argument
         ;;
     --dry-run)
         DRY_RUN_FLAG="--dry-run"
         print_warning "DRY RUN MODE ENABLED"
-        shift # Remove --dry-run
+        shift # past argument
+        ;;
+    --use-version-file)
+        if [ -n "$VERSION_ACTION" ]; then print_error "Error: --use-version-file and --bump cannot be used together."; fi
+        VERSION_ACTION="--use-current"
+        print_status "Using version from releases/VERSION file directly."
+        shift # past argument
+        ;;
+    --bump)
+        if [ -n "$VERSION_ACTION" ]; then print_error "Error: --use-version-file and --bump cannot be used together."; fi
+        if [[ -z "$2" ]] || [[ ! "$2" =~ ^(patch|minor|major)$ ]]; then
+            print_error "Error: --bump requires a type (patch, minor, or major). Example: --bump patch"
+        fi
+        VERSION_ACTION="--bump-type"
+        BUMP_TYPE_ARG="$2"
+        print_status "Will bump version by: $BUMP_TYPE_ARG"
+        shift # past argument
+        shift # past value
         ;;
     *)
-        # Ignore other arguments for now, or add more specific parsing
+        print_error "Unknown option: $1"
         ;;
     esac
 done
@@ -45,7 +67,7 @@ done
 # --- Step 1: Manage Version ---
 print_status "Step 1: Managing version..."
 # manage-version.sh will output the final version string
-FINAL_VERSION=$("$SCRIPT_DIR/manage-version.sh")
+FINAL_VERSION=$("$SCRIPT_DIR/manage-version.sh" $VERSION_ACTION $BUMP_TYPE_ARG)
 if [ -z "$FINAL_VERSION" ]; then
     print_error "Failed to determine final version from manage-version.sh"
     exit 1

@@ -44,7 +44,7 @@ fi
 cp "$LUAL_TEMPLATE" "$LUAL_ROCKSPEC"
 # Replace placeholders. Add more sed commands if you have more placeholders.
 # Ensure your templates use these exact placeholder strings.
-sed -i.bak "s/{{VERSION}}/${NEW_VERSION}/g" "$LUAL_ROCKSPEC"
+sed -i.bak "s/@@VERSION/${NEW_VERSION}/g" "$LUAL_ROCKSPEC"
 sed -i.bak "s/{{ROCK_REVISION}}/${ROCK_REVISION}/g" "$LUAL_ROCKSPEC"
 sed -i.bak "s|{{REPO_URL}}|${REPO_URL}|g" "$LUAL_ROCKSPEC" # Use | as delimiter for URLs
 sed -i.bak "s/{{GIT_TAG}}/${GIT_TAG}/g" "$LUAL_ROCKSPEC"
@@ -67,7 +67,7 @@ if [ "$WITH_EXTRAS_ARG" = "--with-extras" ]; then
     fi
 
     cp "$LUALEXTRAS_TEMPLATE" "$LUALEXTRAS_ROCKSPEC"
-    sed -i.bak "s/{{VERSION}}/${NEW_VERSION}/g" "$LUALEXTRAS_ROCKSPEC"
+    sed -i.bak "s/@@VERSION/${NEW_VERSION}/g" "$LUALEXTRAS_ROCKSPEC"
     sed -i.bak "s/{{ROCK_REVISION}}/${ROCK_REVISION}/g" "$LUALEXTRAS_ROCKSPEC"
     sed -i.bak "s|{{REPO_URL}}|${REPO_URL}|g" "$LUALEXTRAS_ROCKSPEC"
     sed -i.bak "s/{{GIT_TAG}}/${GIT_TAG}/g" "$LUALEXTRAS_ROCKSPEC"
