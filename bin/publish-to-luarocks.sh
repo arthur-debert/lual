@@ -21,49 +21,65 @@ print_error_stderr() {
 }
 
 DRY_RUN_ARG=""
+declare -a rockspecs_to_publish=()
+
 if [ "$1" = "--dry-run" ]; then
     DRY_RUN_ARG="--dry-run"
-    shift
+    shift # Consume --dry-run
 fi
 
-if [ "$#" -eq 0 ]; then
-    print_error_stderr "Error: At least one rockspec file argument is required for publishing."
+# All remaining arguments are rockspec files
+for arg in "$@"; do
+    if [ -n "$arg" ]; then # Ensure argument is not an empty string
+        rockspecs_to_publish+=("$arg")
+    fi
+done
+
+if [ "${#rockspecs_to_publish[@]}" -eq 0 ]; then
+    print_error_stderr "Error: No valid rockspec files were provided for publishing."
 fi
 
-for rockspec_file in "$@"; do
+for rockspec_file in "${rockspecs_to_publish[@]}"; do
     if [ ! -f "$rockspec_file" ]; then
         print_error_stderr "Rockspec file not found: $rockspec_file"
     fi
 
     print_status_stderr "Preparing to publish ${rockspec_file} to LuaRocks..."
 
-    if [ -z "$LUAROCKS_API_KEY" ]; then
-        print_warning_stderr "LUAROCKS_API_KEY environment variable not set."
+    # Determine API key (scoped per rockspec in case of interactive prompt)
+    CURRENT_LUAROCKS_API_KEY=""
+    if [ -z "$LUAROCKS_API_KEY" ]; then # Check environment variable
+        print_warning_stderr "LUAROCKS_API_KEY environment variable not set for $rockspec_file."
         if [ "$DRY_RUN_ARG" != "--dry-run" ]; then
-            read -p "Enter your LuaRocks API key (or press Enter to skip this file): " -s API_KEY_INPUT >&2
-            echo >&2
+            read -p "Enter your LuaRocks API key for $rockspec_file (or press Enter to skip this file): " -s API_KEY_INPUT >&2
+            echo >&2 # Newline after secret input
             if [ -z "$API_KEY_INPUT" ]; then
                 print_warning_stderr "Skipping $rockspec_file due to no API key provided."
-                continue
+                continue # Skip to the next rockspec file
             fi
-            TEMP_LUAROCKS_API_KEY="$API_KEY_INPUT"
+            CURRENT_LUAROCKS_API_KEY="$API_KEY_INPUT"
         else
-            print_warning_stderr "DRY RUN: Would need LUAROCKS_API_KEY."
-            TEMP_LUAROCKS_API_KEY="DRY_RUN_API_KEY_PLACEHOLDER" # for dry run message
+            print_warning_stderr "DRY RUN: Would need LUAROCKS_API_KEY for $rockspec_file."
+            # For dry run, we don't need a real key, but we act as if we would proceed
         fi
     else
-        TEMP_LUAROCKS_API_KEY="$LUAROCKS_API_KEY"
+        CURRENT_LUAROCKS_API_KEY="$LUAROCKS_API_KEY"
     fi
 
     if [ "$DRY_RUN_ARG" = "--dry-run" ]; then
         print_warning_stderr "DRY RUN: Would upload: luarocks upload $rockspec_file --api-key=***"
     else
+        if [ -z "$CURRENT_LUAROCKS_API_KEY" ]; then # Should only happen if env var not set AND skipped input in non-dry run
+            print_warning_stderr "No API key available for $rockspec_file. Skipping upload."
+            continue
+        fi
         print_status_stderr "Uploading $rockspec_file to LuaRocks..."
-        if luarocks upload "$rockspec_file" --api-key="$TEMP_LUAROCKS_API_KEY"; then
+        if luarocks upload "$rockspec_file" --api-key="$CURRENT_LUAROCKS_API_KEY"; then
             print_status_stderr "Successfully published $rockspec_file to LuaRocks!"
         else
-            print_error_stderr "Failed to publish $rockspec_file to LuaRocks."
-            # Continue to next file if any, or let set -e handle exit
+            # Do not exit immediately, allow other rockspecs to be processed if any.
+            print_error_stderr "Failed to publish $rockspec_file to LuaRocks. See errors above."
+            # If you want to stop on first failure, remove the print_error_stderr and let set -e handle it, or exit 1 here.
         fi
     fi
 done
