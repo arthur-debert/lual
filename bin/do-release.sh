@@ -75,6 +75,20 @@ fi
 print_success "Version decided: $FINAL_VERSION"
 echo
 
+# --- Pre-flight Check: Verify Version Availability on LuaRocks (if not dry run) ---
+if [ -z "$DRY_RUN_FLAG" ]; then
+    print_status "Pre-flight Check: Verifying if version $FINAL_VERSION for 'lual' is already on LuaRocks..."
+    # We assume the main package is 'lual' for this check.
+    # The rockspec revision is typically -1 for new uploads.
+    if luarocks search lual "$FINAL_VERSION" | grep -q "${FINAL_VERSION}-1 (rockspec)"; then
+        print_error "Error: Version lual ${FINAL_VERSION}-1 is already published on LuaRocks. Please choose a different version."
+        # No exit 1 here, print_error already exits
+    else
+        print_success "Version lual $FINAL_VERSION appears to be available on LuaRocks."
+    fi
+    echo
+fi
+
 # --- Step 2: Generate Rockspecs ---
 print_status "Step 2: Generating rockspecs for version $FINAL_VERSION..."
 # gen-rockspecs.sh will output the paths to the generated rockspec files, one per line
@@ -119,6 +133,36 @@ print_status "Step 5: Publishing to LuaRocks..."
 "$SCRIPT_DIR/publish-to-luarocks.sh" "$DRY_RUN_FLAG" "${GENERATED_ROCKSPEC_FILES[@]}"
 print_success "Publish process to LuaRocks completed (or would be in dry run)."
 echo
+
+# --- Step 6: Verify on LuaRocks (if not dry run) ---
+if [ -z "$DRY_RUN_FLAG" ]; then
+    print_status "Step 6: Verifying packages on LuaRocks..."
+    ALL_VERIFIED=true
+    for spec_file in "${GENERATED_ROCKSPEC_FILES[@]}"; do
+        # Extract package name from rockspec filename e.g. lual from lual-0.8.10-1.rockspec
+        PKG_NAME=$(basename "$spec_file" | sed -E "s/-${FINAL_VERSION}-[0-9]+\.rockspec//")
+
+        if [ -n "$PKG_NAME" ]; then
+            print_status "Searching for ${PKG_NAME} version ${FINAL_VERSION} on LuaRocks..."
+            # Check for the rockspec entry, version will include the rockspec revision (e.g. 0.8.10-1)
+            if luarocks search "$PKG_NAME" "$FINAL_VERSION" | grep -q "${FINAL_VERSION}-1 (rockspec)"; then
+                print_success "  Successfully found ${PKG_NAME} ${FINAL_VERSION} on LuaRocks."
+            else
+                print_warning "  Could not verify ${PKG_NAME} ${FINAL_VERSION} on LuaRocks immediately. It might take a few moments to appear, or there might have been an issue."
+                ALL_VERIFIED=false
+            fi
+        else
+            print_warning "Could not parse package name from ${spec_file} to verify."
+            ALL_VERIFIED=false
+        fi
+    done
+    if [ "$ALL_VERIFIED" = true ]; then
+        print_success "All published packages verified on LuaRocks."
+    else
+        print_warning "Some packages could not be immediately verified on LuaRocks. Please check manually."
+    fi
+    echo
+fi
 
 print_success "--------------------------------------------------"
 print_success "LUAL RELEASE PROCESS COMPLETED SUCCESSFULLY for v$FINAL_VERSION!"
