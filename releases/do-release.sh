@@ -1,62 +1,56 @@
 #!/usr/bin/env bash
 #
 # Main Release Orchestrator Script
-# Purpose: Automates the entire release process for a Lua project,
-#          including version management, rockspec generation, building,
-#          Git tagging/committing, and publishing to LuaRocks.
+# Purpose: Automates the entire release process for a Lua project.
 #
-# Execution Flow (Two Modes):
-#   A) Template-based (default):
-#     1. PKG_NAME read from spec.template.
-#     2. manage-version.sh reads/bumps version in spec.template. FINAL_VERSION determined.
-#     3. Pre-flight check for PKG_NAME + FINAL_VERSION on LuaRocks.
-#     4. gen-rockspecs.sh generates <PKG_NAME>-<FINAL_VERSION>-1.rockspec from spec.template.
-#     5. build-rocks.sh packs the generated rockspec.
-#     6. commit-and-tag-release.sh commits spec.template and the generated rockspec.
-#     7. publish-to-luarocks.sh uploads .rockspec or .rock file.
-#     8. Verification on LuaRocks.
-#   B) User-provided Rockspec File (if a .rockspec file is passed as an argument):
-#     1. PKG_NAME and FINAL_VERSION read directly from the provided .rockspec file.
-#        (manage-version.sh and version bumping are SKIPPED).
-#     2. Pre-flight check for PKG_NAME + FINAL_VERSION on LuaRocks.
-#     3. The provided .rockspec IS the file to be processed (gen-rockspecs.sh SKIPPED).
-#     4. build-rocks.sh packs the provided .rockspec.
-#     5. commit-and-tag-release.sh commits ONLY the provided .rockspec file.
-#     6. publish-to-luarocks.sh uploads .rockspec or .rock file.
-#     7. Verification on LuaRocks.
+# Execution Flow:
+#   1. Defines paths. PKG_NAME is from environment (must be set).
+#   2. Determines METADATA_SOURCE_FILE (user-provided .rockspec or default spec.template).
+#   3. Reads INITIAL_VERSION from METADATA_SOURCE_FILE using read-version-from-spec.sh.
+#   4. Parses command-line arguments for release options.
+#   5. Calls manage-version.sh (now a pure calculator) with INITIAL_VERSION to get FINAL_VERSION.
+#   6. IF template mode AND version changed: update-spec-version.sh updates spec.template with FINAL_VERSION.
+#   7. Pre-flight check for PKG_NAME + FINAL_VERSION on LuaRocks.
+#   8. gen-rockspecs.sh generates <PKG_NAME>-<FINAL_VERSION>-1.rockspec using METADATA_SOURCE_FILE as base.
+#   9. build-rocks.sh packs the generated rockspec.
+#  10. commit-and-tag-release.sh commits relevant file(s) (spec.template if changed, generated rockspec).
+#  11. publish-to-luarocks.sh uploads .rockspec or .rock file.
+#  12. Verification on LuaRocks.
 #
-# Scripts Called (from ./scripts/ relative to this file's location):
-#   - read-pkg-name.sh, read-version-from-spec.sh, manage-version.sh,
-#   - gen-rockspecs.sh, build-rocks.sh, commit-and-tag-release.sh, publish-to-luarocks.sh
+# Scripts Called (from ./scripts/):
+#   read-version-from-spec.sh, manage-version.sh, update-spec-version.sh (new),
+#   gen-rockspecs.sh, build-rocks.sh, commit-and-tag-release.sh, publish-to-luarocks.sh
 #
 # Command-line Options:
-#   [path/to/your.rockspec]       : Optional. If provided, uses this rockspec directly.
-#   --dry-run                         : Simulate. NOTE: If not providing a rockspec, manage-version.sh
-#                                       still modifies spec.template for bumps.
-#   --use-version-file              : (Template mode only) Use version in spec.template without prompt.
-#   --bump <patch|minor|major>      : (Template mode only) Bump version in spec.template.
+#   [path/to/your.rockspec]       : Optional. If provided, version is read from this file. Bumping applies to this initial version.
+#                                   The original file is NOT modified; a new canonical rockspec is generated from it.
+#   --dry-run                         : Simulate. NOTE: If in template mode and version bumped, spec.template IS updated.
+#   --use-version-file              : Use version in source spec file without prompt for bump.
+#   --bump <patch|minor|major>      : Bump version from source spec file.
 #   --upload-rock                   : Upload packed .rock file instead of .rockspec.
 #
 # Environment Variables Set/Used:
-#   - PKG_NAME, PROJECT_ROOT_ABS, SCRIPTS_DIR, SPEC_TEMPLATE_ABS, FINAL_VERSION (all exported)
+#   - PKG_NAME (string)               : Base package name. MUST BE SET IN ENVIRONMENT. Exported.
+#   - PROJECT_ROOT_ABS (path)         : Absolute path to project root. Exported.
+#   - SCRIPTS_DIR (path)              : Absolute path to ./scripts/ directory. Exported.
+#   - DEFAULT_SPEC_TEMPLATE_ABS (path): Path to releases/spec.template. (Used by gen-rockspecs.sh if no user spec)
+#   - FINAL_VERSION (string)          : Determined semantic version (e.g., "0.9.0"). Exported.
 #
 set -e
 
 # --- Path and Variable Definitions ---
-RELEASES_ROOT=$(dirname "$(readlink -f "$0")") # Absolute path to releases/
+RELEASES_ROOT=$(dirname "$(readlink -f "$0")")
 export SCRIPTS_DIR="$RELEASES_ROOT/scripts"
-export PROJECT_ROOT_ABS=$(readlink -f "$RELEASES_ROOT/..") # Absolute path to the project root
-export SPEC_TEMPLATE_ABS="$RELEASES_ROOT/spec.template"    # Default master spec
+export PROJECT_ROOT_ABS=$(readlink -f "$RELEASES_ROOT/..")
+export DEFAULT_SPEC_TEMPLATE_ABS="$RELEASES_ROOT/spec.template" # Renamed from SPEC_TEMPLATE_ABS for clarity
 
-cd "$PROJECT_ROOT_ABS" # Set current working directory to project root for all subsequent commands
+cd "$PROJECT_ROOT_ABS"
 
-# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
+NC='\033[0m'
 print_status() { echo -e "${BLUE}[INFO]${NC} $1"; }
 print_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 print_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
@@ -65,40 +59,42 @@ print_error() {
     exit 1
 }
 
+# --- PKG_NAME must be set in environment ---
+if [ -z "$PKG_NAME" ]; then print_error "PKG_NAME environment variable not set. This is required."; fi
+export PKG_NAME
+print_status "Using PKG_NAME: $PKG_NAME (from environment)"
+
 # --- Argument Parsing for flags and optional rockspec file ---
 DRY_RUN_FLAG=""
 VERSION_ACTION_ARG=""
 BUMP_TYPE_ARG=""
 UPLOAD_ROCK_FILE_FLAG=false
-USER_PROVIDED_ROCKSPEC=""
+USER_PROVIDED_ROCKSPEC_PATH=""
 
 NEW_ARGS=()
 for arg in "$@"; do
-    if [[ -f "$arg" && "$arg" == *.rockspec && -z "$USER_PROVIDED_ROCKSPEC" ]]; then
-        USER_PROVIDED_ROCKSPEC=$(readlink -f "$arg") # Get absolute path
-        print_status "User provided rockspec file: $USER_PROVIDED_ROCKSPEC"
+    if [[ -f "$arg" && "$arg" == *.rockspec && -z "$USER_PROVIDED_ROCKSPEC_PATH" ]]; then
+        USER_PROVIDED_ROCKSPEC_PATH=$(readlink -f "$arg")
     else
         NEW_ARGS+=("$arg")
     fi
 done
-set -- "${NEW_ARGS[@]}" # Repopulate positional parameters without the rockspec file
+set -- "${NEW_ARGS[@]}"
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
     --dry-run)
         DRY_RUN_FLAG="--dry-run"
-        print_warning "DRY RUN MODE"
+        print_warning "DRY RUN MODE (Note: spec.template may still be modified if version is bumped)"
         shift
         ;;
     --use-version-file)
-        if [ -n "$USER_PROVIDED_ROCKSPEC" ]; then print_error "--use-version-file cannot be used when a rockspec file is provided."; fi
         if [ -n "$VERSION_ACTION_ARG" ]; then print_error "--use-version-file and --bump cannot be used together."; fi
         VERSION_ACTION_ARG="--use-current"
-        print_status "Using version from spec.template."
+        print_status "Using version from source spec file."
         shift
         ;;
     --bump)
-        if [ -n "$USER_PROVIDED_ROCKSPEC" ]; then print_error "--bump cannot be used when a rockspec file is provided."; fi
         if [ -n "$VERSION_ACTION_ARG" ]; then print_error "--use-version-file and --bump cannot be used together."; fi
         if [[ -z "$2" ]] || [[ ! "$2" =~ ^(patch|minor|major)$ ]]; then print_error "--bump requires type (patch|minor|major)."; fi
         VERSION_ACTION_ARG="--bump-type"
@@ -116,38 +112,87 @@ while [[ "$#" -gt 0 ]]; do
     esac
 done
 
-# --- Determine PKG_NAME and FINAL_VERSION ---
-if [ -n "$USER_PROVIDED_ROCKSPEC" ]; then
-    print_status "Reading package name and version from provided rockspec: $USER_PROVIDED_ROCKSPEC"
-    export PKG_NAME=$("$SCRIPTS_DIR/read-pkg-name.sh" "$USER_PROVIDED_ROCKSPEC")
-    export FINAL_VERSION=$("$SCRIPTS_DIR/read-version-from-spec.sh" "$USER_PROVIDED_ROCKSPEC")
-    if [ -z "$PKG_NAME" ] || [ -z "$FINAL_VERSION" ]; then print_error "Failed to read package/version from $USER_PROVIDED_ROCKSPEC."; fi
-    print_success "Using PKG_NAME: $PKG_NAME, Version: $FINAL_VERSION (from provided rockspec)"
-    GENERATED_ROCKSPEC_FILES=("$(basename "$USER_PROVIDED_ROCKSPEC")") # Relative path for build/publish
-    # For commit, use path relative to project root
-    if [[ "$USER_PROVIDED_ROCKSPEC" == "$PROJECT_ROOT_ABS"* ]]; then
-        SPEC_TO_COMMIT_PATH="${USER_PROVIDED_ROCKSPEC#$PROJECT_ROOT_ABS/}"
+# --- Determine METADATA_SOURCE_FILE (for reading initial Pkg Name and Version) ---
+METADATA_SOURCE_FILE_ABS=""
+if [ -n "$USER_PROVIDED_ROCKSPEC_PATH" ]; then
+    if [ ! -f "$USER_PROVIDED_ROCKSPEC_PATH" ]; then print_error "Provided rockspec file not found: $USER_PROVIDED_ROCKSPEC_PATH"; fi
+    METADATA_SOURCE_FILE_ABS="$USER_PROVIDED_ROCKSPEC_PATH"
+    print_status "Source for initial metadata: User-provided rockspec ($METADATA_SOURCE_FILE_ABS)"
+else
+    METADATA_SOURCE_FILE_ABS="$DEFAULT_SPEC_TEMPLATE_ABS"
+    print_status "Source for initial metadata: Default spec template ($METADATA_SOURCE_FILE_ABS)"
+fi
+
+# PKG_NAME is from env. Read INITIAL_VERSION from METADATA_SOURCE_FILE_ABS.
+print_status "Reading initial version from $METADATA_SOURCE_FILE_ABS..."
+INITIAL_SEMANTIC_VERSION=$("$SCRIPTS_DIR/read-version-from-spec.sh" "$METADATA_SOURCE_FILE_ABS")
+if [ -z "$INITIAL_SEMANTIC_VERSION" ]; then print_error "Failed to read initial version from $METADATA_SOURCE_FILE_ABS."; fi
+print_status "Initial version read: $INITIAL_SEMANTIC_VERSION for package $PKG_NAME"
+
+# --- Step 1: Calculate Final Version (using manage-version.sh as a pure calculator) ---
+print_status "Step 1: Calculating final version..."
+export FINAL_VERSION=$("$SCRIPTS_DIR/manage-version.sh" "$INITIAL_SEMANTIC_VERSION" "$SCRIPTS_DIR" $VERSION_ACTION_ARG $BUMP_TYPE_ARG)
+if [ -z "$FINAL_VERSION" ]; then print_error "Failed to determine final version."; fi
+print_success "Final version decided: $FINAL_VERSION for $PKG_NAME"
+
+# --- Step 1b: Update spec.template if it was the source and version was bumped ---
+# This ensures the template carries the next version for subsequent default runs.
+# User-provided rockspecs are NOT modified.
+SPEC_TEMPLATE_WAS_MODIFIED=false
+if [ -z "$USER_PROVIDED_ROCKSPEC_PATH" ] && [ "$INITIAL_SEMANTIC_VERSION" != "$FINAL_VERSION" ]; then
+    print_status "Updating version in default spec template ($DEFAULT_SPEC_TEMPLATE_ABS) to $FINAL_VERSION..."
+    # update-spec-version.sh modifies the file in place.
+    "$SCRIPTS_DIR/update-spec-version.sh" "$DEFAULT_SPEC_TEMPLATE_ABS" "$FINAL_VERSION"
+    SPEC_TEMPLATE_WAS_MODIFIED=true
+    print_success "Default spec template updated."
+fi
+echo
+
+# Initialize files to be committed and file used for generation
+declare -a GENERATED_ROCKSPEC_FILES=() # This will hold the single, final rockspec filename for build/publish
+SPEC_TO_COMMIT_PRIMARY=""              # Primary file to commit (template or user-spec)
+SPEC_TO_COMMIT_SECONDARY=""            # Secondary file to commit (generated spec, if template mode)
+SOURCE_FOR_GENSPECS=""                 # The file gen-rockspecs.sh will copy from
+
+if [ -n "$USER_PROVIDED_ROCKSPEC_PATH" ]; then
+    # Mode: User-provided Rockspec File
+    # The user-provided file (unmodified by version bump) is the source for gen-rockspecs.
+    # The final generated rockspec will have the PKG_NAME (from env) and FINAL_VERSION.
+    SOURCE_FOR_GENSPECS="$USER_PROVIDED_ROCKSPEC_PATH"
+    # We commit the original user-provided rockspec (it was not modified).
+    if [[ "$USER_PROVIDED_ROCKSPEC_PATH" == "$PROJECT_ROOT_ABS"* ]]; then
+        SPEC_TO_COMMIT_PRIMARY="${USER_PROVIDED_ROCKSPEC_PATH#$PROJECT_ROOT_ABS/}"
     else
-        SPEC_TO_COMMIT_PATH="$USER_PROVIDED_ROCKSPEC" # Should be an error or handled if not in project
-        print_warning "Provided rockspec $USER_PROVIDED_ROCKSPEC is outside project root. Committing absolute path."
+        SPEC_TO_COMMIT_PRIMARY="$USER_PROVIDED_ROCKSPEC_PATH"
     fi
 else
-    print_status "Determining package name from default template: $SPEC_TEMPLATE_ABS..."
-    export PKG_NAME=$("$SCRIPTS_DIR/read-pkg-name.sh" "$SPEC_TEMPLATE_ABS")
-    if [ -z "$PKG_NAME" ]; then print_error "Failed to read PKG_NAME from $SPEC_TEMPLATE_ABS."; fi
-    print_success "Using PKG_NAME: $PKG_NAME (from spec.template)"
+    # Mode: Template-based
+    # The default spec template (which was just updated if version bumped) is the source for gen-rockspecs.
+    SOURCE_FOR_GENSPECS="$DEFAULT_SPEC_TEMPLATE_ABS"
+    SPEC_TO_COMMIT_PRIMARY="$(basename "$RELEASES_ROOT")/$(basename "$DEFAULT_SPEC_TEMPLATE_ABS")" # e.g. releases/spec.template
+fi
 
-    print_status "Step 1: Managing version (from $SPEC_TEMPLATE_ABS)..."
-    export FINAL_VERSION=$("$SCRIPTS_DIR/manage-version.sh" "$SPEC_TEMPLATE_ABS" "$SCRIPTS_DIR" $VERSION_ACTION_ARG $BUMP_TYPE_ARG)
-    if [ -z "$FINAL_VERSION" ]; then print_error "Failed to determine final version."; fi
-    print_success "Version decided: $FINAL_VERSION for $PKG_NAME (spec.template updated if changed)"
+# --- Step 2: Generate Final Buildable Rockspec ---
+# gen-rockspecs.sh copies SOURCE_FOR_GENSPECS and stamps PKG_NAME & FINAL_VERSION into the new file.
+print_status "Step 2: Generating final buildable rockspec for $PKG_NAME version $FINAL_VERSION..."
+GENERATED_ROCKSPECS_OUTPUT=$("$SCRIPTS_DIR/gen-rockspecs.sh" "$SOURCE_FOR_GENSPECS")
+if [ -z "$GENERATED_ROCKSPECS_OUTPUT" ]; then print_error "Failed to generate final rockspec."; fi
+mapfile -t GENERATED_ROCKSPEC_FILES < <(echo "$GENERATED_ROCKSPECS_OUTPUT") # Should be one file
+print_success "Final rockspec for build/publish: ${GENERATED_ROCKSPEC_FILES[*]}"
 
-    print_status "Step 2: Generating final rockspec for $PKG_NAME version $FINAL_VERSION..."
-    GENERATED_ROCKSPECS_OUTPUT=$("$SCRIPTS_DIR/gen-rockspecs.sh")
-    if [ -z "$GENERATED_ROCKSPECS_OUTPUT" ]; then print_error "Failed to generate rockspec."; fi
-    mapfile -t GENERATED_ROCKSPEC_FILES < <(echo "$GENERATED_ROCKSPECS_OUTPUT")
-    print_success "Rockspec generated: ${GENERATED_ROCKSPEC_FILES[*]}"
-    SPEC_TO_COMMIT_PATH="$(basename "$RELEASES_ROOT")/$(basename "$SPEC_TEMPLATE_ABS")" # commit spec.template
+# If template mode, the second file to commit is this newly generated rockspec.
+# If user-provided spec mode, GENERATED_ROCKSPEC_FILES[0] IS the one to build/publish and also commit (if different from original user path due to naming convention)
+# but SPEC_TO_COMMIT_PRIMARY already points to the original user spec path.
+# This logic needs to be cleaner for what to commit if user spec is provided.
+# For now: if template, commit template + generated. If user-spec, commit original user-spec + generated.
+# This seems right if gen-rockspecs always makes a NEW file like <PKG_NAME>-<FINAL_VERSION>-1.rockspec
+if [ -z "$USER_PROVIDED_ROCKSPEC_PATH" ]; then
+    SPEC_TO_COMMIT_SECONDARY="${GENERATED_ROCKSPEC_FILES[0]}"
+elif [ "$(basename "$USER_PROVIDED_ROCKSPEC_PATH")" != "${GENERATED_ROCKSPEC_FILES[0]}" ]; then
+    # User provided a spec, and the generated spec has a different (canonical) name.
+    # We should commit the generated one. The original user one is not modified or committed.
+    SPEC_TO_COMMIT_PRIMARY="${GENERATED_ROCKSPEC_FILES[0]}" # Commit the canonical one.
+    SPEC_TO_COMMIT_SECONDARY=""                             # No secondary in this case.
 fi
 echo
 
@@ -162,7 +207,7 @@ if [ -z "$DRY_RUN_FLAG" ]; then
     echo
 fi
 
-# --- Step 3 (or 2b if rockspec provided): Build/Pack Rock ---
+# --- Build/Pack Rock ---
 print_status "Building (packing) rock from ${GENERATED_ROCKSPEC_FILES[*]}..."
 PACKED_ROCK_FILES_OUTPUT=$("$SCRIPTS_DIR/build-rocks.sh" "${GENERATED_ROCKSPEC_FILES[@]}")
 if [ -z "$PACKED_ROCK_FILES_OUTPUT" ]; then print_error "Failed to build/pack rock."; fi
@@ -170,20 +215,22 @@ mapfile -t PACKED_ROCK_FILES < <(echo "$PACKED_ROCK_FILES_OUTPUT")
 print_success "Rock packed: ${PACKED_ROCK_FILES[*]}"
 echo
 
-# --- Step 4: Commit & Tag Release ---
+# --- Commit & Tag Release ---
 print_status "Committing and tagging for $PKG_NAME v$FINAL_VERSION..."
 ARGS_FOR_COMMIT=()
 if [ -n "$DRY_RUN_FLAG" ]; then ARGS_FOR_COMMIT+=("$DRY_RUN_FLAG"); fi
-ARGS_FOR_COMMIT+=("$SPEC_TO_COMMIT_PATH") # spec.template or user-provided spec
-# If in template mode, also commit the generated rockspec. If user-provided, it's already SPEC_TO_COMMIT_PATH.
-if [ -z "$USER_PROVIDED_ROCKSPEC" ]; then
-    ARGS_FOR_COMMIT+=("${GENERATED_ROCKSPEC_FILES[@]}")
-fi
-"$SCRIPTS_DIR/commit-and-tag-release.sh" "${ARGS_FOR_COMMIT[@]}"
-print_success "Committed and tagged."
-echo
+if [ -n "$SPEC_TO_COMMIT_PRIMARY" ]; then ARGS_FOR_COMMIT+=("$SPEC_TO_COMMIT_PRIMARY"); fi
+if [ -n "$SPEC_TO_COMMIT_SECONDARY" ]; then ARGS_FOR_COMMIT+=("$SPEC_TO_COMMIT_SECONDARY"); fi
 
-# --- Step 5: Publish to LuaRocks ---
+if [ ${#ARGS_FOR_COMMIT[@]} -eq 0 ] || ([ -n "$DRY_RUN_FLAG" ] && [ ${#ARGS_FOR_COMMIT[@]} -eq 1 ]); then
+    print_warning "No files identified for commit (or only dry-run flag). Skipping commit step."
+else
+    "$SCRIPTS_DIR/commit-and-tag-release.sh" "${ARGS_FOR_COMMIT[@]}"
+    print_success "Committed and tagged."
+    echo
+fi
+
+# --- Publish to LuaRocks ---
 print_status "Publishing to LuaRocks..."
 FILES_TO_PUBLISH=()
 if [ "$UPLOAD_ROCK_FILE_FLAG" = true ]; then
@@ -196,25 +243,26 @@ fi
 ARGS_FOR_PUBLISH=()
 if [ -n "$DRY_RUN_FLAG" ]; then ARGS_FOR_PUBLISH+=("$DRY_RUN_FLAG"); fi
 ARGS_FOR_PUBLISH+=("${FILES_TO_PUBLISH[@]}")
-if [ ${#FILES_TO_PUBLISH[@]} -eq 0 ]; then print_error "No files to publish."; fi
+if [ ${#FILES_TO_PUBLISH[@]} -eq 0 ] || ([ "${#ARGS_FOR_PUBLISH[@]}" -eq 1 ] && [ -n "$DRY_RUN_FLAG" ]); then
+    print_error "No files determined for publishing (array is empty or only contains --dry-run)."
+fi
 "$SCRIPTS_DIR/publish-to-luarocks.sh" "${ARGS_FOR_PUBLISH[@]}"
 print_success "Publish process completed."
 echo
 
-# --- Step 6: Verify on LuaRocks ---
+# --- Verify on LuaRocks ---
 if [ -z "$DRY_RUN_FLAG" ]; then
     print_status "Verifying package on LuaRocks..."
-    VERIFY_SPEC_FILE="${GENERATED_ROCKSPEC_FILES[0]}" # Use first (only) element
-    PKG_NAME_FROM_FILE=$(basename "$VERIFY_SPEC_FILE" | sed -E "s/-${FINAL_VERSION}-[0-9]+\.rockspec//")
-    if [ -n "$PKG_NAME_FROM_FILE" ]; then
-        print_status "Searching for ${PKG_NAME_FROM_FILE} v$FINAL_VERSION on LuaRocks..."
-        if luarocks search "$PKG_NAME_FROM_FILE" "$FINAL_VERSION" | grep -q "${FINAL_VERSION}-1 (rockspec)"; then
-            print_success "Found ${PKG_NAME_FROM_FILE} ${FINAL_VERSION} on LuaRocks."
+    VERIFY_SPEC_FILE="${GENERATED_ROCKSPEC_FILES[0]}"
+    if [ -n "$PKG_NAME" ]; then # PKG_NAME is from env/spec, should be reliable
+        print_status "Searching for ${PKG_NAME} v$FINAL_VERSION on LuaRocks..."
+        if luarocks search "$PKG_NAME" "$FINAL_VERSION" | grep -q "${FINAL_VERSION}-1 (rockspec)"; then
+            print_success "Found ${PKG_NAME} ${FINAL_VERSION} on LuaRocks."
         else
-            print_warning "Could not verify ${PKG_NAME_FROM_FILE} ${FINAL_VERSION} on LuaRocks. Check manually."
+            print_warning "Could not verify ${PKG_NAME} ${FINAL_VERSION} on LuaRocks. Check manually."
         fi
     else
-        print_warning "Could not parse PKG_NAME from $VERIFY_SPEC_FILE to verify."
+        print_warning "PKG_NAME not available for verification. This shouldn't happen."
     fi
     echo
 fi

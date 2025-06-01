@@ -1,29 +1,40 @@
 #!/usr/bin/env bash
 #
 # Script: gen-rockspecs.sh
-# Purpose: Generates the main rockspec file for the project from its template.
-#          It updates the version placeholder in the copied template.
-#          It also validates the generated rockspec using `luarocks lint`.
+# Purpose: Creates the final buildable rockspec file (e.g., <pkg>-<ver>-1.rockspec)
+#          by copying a source_spec_file (which could be spec.template or a user-provided rockspec)
+#          and then ensuring the package name and version in the new file are set correctly based on
+#          exported PKG_NAME and FINAL_VERSION environment variables.
 #          Outputs the filename of the generated rockspec to stdout.
 #
-# Usage: ./gen-rockspecs.sh
-#   (No arguments, relies on environment variables)
+# Usage: ./gen-rockspecs.sh <source_spec_file_abs_path>
+#   <source_spec_file_abs_path> : Absolute path to the spec file to use as a base for copying.
 #
 # Environment Variables Expected (set by caller, e.g., do-release.sh):
-#   - PROJECT_ROOT_ABS    : Absolute path to the project root.
-#   - PKG_NAME            : Base name of the main package (read from spec.template by do-release).
-#   - FINAL_VERSION       : The version string for the release (e.g., "0.9.0").
-#   - SPEC_TEMPLATE_ABS   : Absolute path to the main rockspec template (e.g., .../releases/spec.template).
-#                           This template should have the correct final package name already set.
+#   - PROJECT_ROOT_ABS    : Absolute path to the project root (where the new rockspec will be created).
+#   - PKG_NAME            : Definitive package name for the output rockspec.
+#   - FINAL_VERSION       : Definitive semantic version (X.Y.Z) for the output rockspec.
 #
 # Called by: releases/do-release.sh
 # Assumptions:
-#   - CWD is PROJECT_ROOT_ABS when this script is called.
-#   - Rockspec template (spec.template) exists at the path specified by SPEC_TEMPLATE_ABS.
-#   - Template uses "@@VERSION-1" for the version placeholder (where -1 is the rockspec revision).
-#   - Rockspec is generated in the CWD (PROJECT_ROOT_ABS).
+#   - CWD is PROJECT_ROOT_ABS.
+#   - source_spec_file_abs_path exists and is readable.
+#   - The source_spec_file (typically spec.template) is expected to contain
+#     'package = "@@PKG_NAME_PLACEHOLDER@@" and a version line like 'version = "X.Y.Z-R"'.
 #
 set -e
+
+SOURCE_SPEC_FILE_ARG=$1
+
+# Check for necessary inputs
+if [ -z "$SOURCE_SPEC_FILE_ARG" ]; then
+    echo "Error: Source spec file path argument not provided." >&2
+    exit 1
+fi
+if [ ! -f "$SOURCE_SPEC_FILE_ARG" ]; then
+    echo "Error: Source spec file not found at [$SOURCE_SPEC_FILE_ARG]" >&2
+    exit 1
+fi
 
 # Check for necessary environment variables
 if [ -z "$PROJECT_ROOT_ABS" ]; then
@@ -38,36 +49,36 @@ if [ -z "$FINAL_VERSION" ]; then
     echo "Error: FINAL_VERSION env var not set." >&2
     exit 1
 fi
-if [ -z "$SPEC_TEMPLATE_ABS" ]; then
-    echo "Error: SPEC_TEMPLATE_ABS env var not set." >&2
-    exit 1
-fi
 
 # --- Configuration ---
 ROCK_REVISION="1"
 
 # Output rockspec file will be in PROJECT_ROOT_ABS (current CWD)
-MAIN_ROCKSPEC_FILENAME="${PKG_NAME}-${FINAL_VERSION}-${ROCK_REVISION}.rockspec"
+# This is the canonical name for the rockspec to be built/published.
+FINAL_ROCKSPEC_FILENAME="${PKG_NAME}-${FINAL_VERSION}-${ROCK_REVISION}.rockspec"
 
 BLUE='\033[0;34m'
 NC='\033[0m'
 print_status_stderr() { echo -e "${BLUE}[INFO]${NC} $1" >&2; }
 
-# ---- Generate main package rockspec ----
-# Template is at absolute path, output is to CWD (PROJECT_ROOT_ABS)
-print_status_stderr "Generating ${MAIN_ROCKSPEC_FILENAME} from ${SPEC_TEMPLATE_ABS}..."
-if [ ! -f "$SPEC_TEMPLATE_ABS" ]; then
-    echo "Error: Main template not found: $SPEC_TEMPLATE_ABS" >&2
+# ---- Generate final package rockspec ----
+print_status_stderr "Generating final rockspec ${FINAL_ROCKSPEC_FILENAME} from source ${SOURCE_SPEC_FILE_ARG}..."
+
+cp "$SOURCE_SPEC_FILE_ARG" "$FINAL_ROCKSPEC_FILENAME"
+
+# Replace the placeholder for package name with the actual PKG_NAME.
+# Assumes the template/source spec has: package = "@@PKG_NAME_PLACEHOLDER@@"
+sed -i.bak "s/package = \"@@PKG_NAME_PLACEHOLDER@@\"/package = \"${PKG_NAME}\"/g" "$FINAL_ROCKSPEC_FILENAME"
+
+# Ensure version is set correctly to FINAL_VERSION with ROCK_REVISION in the new file
+# This replaces the whole line like 'version = "anything"' with 'version = "actual_version-rev"'
+sed -i.bak -E "s/^[[:space:]]*version[[:space:]]*=[[:space:]]*["\'].*["\']$/version = \"${FINAL_VERSION}-${ROCK_REVISION}\"/g" "$FINAL_ROCKSPEC_FILENAME"
+
+rm -f "${FINAL_ROCKSPEC_FILENAME}.bak"
+
+print_status_stderr "Validating ${FINAL_ROCKSPEC_FILENAME}..."
+if ! luarocks lint "$FINAL_ROCKSPEC_FILENAME"; then # Lint relative to CWD
+    echo "Error: Validation failed for ${FINAL_ROCKSPEC_FILENAME}" >&2
     exit 1
 fi
-
-cp "$SPEC_TEMPLATE_ABS" "$MAIN_ROCKSPEC_FILENAME"
-sed -i.bak "s|version = \"@@VERSION-1\"|version = \"${FINAL_VERSION}-${ROCK_REVISION}\"|g" "$MAIN_ROCKSPEC_FILENAME"
-rm -f "${MAIN_ROCKSPEC_FILENAME}.bak"
-
-print_status_stderr "Validating ${MAIN_ROCKSPEC_FILENAME}..."
-if ! luarocks lint "$MAIN_ROCKSPEC_FILENAME"; then # Lint relative to CWD
-    echo "Error: Validation failed for ${MAIN_ROCKSPEC_FILENAME}" >&2
-    exit 1
-fi
-echo "$MAIN_ROCKSPEC_FILENAME" # Output just the filename
+echo "$FINAL_ROCKSPEC_FILENAME" # Output just the filename

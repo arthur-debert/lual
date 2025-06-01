@@ -1,6 +1,6 @@
 rockspec_format = "3.0"
-package = "lual"
-version = "0.8.21-1"
+package = "@@PKG_NAME_PLACEHOLDER@@"
+version = "0.8.22-1"
 source = {
    url = "git+https://github.com/arthur-debert/lual.git"
 }
