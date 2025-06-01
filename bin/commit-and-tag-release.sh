@@ -14,7 +14,14 @@ if [ "$1" = "--dry-run" ]; then
 fi
 
 # Remaining arguments are rockspec files
-FILES_TO_COMMIT=("releases/VERSION" "$@")
+declare -a specs_to_add=()
+for spec_arg in "$@"; do
+    if [ -n "$spec_arg" ]; then # Ensure argument is not an empty string
+        specs_to_add+=("$spec_arg")
+    fi
+done
+
+FILES_TO_COMMIT=("releases/VERSION" "${specs_to_add[@]}")
 
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 PROJECT_ROOT="$SCRIPT_DIR/.."
@@ -31,24 +38,25 @@ if [ -z "$NEW_VERSION" ]; then
     echo "Error: Version argument is required." >&2
     exit 1
 fi
-if [ "${#FILES_TO_COMMIT[@]}" -eq 1 ] && [ "${FILES_TO_COMMIT[0]}" = "releases/VERSION" ]; then # only releases/VERSION
-    echo "Error: At least one rockspec file must be provided to commit." >&2
+
+# After filtering, check if specs_to_add is empty
+if [ "${#specs_to_add[@]}" -eq 0 ]; then
+    echo "Error: No valid rockspec files were provided to commit." >&2
     exit 1
 fi
 
 # Check for clean working directory (excluding files we are about to add)
-# This is a bit tricky; ideally, stage files first, then check diff --cached
-# For now, a simpler check before adding:
 if [ -n "$(git status --porcelain)" ]; then
-    # Check if the uncommitted changes are ONLY the rockspec files we're about to commit
-    # This is complex. Simpler: error if anything is uncommitted before we start.
-    # For this refactor, let's assume `do-release.sh` ensures a clean state or user handles it.
-    # A robust check would involve `git add` then `git diff --cached --quiet`
     print_warning_stderr "Git working directory is not perfectly clean. Staging specified files..."
 fi
 
 print_status_stderr "Adding files to git staging area:"
 for f in "${FILES_TO_COMMIT[@]}"; do
+    # This check is now redundant due to the loop above, but good for direct array use.
+    if [ -z "$f" ]; then
+        print_warning_stderr "Skipping empty filename in commit list."
+        continue
+    fi
     print_status_stderr "  - $f"
     if [ "$DRY_RUN_ARG" != "--dry-run" ]; then
         git add "$f"
@@ -64,9 +72,8 @@ if [ "$DRY_RUN_ARG" = "--dry-run" ]; then
     print_warning_stderr "DRY RUN: Would create tag: '$GIT_TAG'"
     print_warning_stderr "DRY RUN: Would push branch '$CURRENT_BRANCH' and tag '$GIT_TAG'"
 else
-    # Check if there's anything to commit after adding
     if git diff-index --quiet --cached HEAD --; then
-        print_status_stderr "No changes staged for commit. Assuming files were already committed."
+        print_status_stderr "No changes staged for commit. Assuming files were already committed or no actual changes made to version/rockspecs."
     else
         print_status_stderr "Committing changes with message: '$COMMIT_MESSAGE'..."
         git commit -m "$COMMIT_MESSAGE"
