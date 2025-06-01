@@ -72,8 +72,8 @@ print_error() {
 
 # --- Environment Variable Check for PKG_NAME ---
 if [ -z "$PKG_NAME" ]; then
-    print_warning "PKG_NAME environment variable not set. Defaulting to 'lual'."
-    export PKG_NAME="lual"
+    print_warning "PKG_NAME environment variable not set, aborting"
+    exit 1
 else
     export PKG_NAME # Ensure it's exported if already set
 fi
