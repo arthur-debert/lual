@@ -1,8 +1,25 @@
 #!/usr/bin/env bash
+#
+# Script: publish-to-luarocks.sh
+# Purpose: Uploads one or more specified rockspec files to LuaRocks.
+#          Handles LuaRocks API key (checks env var LUAROCKS_API_KEY, then prompts if not found).
+#
+# Usage: ./publish-to-luarocks.sh [--dry-run] <rockspec_file1> [rockspec_file2 ...]
+#   [--dry-run]         : Optional. If present, simulates actions without actual upload.
+#   <rockspec_fileN>    : Filename(s) of the rockspec(s) to upload (expected in CWD).
+#
+# Environment Variables Expected:
+#   - LUAROCKS_API_KEY (optional): If set, used for authentication with LuaRocks.
+#   - CWD is PROJECT_ROOT_ABS : Assumes script is run from the project root where rockspecs are.
+#
+# Called by: releases/do-release.sh
+# Assumptions:
+#   - `luarocks` command is available.
+#   - Rockspec files passed as arguments exist in the Current Working Directory.
+#
 set -e
 
 # Publishes rockspec files to LuaRocks.
-# Usage: ./publish-to-luarocks.sh [--dry-run] <rockspec_file1> [rockspec_file2 ...]
 # Assumes CWD is the project root where rockspec files are located.
 
 # Colors

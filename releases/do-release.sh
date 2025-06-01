@@ -1,8 +1,49 @@
 #!/usr/bin/env bash
-set -e
-
+#
 # Main Release Orchestrator Script
-# Usage: ./releases/do-release.sh [--with-extras] [--dry-run] [--use-version-file | --bump <patch|minor|major>]
+# Purpose: Automates the entire release process for a Lua project,
+#          including version management, rockspec generation, building,
+#          Git tagging/committing, and publishing to LuaRocks.
+#
+# Execution Flow:
+#   1. Defines and exports key paths and package name (PKG_NAME).
+#   2. Parses command-line arguments for release options.
+#   3. Calls manage-version.sh to determine/set the release version.
+#   4. (Optional) Pre-flight check on LuaRocks if the version already exists.
+#   5. Calls gen-rockspecs.sh to generate rockspec files from templates.
+#   6. Calls build-rocks.sh to pack the generated rockspecs into .rock files.
+#   7. Calls commit-and-tag-release.sh to commit changes, create/push Git tag.
+#   8. Calls publish-to-luarocks.sh to upload rockspecs to LuaRocks.
+#   9. (Optional) Verifies the published packages on LuaRocks.
+#
+# Scripts Called (from ./scripts/ relative to this file's location):
+#   - manage-version.sh: Handles version determination (interactive or via flags).
+#   - gen-rockspecs.sh: Generates rockspec files.
+#   - build-rocks.sh: Packs rockspecs.
+#   - commit-and-tag-release.sh: Handles Git commit and tag.
+#   - publish-to-luarocks.sh: Handles LuaRocks upload.
+#
+# Command-line Options:
+#   --with-extras                     : Include the extras package in the release.
+#   --dry-run                         : Simulate the release without making permanent changes (commits, tags, uploads).
+#   --use-version-file              : Use the version string directly from releases/VERSION without prompting.
+#   --bump <patch|minor|major>      : Automatically bump the version by the specified type without prompting.
+#
+# Environment Variables Set/Used:
+#   - PKG_NAME (string)               : The base name of the package (e.g., "lual").
+#                                       Read from env, defaults to "lual" if not set. Exported.
+#   - PROJECT_ROOT_ABS (path)         : Absolute path to the project's root directory. Exported.
+#   - SCRIPTS_DIR (path)              : Absolute path to the ./scripts/ directory. Exported.
+#   - VERSION_FILE_ABS (path)         : Absolute path to the releases/VERSION file. Exported.
+#   - SPEC_TEMPLATE_ABS (path)        : Absolute path to the releases/spec.template file. Exported.
+#   - EXTRAS_TEMPLATE_ABS (path)      : Absolute path to the releases/extras.spec.template file. Exported.
+#   - FINAL_VERSION (string)          : The determined version string for the release (e.g., "0.9.0"). Exported.
+#
+# Current Working Directory (CWD) Convention:
+#   This script changes the CWD to PROJECT_ROOT_ABS. Sub-scripts are expected to operate
+#   with this CWD, or use the absolute paths provided via exported variables.
+#
+set -e
 
 # --- Path and Variable Definitions ---
 RELEASES_ROOT=$(dirname "$(readlink -f "$0")") # Absolute path to releases/

@@ -1,4 +1,31 @@
 #!/usr/bin/env bash
+#
+# Script: gen-rockspecs.sh
+# Purpose: Generates rockspec file(s) for the project from template(s).
+#          It replaces placeholders in the template(s) with actual values for package name and version.
+#          It also validates the generated rockspec(s) using `luarocks lint`.
+#          Outputs the filename(s) of the generated rockspec(s) to stdout, one per line.
+#
+# Usage: ./gen-rockspecs.sh <with_extras_flag>
+#   <with_extras_flag> : Optional. If "--with-extras", generates both main and extras rockspecs.
+#                        Otherwise, only generates the main rockspec.
+#
+# Environment Variables Expected (set by caller, e.g., do-release.sh):
+#   - PROJECT_ROOT_ABS    : Absolute path to the project root.
+#   - PKG_NAME            : Base name of the main package (e.g., "lual").
+#   - FINAL_VERSION       : The version string for the release (e.g., "0.9.0").
+#   - SPEC_TEMPLATE_ABS   : Absolute path to the main rockspec template (e.g., .../releases/spec.template).
+#   - EXTRAS_TEMPLATE_ABS : Absolute path to the extras rockspec template (e.g., .../releases/extras.spec.template).
+#
+# Called by: releases/do-release.sh
+# Assumptions:
+#   - CWD is PROJECT_ROOT_ABS when this script is called.
+#   - Rockspec templates (spec.template, extras.spec.template) exist at the paths specified by
+#     SPEC_TEMPLATE_ABS and EXTRAS_TEMPLATE_ABS.
+#   - Templates use "@@PACKAGE_NAME@@" for the package name placeholder and
+#     "@@VERSION-1" for the version placeholder (where -1 is the rockspec revision).
+#   - Rockspecs are generated in the CWD (PROJECT_ROOT_ABS).
+#
 set -e
 
 # Generates rockspec files from templates for the given version.

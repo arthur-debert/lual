@@ -1,9 +1,30 @@
 #!/usr/bin/env bash
+#
+# Script: manage-version.sh
+# Purpose: Reads the current version from a specified VERSION file, then either
+#          uses it directly, or prompts the user to bump (patch, minor, major),
+#          or bumps automatically based on arguments.
+#          Writes the chosen/bumped version back to the VERSION file.
+#          Outputs the final chosen version string to stdout.
+#
+# Usage: ./manage-version.sh <version_file_abs_path> <scripts_dir_abs_path> [version_action_flag] [bump_type_if_action_is_bump]
+#   <version_file_abs_path> : Absolute path to the VERSION file (e.g., /path/to/project/releases/VERSION).
+#   <scripts_dir_abs_path>  : Absolute path to the directory containing bump-version script
+#                             (e.g., /path/to/project/releases/scripts).
+#   [version_action_flag]   : Optional. Can be:
+#                               --use-current : Use version in VERSION file without prompting.
+#                               --bump-type   : Bump version by type specified in next arg, no prompt.
+#   [bump_type_if_any]    : Required if version_action_flag is --bump-type.
+#                             Value must be "patch", "minor", or "major".
+#
+# Called by: releases/do-release.sh
+# Calls:     <scripts_dir_abs_path>/bump-version
+#
+# Assumptions:
+#   - The VERSION file at <version_file_abs_path> exists and contains a semantic version string (e.g., "1.2.3").
+#   - The bump-version script exists at <scripts_dir_abs_path>/bump-version and functions correctly.
+#
 set -e
-
-# Manages version: reads current, asks to use or bump, writes back.
-# Outputs the final version string.
-# Usage: ./manage-version.sh <version_file_abs_path> <scripts_dir_abs_path> [--use-current | --bump-type <patch|minor|major> <bump_value_if_any>]
 
 # Arguments for explicit pathing, reducing reliance on CWD or relative SCRIPT_DIR for critical files.
 VERSION_FILE_PATH_ARG=$1

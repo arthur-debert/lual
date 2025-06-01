@@ -1,9 +1,24 @@
 #!/usr/bin/env bash
+#
+# Script: build-rocks.sh
+# Purpose: Packs one or more rockspec files into .rock (binary/source rock) files using `luarocks pack`.
+#          This step also serves as a validation that the rockspec is buildable.
+#          Outputs representative names of the created .rock files to stdout, one per line
+#          (e.g., <package_name>-<version>-<revision>.rock, actual file might be .src.rock or .all.rock).
+#
+# Usage: ./build-rocks.sh <rockspec_file1> [rockspec_file2 ...]
+#   <rockspec_fileN> : Filename(s) of the rockspec(s) to pack (expected to be in CWD).
+#
+# Environment Variables Expected (implicitly, via CWD):
+#   - CWD should be PROJECT_ROOT_ABS, where rockspec files are located and .rock files will be created.
+#
+# Called by: releases/do-release.sh
+# Assumptions:
+#   - `luarocks` command is available.
+#   - Rockspec files passed as arguments exist in the Current Working Directory.
+#
 set -e
 
-# Packs rockspec files into .rock files.
-# Usage: ./build-rocks.sh <rockspec_file1> [rockspec_file2 ...]
-# Outputs paths to created .rock files (or the base name if arch-specific).
 # Assumes CWD is the project root where rockspec files are located.
 
 # Colors (optional, for stderr messages if any)
@@ -39,7 +54,8 @@ for rockspec_file in "$@"; do
         exit 1
     fi
 
-    # Output the base name; the caller can infer the actual .rock files
-    # Or list all found: echo "$created_rocks"
+    # Output a representative name; luarocks pack might create arch-specific or .src.rock files.
+    # The calling script typically lists the primary generated rockspec filename again.
+    # This output confirms a .rock file corresponding to the base name was created.
     echo "${base_name}.rock" # Output a representative name
 done

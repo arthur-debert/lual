@@ -1,10 +1,26 @@
 #!/usr/bin/env bash
-set -e
-
-# Commits release files (VERSION, rockspecs) and creates/pushes Git tag.
+#
+# Script: commit-and-tag-release.sh
+# Purpose: Commits specified release artifacts (VERSION file, generated rockspecs) to Git.
+#          Creates a Git tag for the release version.
+#          Pushes the commit and the tag to the remote repository (origin).
+#
 # Usage: ./commit-and-tag-release.sh [--dry-run] <rockspec_file1> [rockspec_file2 ...]
-# Relies on exported env var: FINAL_VERSION
-# Operates relative to CWD (PROJECT_ROOT_ABS)
+#   [--dry-run]         : Optional. If present, simulates actions without actual Git operations.
+#   <rockspec_fileN>    : Filename(s) of generated rockspec(s) to be committed (expected in CWD).
+#
+# Environment Variables Expected (set by caller, e.g., do-release.sh):
+#   - FINAL_VERSION       : The version string for the release (e.g., "0.9.0"). Used for commit message and tag name.
+#   - VERSION_FILE_ABS    : Absolute path to the VERSION file. Used to derive its basename for `git add`.
+#   - CWD is PROJECT_ROOT_ABS : Assumes script is run from the project root.
+#
+# Called by: releases/do-release.sh
+# Assumptions:
+#   - Git repository is initialized in the project root.
+#   - `git` command is available.
+#   - Files to be committed (VERSION, rockspecs) are in the CWD (PROJECT_ROOT_ABS).
+#
+set -e
 
 DRY_RUN_ARG=""
 if [ "$1" = "--dry-run" ]; then
@@ -30,7 +46,8 @@ for spec_arg in "$@"; do
     fi
 done
 
-# Use basename for VERSION_FILE_ABS as we are in PROJECT_ROOT_ABS
+# Files to commit are VERSION file (basename) and the provided rockspec filenames.
+# Assumes CWD is PROJECT_ROOT_ABS, so basenames/relative paths are correct for git add.
 FILES_TO_COMMIT=("$(basename "$VERSION_FILE_ABS")" "${specs_to_add[@]}")
 
 # Colors (optional, for stderr messages if any)
@@ -46,6 +63,7 @@ if [ "${#specs_to_add[@]}" -eq 0 ]; then
 fi
 
 if [ -n "$(git status --porcelain)" ]; then
+    # This warning occurs if there are any uncommitted changes *before* adding release files.
     print_warning_stderr "Git working directory is not perfectly clean. Staging specified files..."
 fi
 
@@ -56,9 +74,7 @@ for f in "${FILES_TO_COMMIT[@]}"; do
         continue
     fi
     print_status_stderr "  - $f"
-    if [ "$DRY_RUN_ARG" != "--dry-run" ]; then
-        git add "$f"
-    fi
+    if [ "$DRY_RUN_ARG" != "--dry-run" ]; then git add "$f"; fi
 done
 
 COMMIT_MESSAGE="Release v${FINAL_VERSION}"
@@ -70,8 +86,10 @@ if [ "$DRY_RUN_ARG" = "--dry-run" ]; then
     print_warning_stderr "DRY RUN: Would create tag: '$GIT_TAG'"
     print_warning_stderr "DRY RUN: Would push branch '$CURRENT_BRANCH' and tag '$GIT_TAG'"
 else
+    # Check if there are any staged changes. If VERSION file and rockspecs haven't changed
+    # (e.g. re-running for a version already prepared), this might be empty.
     if git diff-index --quiet --cached HEAD --; then
-        print_status_stderr "No changes staged. Assuming files already committed or no actual changes."
+        print_status_stderr "No changes staged for commit. Assuming files already committed or no actual changes."
     else
         print_status_stderr "Committing changes with message: '$COMMIT_MESSAGE'..."
         git commit -m "$COMMIT_MESSAGE"

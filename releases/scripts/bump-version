@@ -1,10 +1,21 @@
 #!/usr/bin/env bash
-set -e
-
-# Script to bump version numbers with semantic versioning
+#
+# Script: bump-version
+# Purpose: Increments a semantic version string (MAJOR.MINOR.PATCH) based on a specified bump type.
+#          Outputs the new version string to stdout.
+#
 # Usage: ./bump-version <major|minor|patch> <current_version_string>
-# Example: ./bump-version patch 0.8.8
-# Outputs the new version string.
+#   <major|minor|patch>        : The type of version bump to perform.
+#   <current_version_string> : The current semantic version (e.g., "1.2.3").
+#
+# Example: ./bump-version patch 0.8.8  (Outputs: 0.8.9)
+# Example: ./bump-version minor 0.8.8  (Outputs: 0.9.0)
+#
+# Called by: releases/scripts/manage-version.sh
+# Assumptions:
+#   - Input version string is in valid MAJOR.MINOR.PATCH format.
+#
+set -e
 
 if [ "$#" -ne 2 ]; then
     echo "Usage: $0 <major|minor|patch> <current_version_string>" >&2
