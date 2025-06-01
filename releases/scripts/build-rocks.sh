@@ -3,8 +3,8 @@
 # Script: build-rocks.sh
 # Purpose: Packs one or more rockspec files into .rock (binary/source rock) files using `luarocks pack`.
 #          This step also serves as a validation that the rockspec is buildable.
-#          Outputs representative names of the created .rock files to stdout, one per line
-#          (e.g., <package_name>-<version>-<revision>.rock, actual file might be .src.rock or .all.rock).
+#          Outputs the exact name(s) of the created .rock file(s) to stdout, one per line.
+#          Typically, for a source rockspec, this will be <package_name>-<version>-<revision>.src.rock
 #
 # Usage: ./build-rocks.sh <rockspec_file1> [rockspec_file2 ...]
 #   <rockspec_fileN> : Filename(s) of the rockspec(s) to pack (expected to be in CWD).
@@ -37,25 +37,33 @@ for rockspec_file in "$@"; do
         exit 1
     fi
     print_status_stderr "Packing ${rockspec_file}..."
-    # luarocks pack can produce multiple files (e.g., .src.rock, .all.rock, or arch-specific)
-    # We'll just run the command and list what's new, or derive the primary name.
-    luarocks pack "$rockspec_file"
 
-    # Derive base rock file name
-    # This is a simple way; actual packed files might have .all.rock or .src.rock
     base_name=$(basename "$rockspec_file" .rockspec)
 
-    # Check if at least one rock file was created for this base name
-    # This is a heuristic, as 'luarocks pack' output can vary.
-    # A more robust way would be to parse 'luarocks pack' output or know expected suffixes.
-    created_rocks=$(ls "${base_name}"*.rock 2>/dev/null)
-    if [ -z "$created_rocks" ]; then
-        echo "Error: Failed to create .rock file for ${rockspec_file} (or could not find it as ${base_name}*.rock)" >&2
+    # Attempt to remove any pre-existing rock for this exact version to ensure we identify the newly created one.
+    rm -f "${base_name}.src.rock" "${base_name}.all.rock" "${base_name}"*.rock
+
+    # Suppress stdout from luarocks pack, as we determine the filename ourselves.
+    # Error output from luarocks pack will still go to stderr.
+    luarocks pack "$rockspec_file" >/dev/null
+
+    created_rock_file=""
+    if [ -f "${base_name}.src.rock" ]; then
+        created_rock_file="${base_name}.src.rock"
+    elif [ -f "${base_name}.all.rock" ]; then
+        created_rock_file="${base_name}.all.rock"
+    else
+        found_rocks=(${base_name}*.rock)
+        if [ ${#found_rocks[@]} -gt 0 ]; then
+            created_rock_file="${found_rocks[0]}"
+        fi
+    fi
+
+    if [ -z "$created_rock_file" ] || [ ! -f "$created_rock_file" ]; then
+        echo "Error: Failed to create or find .rock file for ${rockspec_file} (expected pattern like ${base_name}.src.rock or ${base_name}.all.rock after running luarocks pack)" >&2
         exit 1
     fi
 
-    # Output a representative name; luarocks pack might create arch-specific or .src.rock files.
-    # The calling script typically lists the primary generated rockspec filename again.
-    # This output confirms a .rock file corresponding to the base name was created.
-    echo "${base_name}.rock" # Output a representative name
+    print_status_stderr "  Packed rock identified as: $created_rock_file"
+    echo "$created_rock_file" # Output the exact created rock filename
 done

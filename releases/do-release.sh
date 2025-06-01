@@ -7,7 +7,7 @@
 #
 # Execution Flow:
 #   1. Defines key paths. Calls read-pkg-name.sh to get PKG_NAME from spec.template and exports it.
-#   2. Parses command-line arguments for release options.
+#   2. Parses command-line arguments for release options (including --upload-rock).
 #   3. Calls manage-version.sh (which reads/writes version in spec.template)
 #      to determine/set the release version. FINAL_VERSION is exported.
 #   4. (Optional) Pre-flight check on LuaRocks if the version for PKG_NAME already exists.
@@ -16,8 +16,9 @@
 #   6. Calls build-rocks.sh to pack the generated rockspec into a .rock file.
 #   7. Calls commit-and-tag-release.sh to commit changes (including spec.template),
 #      create/push Git tag.
-#   8. Calls publish-to-luarocks.sh to upload the rockspec to LuaRocks.
-#   9. (Optional) Verifies the published package on LuaRocks.
+#   8. Calls publish-to-luarocks.sh to upload either the .rockspec or the .rock file to LuaRocks,
+#      depending on the --upload-rock flag.
+#   9. (Optional) Verifies the published package on LuaRocks (based on rockspec presence).
 #
 # Scripts Called (from ./scripts/ relative to this file's location):
 #   - read-pkg-name.sh: Reads package name from spec.template.
@@ -32,6 +33,8 @@
 #                                       spec.template if a version bump occurs, even in dry-run mode for do-release.
 #   --use-version-file              : Use the version string directly from spec.template without prompting.
 #   --bump <patch|minor|major>      : Automatically bump the version in spec.template by the specified type.
+#   --upload-rock                   : If set, uploads the packed .rock file instead of the .rockspec file.
+#                                       Default is to upload the .rockspec file.
 #
 # Environment Variables Set/Used:
 #   - PKG_NAME (string)               : The base name of the package. Sourced from spec.template. Exported.
@@ -82,6 +85,7 @@ print_success "Using PKG_NAME: $PKG_NAME (from spec.template)"
 DRY_RUN_FLAG=""
 VERSION_ACTION_ARG=""
 BUMP_TYPE_ARG=""
+UPLOAD_ROCK_FILE_FLAG=false # Default to uploading rockspec
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -103,6 +107,11 @@ while [[ "$#" -gt 0 ]]; do
         BUMP_TYPE_ARG="$2"
         print_status "Will bump version by: $BUMP_TYPE_ARG"
         shift
+        shift
+        ;;
+    --upload-rock)
+        UPLOAD_ROCK_FILE_FLAG=true
+        print_status "Will upload the packed .rock file instead of the .rockspec."
         shift
         ;;
     *)
@@ -169,12 +178,24 @@ echo
 
 # --- Step 5: Publish to LuaRocks ---
 print_status "Step 5: Publishing to LuaRocks..."
-# publish-to-luarocks.sh operates on filenames relative to CWD.
+FILES_TO_PUBLISH=()
+if [ "$UPLOAD_ROCK_FILE_FLAG" = true ]; then
+    print_status "Uploading .rock file(s): ${PACKED_ROCK_FILES[*]}"
+    FILES_TO_PUBLISH=("${PACKED_ROCK_FILES[@]}")
+else
+    print_status "Uploading .rockspec file(s): ${GENERATED_ROCKSPEC_FILES[*]}"
+    FILES_TO_PUBLISH=("${GENERATED_ROCKSPEC_FILES[@]}")
+fi
+
 ARGS_FOR_PUBLISH=()
 if [ -n "$DRY_RUN_FLAG" ]; then
     ARGS_FOR_PUBLISH+=("$DRY_RUN_FLAG")
 fi
-ARGS_FOR_PUBLISH+=("${GENERATED_ROCKSPEC_FILES[@]}")
+ARGS_FOR_PUBLISH+=("${FILES_TO_PUBLISH[@]}")
+
+if [ ${#FILES_TO_PUBLISH[@]} -eq 0 ]; then
+    print_error "No files determined for publishing. This shouldn't happen."
+fi
 
 "$SCRIPTS_DIR/publish-to-luarocks.sh" "${ARGS_FOR_PUBLISH[@]}"
 print_success "Publish process to LuaRocks completed (or would be in dry run)."
