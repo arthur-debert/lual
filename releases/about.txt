@@ -1,13 +1,7 @@
 luarocks release automates the entire process of releasing a LuaRocks rock.
 
-It presumes, you're using git.
+It includes git integration and github releases (optional)
 
-Usage: luarocks release [OPTIONS] [ROCKSPEC]
-Options:
-  -h, --help            Show this help message
-  -v, --verbose         Enable verbose output
-  --with-extras         Perform a dry run without making any changes
-  -m, --message MESSAGE Commit message for the release
-  -t, --tag TAG         Tag name for the release
-  -r, --remote REMOTE   Remote repository to push to (default: origin)
+The most common use case: 
 
+    ./bin/do-release.sh --bump patch

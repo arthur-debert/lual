@@ -23,6 +23,13 @@ print_error() {
     exit 1
 }
 
+# --- Environment Variable Check for PKG_NAME ---
+if [ -z "$PKG_NAME" ]; then
+    print_warning "PKG_NAME environment variable not set. Defaulting to 'lual'."
+    PKG_NAME="lual"
+fi
+print_status "Using PKG_NAME: $PKG_NAME"
+
 # --- Argument Parsing ---
 WITH_EXTRAS_FLAG=""
 DRY_RUN_FLAG=""
@@ -33,7 +40,7 @@ while [[ "$#" -gt 0 ]]; do
     case $1 in
     --with-extras)
         WITH_EXTRAS_FLAG="--with-extras"
-        print_status "Including lualextras in this release."
+        print_status "Including ${PKG_NAME}extras in this release."
         shift # past argument
         ;;
     --dry-run)
@@ -72,27 +79,34 @@ if [ -z "$FINAL_VERSION" ]; then
     print_error "Failed to determine final version from manage-version.sh"
     exit 1
 fi
-print_success "Version decided: $FINAL_VERSION"
+print_success "Version decided: $FINAL_VERSION for $PKG_NAME"
 echo
 
 # --- Pre-flight Check: Verify Version Availability on LuaRocks (if not dry run) ---
 if [ -z "$DRY_RUN_FLAG" ]; then
-    print_status "Pre-flight Check: Verifying if version $FINAL_VERSION for 'lual' is already on LuaRocks..."
-    # We assume the main package is 'lual' for this check.
-    # The rockspec revision is typically -1 for new uploads.
-    if luarocks search lual "$FINAL_VERSION" | grep -q "${FINAL_VERSION}-1 (rockspec)"; then
-        print_error "Error: Version lual ${FINAL_VERSION}-1 is already published on LuaRocks. Please choose a different version."
-        # No exit 1 here, print_error already exits
+    print_status "Pre-flight Check: Verifying if version $FINAL_VERSION for '$PKG_NAME' is already on LuaRocks..."
+    if luarocks search "$PKG_NAME" "$FINAL_VERSION" | grep -q "${FINAL_VERSION}-1 (rockspec)"; then
+        print_error "Error: Version ${PKG_NAME} ${FINAL_VERSION}-1 is already published on LuaRocks. Please choose a different version."
     else
-        print_success "Version lual $FINAL_VERSION appears to be available on LuaRocks."
+        print_success "Version ${PKG_NAME} $FINAL_VERSION appears to be available on LuaRocks."
+    fi
+    # Also check extras if WITH_EXTRAS_FLAG is set
+    if [ "$WITH_EXTRAS_FLAG" = "--with-extras" ]; then
+        EXTRAS_PKG_NAME="${PKG_NAME}extras"
+        print_status "Pre-flight Check: Verifying if version $FINAL_VERSION for '$EXTRAS_PKG_NAME' is already on LuaRocks..."
+        if luarocks search "$EXTRAS_PKG_NAME" "$FINAL_VERSION" | grep -q "${FINAL_VERSION}-1 (rockspec)"; then
+            print_error "Error: Version ${EXTRAS_PKG_NAME} ${FINAL_VERSION}-1 is already published on LuaRocks. Please choose a different version."
+        else
+            print_success "Version ${EXTRAS_PKG_NAME} $FINAL_VERSION appears to be available on LuaRocks."
+        fi
     fi
     echo
 fi
 
 # --- Step 2: Generate Rockspecs ---
-print_status "Step 2: Generating rockspecs for version $FINAL_VERSION..."
+print_status "Step 2: Generating rockspecs for $PKG_NAME version $FINAL_VERSION..."
 # gen-rockspecs.sh will output the paths to the generated rockspec files, one per line
-GENERATED_ROCKSPECS_OUTPUT=$("$SCRIPT_DIR/gen-rockspecs.sh" "$FINAL_VERSION" "$WITH_EXTRAS_FLAG")
+GENERATED_ROCKSPECS_OUTPUT=$("$SCRIPT_DIR/gen-rockspecs.sh" "$PKG_NAME" "$FINAL_VERSION" "$WITH_EXTRAS_FLAG")
 if [ -z "$GENERATED_ROCKSPECS_OUTPUT" ]; then
     print_error "Failed to generate rockspecs."
     exit 1
@@ -123,7 +137,7 @@ done
 echo
 
 # --- Step 4: Commit & Tag Release ---
-print_status "Step 4: Committing and tagging release..."
+print_status "Step 4: Committing and tagging release for $PKG_NAME v$FINAL_VERSION..."
 "$SCRIPT_DIR/commit-and-tag-release.sh" "$FINAL_VERSION" "$DRY_RUN_FLAG" "${GENERATED_ROCKSPEC_FILES[@]}"
 print_success "Release committed and tagged (or would be in dry run)."
 echo
@@ -140,15 +154,14 @@ if [ -z "$DRY_RUN_FLAG" ]; then
     ALL_VERIFIED=true
     for spec_file in "${GENERATED_ROCKSPEC_FILES[@]}"; do
         # Extract package name from rockspec filename e.g. lual from lual-0.8.10-1.rockspec
-        PKG_NAME=$(basename "$spec_file" | sed -E "s/-${FINAL_VERSION}-[0-9]+\.rockspec//")
+        PKG_NAME_FROM_FILE=$(basename "$spec_file" | sed -E "s/-${FINAL_VERSION}-[0-9]+\.rockspec//")
 
-        if [ -n "$PKG_NAME" ]; then
-            print_status "Searching for ${PKG_NAME} version ${FINAL_VERSION} on LuaRocks..."
-            # Check for the rockspec entry, version will include the rockspec revision (e.g. 0.8.10-1)
-            if luarocks search "$PKG_NAME" "$FINAL_VERSION" | grep -q "${FINAL_VERSION}-1 (rockspec)"; then
-                print_success "  Successfully found ${PKG_NAME} ${FINAL_VERSION} on LuaRocks."
+        if [ -n "$PKG_NAME_FROM_FILE" ]; then
+            print_status "Searching for ${PKG_NAME_FROM_FILE} version ${FINAL_VERSION} on LuaRocks..."
+            if luarocks search "$PKG_NAME_FROM_FILE" "$FINAL_VERSION" | grep -q "${FINAL_VERSION}-1 (rockspec)"; then
+                print_success "  Successfully found ${PKG_NAME_FROM_FILE} ${FINAL_VERSION} on LuaRocks."
             else
-                print_warning "  Could not verify ${PKG_NAME} ${FINAL_VERSION} on LuaRocks immediately. It might take a few moments to appear, or there might have been an issue."
+                print_warning "  Could not verify ${PKG_NAME_FROM_FILE} ${FINAL_VERSION} on LuaRocks immediately. It might take a few moments to appear, or there might have been an issue."
                 ALL_VERIFIED=false
             fi
         else
@@ -165,7 +178,7 @@ if [ -z "$DRY_RUN_FLAG" ]; then
 fi
 
 print_success "--------------------------------------------------"
-print_success "LUAL RELEASE PROCESS COMPLETED SUCCESSFULLY for v$FINAL_VERSION!"
+print_success "RELEASE PROCESS COMPLETED SUCCESSFULLY for $PKG_NAME v$FINAL_VERSION!"
 print_success "--------------------------------------------------"
 
 if [ "$DRY_RUN_FLAG" = "--dry-run" ]; then
