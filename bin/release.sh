@@ -3,6 +3,29 @@ set -e
 
 # Release Orchestrator Script for lual
 # Usage: ./bin/release.sh [--dry-run]
+#
+#
+# This script automates the entire release process for the lual library.
+# 1. Version Management:
+#   - Will confirm if the version in VERSION is the right one or offer to bump it.
+#   - Automated bumping (will ask for patch/minor/major)
+#   - Will update the VERSION file with the new version.
+# 2. Rockspec Generation:
+#  - Will generate the main rockspec and extras rockspec (if applicable).
+#  - Will commit the VERSION file and generated rockspecs.
+# 3. Release Process:
+#  - Will run the actual release script (_release.sh) with the new version.
+#   - Generates git tags and pushes them.
+#   - Use luarocks to upload the rockspecs to the luarocks server.
+#   - Creates a GitHub release with the new version<D-x>
+#
+# This script supposed:
+# -- releases
+#   ├── ${LIBNAME}.spec.template -> main rockspec template
+#   ├── ${LIBNAME}extras.spec.template -> (optional) extras
+#   └── VERSION -> keeps current version, can be auto-generated
+
+1 directory, 5 files
 
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 PROJECT_ROOT="$SCRIPT_DIR/.."
@@ -31,6 +54,18 @@ print_warning() {
 print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
+
+# Check for clean working directory. This check is vital for both real and dry runs.
+print_status "Checking for clean working directory..."
+if [ -n "$(git status --porcelain)" ]; then # If porcelain output is not empty, there are changes
+    print_error "Your working directory or staging area is not clean."
+    print_error "Please commit or stash any pending changes before running the release script."
+    echo -e "${YELLOW}Current git status:${NC}"
+    git status # Provides a more readable summary than just porcelain
+    exit 1
+else
+    print_success "Working directory is clean. Proceeding."
+fi
 
 # Check for dry-run flag
 DRY_RUN=""
@@ -142,32 +177,32 @@ fi
 
 # Commit the changes (VERSION file and rockspecs) before running release
 echo
-print_status "Committing version and rockspec changes..."
+print_status "Processing VERSION file and rockspecs for git commit..."
 if [ -z "$DRY_RUN" ]; then
-    # Check if we have changes to commit
-    if ! git diff-index --quiet HEAD --; then
-        print_status "Adding files to git..."
-        git add releases/VERSION
-        git add "lual-${NEW_VERSION}-1.rockspec"
-        git add "lualextras-${NEW_VERSION}-1.rockspec"
+    print_status "Staging VERSION file and generated rockspecs..."
+    # Ensure set -e handles failure if files don't exist (create-specs should have made them)
+    git add releases/VERSION "lual-${NEW_VERSION}-1.rockspec" "lualextras-${NEW_VERSION}-1.rockspec"
 
-        print_status "Committing changes..."
+    # Check if there are any staged changes
+    # `git diff --cached --quiet` exits 0 if no staged changes, 1 if there are.
+    if git diff --cached --quiet; then
+        print_status "No new changes to VERSION file or rockspecs were staged. Nothing to commit."
+    else
+        print_status "Committing staged changes..."
         git commit -m "Prepare release v${NEW_VERSION}"
 
         print_status "Pushing changes..."
         git push origin "$(git branch --show-current)"
 
         print_success "Changes committed and pushed"
-    else
-        print_status "No changes to commit"
     fi
-else
-    print_status "Would add and commit:"
+else # DRY_RUN
+    print_status "Would stage (if changed/new):"
     print_status "  - releases/VERSION"
     print_status "  - lual-${NEW_VERSION}-1.rockspec"
     print_status "  - lualextras-${NEW_VERSION}-1.rockspec"
-    print_status "Would commit with message: Prepare release v${NEW_VERSION}"
-    print_status "Would push changes"
+    print_status "Would commit (if anything was staged) with message: Prepare release v${NEW_VERSION}"
+    print_status "Would push changes (if committed)"
 fi
 
 # Run the actual release
