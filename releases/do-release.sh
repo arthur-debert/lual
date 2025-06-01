@@ -30,8 +30,8 @@
 #   --bump <patch|minor|major>      : Automatically bump the version by the specified type without prompting.
 #
 # Environment Variables Set/Used:
-#   - PKG_NAME (string)               : The base name of the package (e.g., "lual").
-#                                       Read from env, defaults to "lual" if not set. Exported.
+#   - PKG_NAME (string)               : The base name of the package
+#                                       Read from env, must be set
 #   - PROJECT_ROOT_ABS (path)         : Absolute path to the project's root directory. Exported.
 #   - SCRIPTS_DIR (path)              : Absolute path to the ./scripts/ directory. Exported.
 #   - VERSION_FILE_ABS (path)         : Absolute path to the releases/VERSION file. Exported.

@@ -12,7 +12,7 @@
 #
 # Environment Variables Expected (set by caller, e.g., do-release.sh):
 #   - PROJECT_ROOT_ABS    : Absolute path to the project root.
-#   - PKG_NAME            : Base name of the main package (e.g., "lual").
+#   - PKG_NAME            : Base name of the main package =
 #   - FINAL_VERSION       : The version string for the release (e.g., "0.9.0").
 #   - SPEC_TEMPLATE_ABS   : Absolute path to the main rockspec template (e.g., .../releases/spec.template).
 #   - EXTRAS_TEMPLATE_ABS : Absolute path to the extras rockspec template (e.g., .../releases/extras.spec.template).

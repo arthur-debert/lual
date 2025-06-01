@@ -41,7 +41,7 @@ for rockspec_file in "$@"; do
     # We'll just run the command and list what's new, or derive the primary name.
     luarocks pack "$rockspec_file"
 
-    # Derive base rock file name (e.g. lual-0.8.8-1 from lual-0.8.8-1.rockspec)
+    # Derive base rock file name
     # This is a simple way; actual packed files might have .all.rock or .src.rock
     base_name=$(basename "$rockspec_file" .rockspec)
 
