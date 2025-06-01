@@ -10,21 +10,20 @@
 #   2. Parses command-line arguments for release options.
 #   3. Calls manage-version.sh to determine/set the release version.
 #   4. (Optional) Pre-flight check on LuaRocks if the version already exists.
-#   5. Calls gen-rockspecs.sh to generate rockspec files from templates.
-#   6. Calls build-rocks.sh to pack the generated rockspecs into .rock files.
+#   5. Calls gen-rockspecs.sh to generate the rockspec file from template.
+#   6. Calls build-rocks.sh to pack the generated rockspec into a .rock file.
 #   7. Calls commit-and-tag-release.sh to commit changes, create/push Git tag.
-#   8. Calls publish-to-luarocks.sh to upload rockspecs to LuaRocks.
-#   9. (Optional) Verifies the published packages on LuaRocks.
+#   8. Calls publish-to-luarocks.sh to upload the rockspec to LuaRocks.
+#   9. (Optional) Verifies the published package on LuaRocks.
 #
 # Scripts Called (from ./scripts/ relative to this file's location):
 #   - manage-version.sh: Handles version determination (interactive or via flags).
-#   - gen-rockspecs.sh: Generates rockspec files.
-#   - build-rocks.sh: Packs rockspecs.
+#   - gen-rockspecs.sh: Generates the rockspec file.
+#   - build-rocks.sh: Packs the rockspec.
 #   - commit-and-tag-release.sh: Handles Git commit and tag.
 #   - publish-to-luarocks.sh: Handles LuaRocks upload.
 #
 # Command-line Options:
-#   --with-extras                     : Include the extras package in the release.
 #   --dry-run                         : Simulate the release without making permanent changes (commits, tags, uploads).
 #   --use-version-file              : Use the version string directly from releases/VERSION without prompting.
 #   --bump <patch|minor|major>      : Automatically bump the version by the specified type without prompting.
@@ -36,7 +35,6 @@
 #   - SCRIPTS_DIR (path)              : Absolute path to the ./scripts/ directory. Exported.
 #   - VERSION_FILE_ABS (path)         : Absolute path to the releases/VERSION file. Exported.
 #   - SPEC_TEMPLATE_ABS (path)        : Absolute path to the releases/spec.template file. Exported.
-#   - EXTRAS_TEMPLATE_ABS (path)      : Absolute path to the releases/extras.spec.template file. Exported.
 #   - FINAL_VERSION (string)          : The determined version string for the release (e.g., "0.9.0"). Exported.
 #
 # Current Working Directory (CWD) Convention:
@@ -51,7 +49,6 @@ export SCRIPTS_DIR="$RELEASES_ROOT/scripts"
 export PROJECT_ROOT_ABS=$(readlink -f "$RELEASES_ROOT/..") # Absolute path to the project root
 export VERSION_FILE_ABS="$RELEASES_ROOT/VERSION"
 export SPEC_TEMPLATE_ABS="$RELEASES_ROOT/spec.template"
-export EXTRAS_TEMPLATE_ABS="$RELEASES_ROOT/extras.spec.template"
 
 cd "$PROJECT_ROOT_ABS" # Set current working directory to project root for all subsequent commands
 
@@ -80,18 +77,12 @@ fi
 print_status "Using PKG_NAME: $PKG_NAME"
 
 # --- Argument Parsing ---
-WITH_EXTRAS_FLAG=""
 DRY_RUN_FLAG=""
 VERSION_ACTION_ARG=""
 BUMP_TYPE_ARG=""
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
-    --with-extras)
-        WITH_EXTRAS_FLAG="--with-extras"
-        print_status "Including ${PKG_NAME}extras in this release."
-        shift
-        ;;
     --dry-run)
         DRY_RUN_FLAG="--dry-run"
         print_warning "DRY RUN MODE ENABLED"
@@ -135,36 +126,27 @@ if [ -z "$DRY_RUN_FLAG" ]; then
     else
         print_success "Version ${PKG_NAME} $FINAL_VERSION appears to be available on LuaRocks."
     fi
-    if [ "$WITH_EXTRAS_FLAG" = "--with-extras" ]; then
-        EXTRAS_PKG_NAME="${PKG_NAME}extras"
-        print_status "Pre-flight Check: Verifying if version $FINAL_VERSION for '$EXTRAS_PKG_NAME' is already on LuaRocks..."
-        if luarocks search "$EXTRAS_PKG_NAME" "$FINAL_VERSION" | grep -q "${FINAL_VERSION}-1 (rockspec)"; then
-            print_error "Error: Version ${EXTRAS_PKG_NAME} ${FINAL_VERSION}-1 is already published. Choose a different version."
-        else
-            print_success "Version ${EXTRAS_PKG_NAME} $FINAL_VERSION appears to be available on LuaRocks."
-        fi
-    fi
     echo
 fi
 
 # --- Step 2: Generate Rockspecs ---
-print_status "Step 2: Generating rockspecs for $PKG_NAME version $FINAL_VERSION..."
-# gen-rockspecs.sh will use exported env vars: PROJECT_ROOT_ABS, PKG_NAME, FINAL_VERSION, SPEC_TEMPLATE_ABS, EXTRAS_TEMPLATE_ABS
-GENERATED_ROCKSPECS_OUTPUT=$("$SCRIPTS_DIR/gen-rockspecs.sh" "$WITH_EXTRAS_FLAG") # Only needs with_extras flag now
-if [ -z "$GENERATED_ROCKSPECS_OUTPUT" ]; then print_error "Failed to generate rockspecs."; fi
+print_status "Step 2: Generating rockspec for $PKG_NAME version $FINAL_VERSION..."
+# gen-rockspecs.sh will use exported env vars: PROJECT_ROOT_ABS, PKG_NAME, FINAL_VERSION, SPEC_TEMPLATE_ABS
+GENERATED_ROCKSPECS_OUTPUT=$("$SCRIPTS_DIR/gen-rockspecs.sh") # No longer needs WITH_EXTRAS_FLAG
+if [ -z "$GENERATED_ROCKSPECS_OUTPUT" ]; then print_error "Failed to generate rockspec."; fi
 mapfile -t GENERATED_ROCKSPEC_FILES < <(echo "$GENERATED_ROCKSPECS_OUTPUT")
 
-print_success "Rockspecs generated:"
+print_success "Rockspec generated:"
 for spec_file in "${GENERATED_ROCKSPEC_FILES[@]}"; do print_status "  - $spec_file"; done
 echo
 
 # --- Step 3: Build (Pack) Rocks ---
-print_status "Step 3: Building (packing) rocks..."
+print_status "Step 3: Building (packing) rock..."
 # build-rocks.sh operates on filenames (relative to CWD which is PROJECT_ROOT_ABS)
 PACKED_ROCK_FILES_OUTPUT=$("$SCRIPTS_DIR/build-rocks.sh" "${GENERATED_ROCKSPEC_FILES[@]}")
-if [ -z "$PACKED_ROCK_FILES_OUTPUT" ]; then print_error "Failed to build/pack rocks."; fi
+if [ -z "$PACKED_ROCK_FILES_OUTPUT" ]; then print_error "Failed to build/pack rock."; fi
 mapfile -t PACKED_ROCK_FILES < <(echo "$PACKED_ROCK_FILES_OUTPUT")
-print_success "Rocks packed:"
+print_success "Rock packed:"
 for rock_file in "${PACKED_ROCK_FILES[@]}"; do print_status "  - $rock_file (and any other variants)"; done
 echo
 
@@ -184,7 +166,7 @@ echo
 
 # --- Step 6: Verify on LuaRocks (if not dry run) ---
 if [ -z "$DRY_RUN_FLAG" ]; then
-    print_status "Step 6: Verifying packages on LuaRocks..."
+    print_status "Step 6: Verifying package on LuaRocks..."
     ALL_VERIFIED=true
     for spec_file in "${GENERATED_ROCKSPEC_FILES[@]}"; do
         PKG_NAME_FROM_FILE=$(basename "$spec_file" | sed -E "s/-${FINAL_VERSION}-[0-9]+\.rockspec//")
@@ -201,7 +183,7 @@ if [ -z "$DRY_RUN_FLAG" ]; then
             ALL_VERIFIED=false
         fi
     done
-    if [ "$ALL_VERIFIED" = true ]; then print_success "All published packages verified on LuaRocks."; else print_warning "Some packages could not be verified. Please check manually."; fi
+    if [ "$ALL_VERIFIED" = true ]; then print_success "Published package verified on LuaRocks."; else print_warning "Package could not be verified. Please check manually."; fi
     echo
 fi
 

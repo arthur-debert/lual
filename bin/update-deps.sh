@@ -2,10 +2,12 @@
 set -e
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 cd "$SCRIPT_DIR/.."
-
+#    "lua >= 5.1",
+#    "dkjson >= 2.5",
+#    "luasocket >= 3.0rc1-2",
+#    "busted >= 2.0.0"
 # Find all rockspecs
 MAIN_ROCKSPEC=$(find . -maxdepth 1 -name "lual-*.rockspec" | grep -v "lualextras" | head -1)
-EXTRAS_ROCKSPEC=$(find . -maxdepth 1 -name "lualextras-*.rockspec" | head -1)
 
 if [ -z "$MAIN_ROCKSPEC" ]; then
     echo "Error: No lual-*.rockspec file found"
