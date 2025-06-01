@@ -4,10 +4,7 @@ set -e
 # Packs rockspec files into .rock files.
 # Usage: ./build-rocks.sh <rockspec_file1> [rockspec_file2 ...]
 # Outputs paths to created .rock files (or the base name if arch-specific).
-
-SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
-PROJECT_ROOT="$SCRIPT_DIR/.."
-cd "$PROJECT_ROOT" # Ensure we are in the project root
+# Assumes CWD is the project root where rockspec files are located.
 
 # Colors (optional, for stderr messages if any)
 BLUE='\033[0;34m'
@@ -21,7 +18,7 @@ fi
 
 for rockspec_file in "$@"; do
     if [ ! -f "$rockspec_file" ]; then
-        echo "Error: Rockspec file not found: $rockspec_file" >&2
+        echo "Error: Rockspec file not found: $rockspec_file (CWD: $(pwd))" >&2
         exit 1
     fi
     print_status_stderr "Packing ${rockspec_file}..."

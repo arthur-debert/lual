@@ -3,10 +3,7 @@ set -e
 
 # Publishes rockspec files to LuaRocks.
 # Usage: ./publish-to-luarocks.sh [--dry-run] <rockspec_file1> [rockspec_file2 ...]
-
-SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
-PROJECT_ROOT="$SCRIPT_DIR/.."
-cd "$PROJECT_ROOT" # Ensure we are in the project root
+# Assumes CWD is the project root where rockspec files are located.
 
 # Colors
 RED='\033[0;31m'
@@ -41,7 +38,7 @@ fi
 
 for rockspec_file in "${rockspecs_to_publish[@]}"; do
     if [ ! -f "$rockspec_file" ]; then
-        print_error_stderr "Rockspec file not found: $rockspec_file"
+        print_error_stderr "Rockspec file not found: $rockspec_file (CWD: $(pwd))"
     fi
 
     print_status_stderr "Preparing to publish ${rockspec_file} to LuaRocks..."
@@ -60,7 +57,6 @@ for rockspec_file in "${rockspecs_to_publish[@]}"; do
             CURRENT_LUAROCKS_API_KEY="$API_KEY_INPUT"
         else
             print_warning_stderr "DRY RUN: Would need LUAROCKS_API_KEY for $rockspec_file."
-            # For dry run, we don't need a real key, but we act as if we would proceed
         fi
     else
         CURRENT_LUAROCKS_API_KEY="$LUAROCKS_API_KEY"
@@ -69,7 +65,7 @@ for rockspec_file in "${rockspecs_to_publish[@]}"; do
     if [ "$DRY_RUN_ARG" = "--dry-run" ]; then
         print_warning_stderr "DRY RUN: Would upload: luarocks upload $rockspec_file --api-key=***"
     else
-        if [ -z "$CURRENT_LUAROCKS_API_KEY" ]; then # Should only happen if env var not set AND skipped input in non-dry run
+        if [ -z "$CURRENT_LUAROCKS_API_KEY" ]; then
             print_warning_stderr "No API key available for $rockspec_file. Skipping upload."
             continue
         fi
@@ -77,9 +73,7 @@ for rockspec_file in "${rockspecs_to_publish[@]}"; do
         if luarocks upload "$rockspec_file" --api-key="$CURRENT_LUAROCKS_API_KEY"; then
             print_status_stderr "Successfully published $rockspec_file to LuaRocks!"
         else
-            # Do not exit immediately, allow other rockspecs to be processed if any.
             print_error_stderr "Failed to publish $rockspec_file to LuaRocks. See errors above."
-            # If you want to stop on first failure, remove the print_error_stderr and let set -e handle it, or exit 1 here.
         fi
     fi
 done
