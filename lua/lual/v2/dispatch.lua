@@ -1,7 +1,7 @@
 --- V2 Dispatch Module
 -- This module implements the new dispatch loop logic from step 2.7
 
-local core_levels = require("lua.lual.prev.core.levels")
+local core_levels = require("lua.lual.v2.levels")
 
 local M = {}
 

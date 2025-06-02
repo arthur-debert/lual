@@ -1,7 +1,7 @@
 --- V2 Configuration API
 -- This module provides the new simplified configuration API for the _root logger
 
-local core_levels = require("lua.lual.prev.core.levels")
+local core_levels = require("lua.lual.v2.levels")
 
 local M = {}
 
