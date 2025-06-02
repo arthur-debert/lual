@@ -21,6 +21,18 @@ As a final push, we're doing :
     costs of deprecation and multiple implementations. Existing tests will need
     to be updated or replaced to reflect the new, correct behavior.
 
+    For phase 2.3 onwards: 
+    We should run the two designs in paralel while unfinished . Else, most test wil break at the very
+    early phases of this work, and with most of the suite broken we either risk introducing many new bugs, or 
+    having to fix them (which means implementting the new design). 
+    Hence prefix things with an x, like in 
+    lual.xconfig() -> new root config
+    lual.xlogger(name, <map>) -> new config design
+    store config and xconfig objects on these loggers
+    and so on. 
+    then create a file lual/dispatch_loop.lua with the new loop
+    at runtime, if the config is a regular one , route it to the current loop (ingest I think), else use the new dispatch_loop.lua
+
     2.1. Logger and Configuration Structure Changes:
         - Ensure `name` is not a configurable property within a logger's settings.
           It is an identifier.
@@ -106,3 +118,7 @@ As a final push, we're doing :
 This plan provides a structured approach to refactoring the logging system
 to the new, robust design.
 
+Important: 
+
+    * These imply quite large changes, the heavy settigs config / validation among all. 
+    * In reality, there will be very little code new in this implementation, the bulkd of the work is about
