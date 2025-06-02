@@ -77,6 +77,26 @@ describe("lual.core.logging", function()
 			local logger = fresh_engine.logger("spec_prop_test")
 			assert.is_true(logger.propagate)
 		end)
+
+		it("should reject logger names starting with underscore", function()
+			package.loaded["lual.core.logging"] = nil
+			local fresh_engine = require("lual.core.logging")
+			fresh_engine.reset_cache()
+
+			assert.has_error(function()
+				fresh_engine.logger("_invalid")
+			end, "Logger names starting with '_' are reserved for internal use. Please use a different name.")
+		end)
+
+		it("should allow _root as a special exception", function()
+			package.loaded["lual.core.logging"] = nil
+			local fresh_engine = require("lual.core.logging")
+			fresh_engine.reset_cache()
+
+			local logger = fresh_engine.logger("_root")
+			assert.is_not_nil(logger)
+			assert.are.same("_root", logger.name)
+		end)
 	end)
 
 	describe("Logger Instance Methods", function()

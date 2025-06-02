@@ -487,8 +487,6 @@ describe("Unified Config API", function()
                 expected_error)
         end)
 
-
-
         it("should reject invalid propagate type in convenience config", function()
             assert.has_error(function()
                 lualog.logger({
@@ -507,6 +505,30 @@ describe("Unified Config API", function()
             assert.are.same("test.string.name", logger.name)
             assert.are.same(lualog.levels.INFO, logger.level) -- Default level
             assert.is_true(logger.propagate)                  -- Default propagate
+        end)
+
+        it("should reject logger names starting with underscore", function()
+            assert.has_error(function()
+                lualog.logger("_invalid")
+            end, "Logger names starting with '_' are reserved for internal use. Please use a different name.")
+        end)
+
+        it("should reject logger names starting with underscore in two-parameter form", function()
+            assert.has_error(function()
+                lualog.logger("_invalid", { level = "debug" })
+            end, "Logger names starting with '_' are reserved for internal use. Please use a different name.")
+        end)
+
+        it("should allow _root as a special exception", function()
+            local logger = lualog.logger("_root")
+            assert.is_not_nil(logger)
+            assert.are.same("_root", logger.name)
+        end)
+
+        it("should reject hierarchical logger names starting with underscore", function()
+            assert.has_error(function()
+                lualog.logger("_internal.sub.logger")
+            end, "Logger names starting with '_' are reserved for internal use. Please use a different name.")
         end)
 
         it("should reject invalid config types (non-string, non-table)", function()
@@ -541,8 +563,6 @@ describe("Unified Config API", function()
                 })
             end, "Invalid config: Level must be a string or number")
         end)
-
-
 
         it("should reject invalid propagate types", function()
             assert.has_error(function()

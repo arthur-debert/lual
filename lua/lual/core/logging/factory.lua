@@ -13,6 +13,11 @@ local M = {}
 -- @param config (table) The canonical config
 -- @return table The logger instance
 function M.create_logger_from_config(name, config)
+    -- Validate that user loggers cannot start with underscore (reserved for internal use)
+    if name and name ~= "_root" and string.sub(name, 1, 1) == "_" then
+        error("Logger names starting with '_' are reserved for internal use. Please use a different name.")
+    end
+
     local valid, err = config_module.validate_canonical_config(config)
     if not valid then
         error("Invalid logger config: " .. err)
@@ -49,6 +54,11 @@ function M.create_simple_logger(name, parent_logger)
         else
             logger_name = "_root"
         end
+    end
+
+    -- Validate that user loggers cannot start with underscore (reserved for internal use)
+    if logger_name and logger_name ~= "_root" and string.sub(logger_name, 1, 1) == "_" then
+        error("Logger names starting with '_' are reserved for internal use. Please use a different name.")
     end
 
     -- Create logger using config-based approach

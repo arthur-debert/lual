@@ -58,6 +58,8 @@ But presenters and dispatchers are just functions, pass your own.
 
 Names can be either introspected or set manually. There is hierarchical logging, with propagation, see docs/propagation.txt . 
 
+**NAMING RESTRICTIONS**: Logger names starting with underscore (_) are reserved for internal use and cannot be used for user loggers. The only exception is "_root" which is the internal root logger.
+
 
 INSTALLATION
 

@@ -143,6 +143,11 @@ function M._get_logger_simple(name)
         end
     end
 
+    -- Validate that user loggers cannot start with underscore (reserved for internal use)
+    if logger_name and logger_name ~= "_root" and string.sub(logger_name, 1, 1) == "_" then
+        error("Logger names starting with '_' are reserved for internal use. Please use a different name.")
+    end
+
     if _loggers_cache[logger_name] then
         return _loggers_cache[logger_name]
     end
@@ -177,6 +182,11 @@ function M.logger(input_config, config_table)
     -- Handle two-parameter form: logger("name", config_table)
     if type(input_config) == "string" and type(config_table) == "table" then
         local logger_name = input_config
+
+        -- Validate that user loggers cannot start with underscore (reserved for internal use)
+        if logger_name and logger_name ~= "_root" and string.sub(logger_name, 1, 1) == "_" then
+            error("Logger names starting with '_' are reserved for internal use. Please use a different name.")
+        end
 
         -- Define default config
         local default_config = {
