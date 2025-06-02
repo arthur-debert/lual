@@ -86,7 +86,7 @@ else
         print_status_stderr "No new changes staged for commit by this script. Commit may have already included these changes or files were unchanged."
     else
         print_status_stderr "Committing changes with message: '$COMMIT_MESSAGE'..."
-        git commit -m "$COMMIT_MESSAGE" >/dev/null
+        git commit --quiet -m "$COMMIT_MESSAGE" >/dev/null
     fi
 
     print_status_stderr "Checking if tag '$GIT_TAG' already exists..."
@@ -98,9 +98,9 @@ else
     fi
 
     print_status_stderr "Pushing branch '$CURRENT_BRANCH' to origin..."
-    git push origin "$CURRENT_BRANCH" >/dev/null
+    git push --no-progress origin "$CURRENT_BRANCH" >/dev/null
     print_status_stderr "Pushing tag '$GIT_TAG' to origin..."
-    git push origin "$GIT_TAG" >/dev/null
+    git push --no-progress origin "$GIT_TAG" >/dev/null
 
     print_status_stderr "Git commit and tag push complete for v${FINAL_VERSION}."
 fi
