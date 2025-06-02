@@ -56,9 +56,31 @@ for rockspec_file_arg in "$@"; do
     # but the final .src.rock will follow PKG_NAME-FINAL_VERSION-ROCKSPEC_REVISION.src.rock
     PREDICTED_PACKED_ROCK_NAME="${PKG_NAME}-${FINAL_VERSION}-${ROCKSPEC_REVISION}.src.rock"
 
-    # Run luarocks pack, redirecting its stdout to /dev/null
-    # stderr will still be visible. If it fails, set -e will stop the script.
-    luarocks pack "$rockspec_file_arg" >/dev/null
+    # Create a temporary file to capture all output from luarocks pack
+    TMP_OUTPUT_FILE=$(mktemp)
+    # Ensure TMP_OUTPUT_FILE is removed on script exit, in any case (success, error, interrupt)
+    trap 'rm -f "$TMP_OUTPUT_FILE"' EXIT
+
+    PACK_EXIT_CODE=0
+    # Run luarocks pack, redirecting all its output (stdout & stderr) to the temporary file
+    if ! luarocks pack "$rockspec_file_arg" >"$TMP_OUTPUT_FILE" 2>&1; then
+        PACK_EXIT_CODE=$? # Capture the actual exit code
+    fi
+
+    if [ $PACK_EXIT_CODE -ne 0 ]; then
+        print_error_stderr "'luarocks pack ${rockspec_file_arg}' failed with exit code $PACK_EXIT_CODE."
+        if [ -s "$TMP_OUTPUT_FILE" ]; then # Check if file is not empty
+            echo -e "${RED}--- Output from 'luarocks pack' ---${NC}" >&2
+            cat "$TMP_OUTPUT_FILE" >&2
+            echo -e "${RED}----------------------------------${NC}" >&2
+        fi
+        # Error already printed by print_error_stderr, which also exits
+        # Trap will clean up TMP_OUTPUT_FILE
+        exit $PACK_EXIT_CODE # Ensure we exit with the pack exit code
+    fi
+
+    # If successful, TMP_OUTPUT_FILE can be removed by the trap on normal exit.
+    # We don't need its contents if pack succeeded.
 
     # Check if the predicted file was created
     if [ -f "$PREDICTED_PACKED_ROCK_NAME" ]; then
