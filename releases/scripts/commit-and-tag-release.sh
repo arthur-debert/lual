@@ -1,24 +1,28 @@
 #!/usr/bin/env bash
 #
 # Script: commit-and-tag-release.sh
-# Purpose: Commits specified release artifact files to Git.
-#          Creates a Git tag for the release version.
-#          Pushes the commit and the tag to the remote repository (origin).
+# Purpose: Stages specified release artifact files, commits them with a release message,
+#          creates a Git tag for the release version, and pushes the commit and tag
+#          to the remote repository (origin). Aims for silent operation on success for git commands.
 #
 # Usage: ./commit-and-tag-release.sh [--dry-run] <file_to_commit_1> [file_to_commit_2 ...]
-#   [--dry-run]            : Optional. If present, simulates actions without actual Git operations.
-#   <file_to_commit_N>     : Path(s) to file(s) to be committed (e.g., spec.template, generated rockspec).
-#                            Paths are expected to be relative to project root (CWD).
+#   [--dry-run]            : Optional. If present, simulates actions, printing what would be done
+#                            without executing actual Git add, commit, tag, or push operations.
+#   <file_to_commit_N>     : Path(s) to file(s) to be staged and committed (e.g., spec.template,
+#                            the generated <PKG_NAME>-<FINAL_VERSION>-1.rockspec).
+#                            Paths are expected to be relative to the project root (CWD).
 #
 # Environment Variables Expected (set by caller, e.g., do-release.sh):
-#   - FINAL_VERSION          : The version string for the release (e.g., "0.9.0"). Used for commit message and tag name.
-#   - CWD is PROJECT_ROOT_ABS: Assumes script is run from the project root.
+#   - FINAL_VERSION          : The semantic version string for the release (e.g., "0.9.0").
+#                            Used for the commit message ("Release vX.Y.Z") and tag name ("vX.Y.Z").
+#   - CWD is PROJECT_ROOT_ABS: Assumes script is run from the project root, which is a Git repository.
 #
 # Called by: releases/do-release.sh
 # Assumptions:
-#   - Git repository is initialized in the project root.
-#   - `git` command is available.
-#   - Files to be committed are specified by arguments and exist relative to CWD (PROJECT_ROOT_ABS).
+#   - The current working directory is the root of an initialized Git repository.
+#   - `git` command is available and configured for the remote 'origin'.
+#   - Files specified for commit exist at paths relative to CWD.
+#   - The current branch is the one intended for release pushes.
 #
 set -e
 

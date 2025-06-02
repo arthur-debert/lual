@@ -1,41 +1,75 @@
 #!/usr/bin/env bash
 #
 # Main Release Orchestrator Script
-# Purpose: Automates the entire release process for a Lua project.
+# Purpose: Automates the entire release process for a Lua project, including version bumping,
+#          rockspec generation, Git tagging, LuaRocks publishing, and GitHub release creation.
 #
-# Execution Flow:
-#   1. Defines paths. PKG_NAME is from environment (must be set).
-#   2. Determines METADATA_SOURCE_FILE (user-provided .rockspec or default spec.template).
-#   3. Reads INITIAL_VERSION from METADATA_SOURCE_FILE using read-version-from-spec.sh.
-#   4. Parses command-line arguments for release options.
-#   5. Calls manage-version.sh (now a pure calculator) with INITIAL_VERSION to get FINAL_VERSION.
-#   6. IF template mode AND version changed: update-spec-version.sh updates spec.template with FINAL_VERSION.
-#   7. Pre-flight check for PKG_NAME + FINAL_VERSION on LuaRocks.
-#   8. gen-rockspecs.sh generates <PKG_NAME>-<FINAL_VERSION>-1.rockspec using METADATA_SOURCE_FILE as base.
-#   9. build-rocks.sh packs the generated rockspec.
-#  10. commit-and-tag-release.sh commits relevant file(s) (spec.template if changed, generated rockspec).
-#  11. publish-to-luarocks.sh uploads .rockspec or .rock file.
-#  12. Verification on LuaRocks.
+# High-Level Execution Flow:
+#   1. Setup: Defines paths, exports key variables (PKG_NAME, PROJECT_ROOT_ABS, SCRIPTS_DIR, FINAL_VERSION).
+#             PKG_NAME must be set in the environment before running.
+#   2. Argument Parsing: Handles command-line flags for dry runs, versioning, upload options, and GitHub releases.
+#   3. GitHub CLI Check: If GitHub release creation is enabled, verifies 'gh' CLI is available.
+#   4. Initial Version: Determines the source for metadata (user-provided .rockspec or default spec.template)
+#                      and reads the INITIAL_SEMANTIC_VERSION from it using 'read-version-from-spec.sh'.
+#   5. Final Version Calculation: Calls 'manage-version.sh' with INITIAL_SEMANTIC_VERSION and bump/use-current options
+#                               to determine and export FINAL_VERSION.
+#   6. Template Update (if applicable): If using spec.template and version changed, updates it with FINAL_VERSION
+#                                   using 'update-spec-version.sh'.
+#   7. Rockspec Generation: Generates the final, buildable <PKG_NAME>-<FINAL_VERSION>-1.rockspec
+#                           using 'gen-rockspecs.sh', taking either the user-provided spec or the
+#                           (potentially updated) spec.template as input.
+#   8. Pre-flight LuaRocks Check: Verifies if <PKG_NAME> v<FINAL_VERSION> is already on LuaRocks
+#                                using 'luarocks-check-version-published.sh'. Exits if already published.
+#   9. Build/Pack Rock: Builds (packs) the .src.rock file from the generated rockspec using 'build-rocks.sh'.
+#                       This also serves as a validation of the rockspec.
+#  10. Commit & Tag: Commits relevant files (e.g., generated rockspec, possibly updated spec.template)
+#                    and creates/pushes a Git tag (v<FINAL_VERSION>) using 'commit-and-tag-release.sh'.
+#  11. Publish to LuaRocks: Uploads the .rockspec or .rock file to LuaRocks using 'publish-to-luarocks.sh'.
+#                           Captures the LuaRocks module URL if successful.
+#  12. Verify on LuaRocks: Confirms the package is findable on LuaRocks using 'luarocks-check-version-published.sh'.
+#  13. GitHub Release (if enabled): Creates a GitHub release for the tag, attaching rockspec and .src.rock as assets,
+#                                using 'create-gh-release.sh'.
+#  14. Cleanup: Removes intermediate .src.rock files if the .rockspec was uploaded (and not a dry run).
+#  15. Completion Message: Prints final success, including LuaRocks URL.
 #
-# Scripts Called (from ./scripts/):
-#   read-version-from-spec.sh, manage-version.sh, update-spec-version.sh (new),
-#   gen-rockspecs.sh, build-rocks.sh, commit-and-tag-release.sh, publish-to-luarocks.sh
+# Scripts Called (from $SCRIPTS_DIR, i.e., ./releases/scripts/):
+#   - read-version-from-spec.sh
+#   - manage-version.sh
+#   - update-spec-version.sh
+#   - gen-rockspecs.sh
+#   - luarocks-check-version-published.sh
+#   - build-rocks.sh
+#   - commit-and-tag-release.sh
+#   - publish-to-luarocks.sh
+#   - create-gh-release.sh
 #
 # Command-line Options:
-#   [path/to/your.rockspec]       : Optional. If provided, version is read from this file. Bumping applies to this initial version.
-#                                   The original file is NOT modified; a new canonical rockspec is generated from it.
-#   --dry-run                         : Simulate. NOTE: If in template mode and version bumped, spec.template IS updated.
-#   --use-version-file              : Use version in source spec file without prompt for bump.
-#   --bump <patch|minor|major>      : Bump version from source spec file.
-#   --upload-rock                   : Upload packed .rock file instead of .rockspec.
-#   --gh-release <true|false>       : Create a GitHub release (default: true).
+#   [path/to/your.rockspec]       : Optional. If provided, this rockspec is used as the source for versioning
+#                                   and as a base for the final generated rockspec. It is NOT modified directly.
+#   --dry-run                     : Simulate most actions. Some file modifications (like spec.template update)
+#                                   might still occur if not carefully handled by sub-scripts. Git pushes,
+#                                   LuaRocks uploads, and GitHub releases are skipped or simulated.
+#   --use-version-file            : Use the version found in the source spec/template without prompting for a bump.
+#                                   Cannot be used with --bump.
+#   --bump <patch|minor|major>    : Automatically bump the version from the source spec/template by the specified part.
+#                                   Cannot be used with --use-version-file.
+#   --upload-rock                 : Upload the packed .src.rock file to LuaRocks instead of the .rockspec file.
+#   --gh-release <true|false>     : Control GitHub release creation (default: true). If true, requires 'gh' CLI.
 #
-# Environment Variables Set/Used:
-#   - PKG_NAME (string)               : Base package name. MUST BE SET IN ENVIRONMENT. Exported.
-#   - PROJECT_ROOT_ABS (path)         : Absolute path to project root. Exported.
-#   - SCRIPTS_DIR (path)              : Absolute path to ./scripts/ directory. Exported.
-#   - DEFAULT_SPEC_TEMPLATE_ABS (path): Path to releases/spec.template. (Used by gen-rockspecs.sh if no user spec)
-#   - FINAL_VERSION (string)          : Determined semantic version (e.g., "0.9.0"). Exported.
+# Environment Variables Expected:
+#   - PKG_NAME (string)           : REQUIRED. The base package name (e.g., "lual"). This script exports it.
+#
+# Environment Variables Set (and exported for use by sub-scripts):
+#   - SCRIPTS_DIR (path)          : Absolute path to the ./releases/scripts/ directory.
+#   - PROJECT_ROOT_ABS (path)     : Absolute path to the project root.
+#   - DEFAULT_SPEC_TEMPLATE_ABS (path): Absolute path to releases/spec.template.
+#   - FINAL_VERSION (string)      : The determined semantic version (e.g., "0.9.0") for the release.
+#   - PKG_NAME (string)           : (Re-exported from initial environment variable).
+#
+# Assumptions:
+#   - Running from within the Git project repository.
+#   - PKG_NAME environment variable is set before execution.
+#   - Necessary tools (git, luarocks, and gh if GH releases enabled) are installed and in PATH.
 #
 set -e
 

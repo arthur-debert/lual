@@ -1,22 +1,31 @@
 #!/usr/bin/env bash
 #
 # Script: manage-version.sh
-# Purpose: Based on a current semantic version and user/flag input,
-#          determines the next semantic version (e.g., after a bump).
-#          Outputs the final chosen semantic version string (e.g., "1.2.3") to stdout.
-#          This script performs NO FILE I/O itself; it only calculates versions.
+# Purpose: Determines the final semantic version for a release. It can operate in two modes:
+#          1. Interactive Mode (default): Prompts the user to either use the current version or
+#             select a bump type (patch, minor, major) if no action flags are provided.
+#          2. Flag-driven Mode: If action flags (--use-current or --bump-type) are passed,
+#             it calculates the version non-interactively.
+#          It outputs the chosen/calculated final semantic version string (e.g., "1.2.3") to stdout.
+#          This script purely calculates the version string and performs NO file I/O itself.
+#          All user prompts and status messages are printed to stderr.
 #
 # Usage: ./manage-version.sh <current_semantic_version> <scripts_dir_abs_path> [version_action_flag] [bump_type_if_any]
-#   <current_semantic_version> : The current semantic version (e.g., "1.2.3") from the source spec file.
-#   <scripts_dir_abs_path>     : Absolute path to the directory containing bump-version script.
-#   [version_action_flag]      : Optional. Can be:
-#                                  --use-current : Output current_semantic_version without change/prompt.
-#                                  --bump-type   : Bump version by type specified in next arg, no prompt.
-#   [bump_type_if_any]         : Required if version_action_flag is --bump-type.
+#   <current_semantic_version> : The current semantic version (X.Y.Z format, e.g., "1.2.3") from the source.
+#   <scripts_dir_abs_path>     : Absolute path to the directory containing the 'bump-version' utility script.
+#   [version_action_flag]      : Optional. Determines non-interactive behavior. Can be:
+#                                  --use-current : Instructs to use <current_semantic_version> without change.
+#                                  --bump-type   : Instructs to bump <current_semantic_version> by the type
+#                                                  specified in the [bump_type_if_any] argument.
+#   [bump_type_if_any]         : Required if [version_action_flag] is --bump-type.
 #                                  Value must be "patch", "minor", or "major".
 #
+# Output:
+#   - To stdout: The final calculated semantic version string (e.g., "1.2.4").
+#   - To stderr: Prompts and status messages during operation.
+#
 # Called by: releases/do-release.sh
-# Calls:     <scripts_dir_abs_path>/bump-version
+# Calls:     <scripts_dir_abs_path>/bump-version (utility to perform version math).
 #
 set -e
 

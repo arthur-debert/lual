@@ -1,16 +1,23 @@
 #!/usr/bin/env bash
 #
 # Script: read-pkg-name.sh
-# Purpose: Reads the package name from the primary .spec.template file.
+# Purpose: Reads the package name directly from a given rockspec or spec.template file.
+#          It extracts the value from the 'package = "..."' line.
 #          Outputs the extracted package name string to stdout.
+# Note:    This script is NOT CURRENTLY USED by the main 'do-release.sh' orchestrator,
+#          which now expects PKG_NAME to be set as an environment variable.
+#          This script could be useful for other utilities or if direct reading from a file is needed.
 #
-# Usage: ./read-pkg-name.sh <spec_template_abs_path>
-#   <spec_template_abs_path> : Absolute path to the primary spec template file
-#                              (e.g., /path/to/project/releases/spec.template).
+# Usage: ./read-pkg-name.sh <spec_file_abs_path>
+#   <spec_file_abs_path> : Absolute path to the rockspec or spec.template file.
 #
-# Called by: releases/do-release.sh
+# Output:
+#   - To stdout: The extracted package name (e.g., "lual").
+#   - To stderr: Error messages if the file is not found or the package name cannot be parsed.
+#
 # Assumptions:
-#   - The spec template at <spec_template_abs_path> exists and contains a line like: package = "actual_package_name"
+#   - The spec file at <spec_file_abs_path> exists and is readable.
+#   - The file contains a line like: package = "actual_package_name" (or with single quotes).
 #
 set -e
 

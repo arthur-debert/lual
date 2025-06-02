@@ -1,21 +1,32 @@
 #!/usr/bin/env bash
 #
 # Script: publish-to-luarocks.sh
-# Purpose: Uploads one or more specified rockspec files to LuaRocks.
-#          Handles LuaRocks API key (checks env var LUAROCKS_API_KEY, then prompts if not found).
+# Purpose: Uploads one or more specified rockspec or .src.rock files to LuaRocks.
+#          It handles LuaRocks API key logic, checking the LUAROCKS_API_KEY environment variable first,
+#          then interactively prompting the user if the key is not found (unless in dry-run mode).
+#          On successful upload of a file, it attempts to extract the LuaRocks module URL from the
+#          `luarocks upload` command's output and prints this URL to stdout.
+#          Other informational messages and prompts are printed to stderr.
+#          The full output from `luarocks upload` is only shown (to stderr) if the upload command fails.
 #
-# Usage: ./publish-to-luarocks.sh [--dry-run] <rockspec_file1> [rockspec_file2 ...]
-#   [--dry-run]         : Optional. If present, simulates actions without actual upload.
-#   <rockspec_fileN>    : Filename(s) of the rockspec(s) to upload (expected in CWD).
+# Usage: ./publish-to-luarocks.sh [--dry-run] <file_to_upload_1> [file_to_upload_2 ...]
+#   [--dry-run]         : Optional. If present, simulates upload actions and API key checks.
+#   <file_to_upload_N>  : Filename(s) of the .rockspec or .src.rock file(s) to upload.
+#                         Files are expected to be in the Current Working Directory.
+#
+# Output:
+#   - To stdout: The LuaRocks URL of the successfully published module (if extractable, one URL per file if multiple are uploaded and successful).
+#   - To stderr: Status messages, warnings, prompts for API key, and error details.
 #
 # Environment Variables Expected:
-#   - LUAROCKS_API_KEY (optional): If set, used for authentication with LuaRocks.
-#   - CWD is PROJECT_ROOT_ABS : Assumes script is run from the project root where rockspecs are.
+#   - LUAROCKS_API_KEY (optional): If set, this API key is used for authentication with LuaRocks,
+#                                  bypassing the interactive prompt.
+#   - CWD is PROJECT_ROOT_ABS : Assumes script is run from the project root where files to upload are located.
 #
 # Called by: releases/do-release.sh
 # Assumptions:
 #   - `luarocks` command is available.
-#   - Rockspec files passed as arguments exist in the Current Working Directory.
+#   - Files passed as arguments exist in the Current Working Directory.
 #
 set -e
 

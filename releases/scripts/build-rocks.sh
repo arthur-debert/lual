@@ -1,23 +1,26 @@
 #!/usr/bin/env bash
 #
 # Script: build-rocks.sh
-# Purpose: Packs one or more rockspec files into .rock (binary/source rock) files using `luarocks pack`.
+# Purpose: Packs one or more rockspec files into .rock (source rock) files using `luarocks pack`.
 #          This step also serves as a validation that the rockspec is buildable.
-#          Outputs the exact name(s) of the created .rock file(s) to stdout, one per line.
-#          Typically, for a source rockspec, this will be <package_name>-<version>-<revision>.src.rock
+#          The script aims to be silent on success, but if `luarocks pack` fails,
+#          it will display the full output from `luarocks pack` for diagnostics.
+#          Outputs a space-separated list of successfully packed .src.rock filenames to stdout.
 #
 # Usage: ./build-rocks.sh <rockspec_file1> [rockspec_file2 ...]
 #   <rockspec_fileN> : Filename(s) of the rockspec(s) to pack (expected to be in CWD).
 #
-# Environment Variables Expected (implicitly, via CWD):
+# Environment Variables Expected (set by caller, e.g., do-release.sh):
+#   - PKG_NAME          : The definitive package name (e.g., "lual"). Used to predict the output .src.rock filename.
+#   - FINAL_VERSION     : The definitive semantic version (X.Y.Z, e.g., "0.9.0"). Used to predict output filename.
 #   - CWD should be PROJECT_ROOT_ABS, where rockspec files are located and .rock files will be created.
-#   - PKG_NAME          : Package name (from do-release.sh env)
-#   - FINAL_VERSION     : Semantic version (X.Y.Z) (from do-release.sh env)
 #
 # Called by: releases/do-release.sh
 # Assumptions:
 #   - `luarocks` command is available.
 #   - Rockspec files passed as arguments exist in the Current Working Directory.
+#   - The output .src.rock filename will follow the pattern: ${PKG_NAME}-${FINAL_VERSION}-1.src.rock
+#     (assumes a rockspec revision of 1 for the packed rock).
 #
 set -e
 

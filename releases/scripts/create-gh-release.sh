@@ -1,22 +1,28 @@
 #!/usr/bin/env bash
 #
 # Script: create-gh-release.sh
-# Purpose: Creates a GitHub release using the 'gh' CLI, uploads specified assets,
-#          and uses auto-generated release notes.
+# Purpose: Creates a GitHub release for a given tag using the 'gh' CLI.
+#          It uploads specified asset files to the release and uses the '--generate-notes'
+#          option for automatic release note generation based on commits since the last tag.
+#          Attempts to extract and print the URL of the created GitHub release on success.
+#          Shows detailed output from 'gh' only if the command fails.
 #
 # Usage: ./create-gh-release.sh <tag_name> <asset_file_1> [asset_file_2 ...]
 #   <tag_name>         : The Git tag for which to create the release (e.g., "v1.0.0").
-#   <asset_file_N>     : Path(s) to asset file(s) to upload with the release.
+#   <asset_file_N>     : Path(s) to asset file(s) to upload with the release (e.g., .rockspec, .src.rock).
 #
 # Environment Variables Expected:
-#   - CWD is PROJECT_ROOT_ABS : Assumes script is run from the project root, which is a Git repository.
-#   - GH_TOKEN (optional)     : GitHub token, if needed and not configured in gh CLI.
+#   - CWD is PROJECT_ROOT_ABS : Assumes the script is run from the project root, which is a Git repository
+#                             correctly configured for 'gh' to identify the target repository.
+#   - GH_TOKEN (optional)     : GitHub token, if needed by 'gh' CLI and not already configured.
+#                             (Usually 'gh auth login' handles authentication).
 #
 # Called by: releases/do-release.sh
 # Assumptions:
-#   - 'gh' CLI is installed and authenticated.
-#   - The script is run from within the root of a Git repository.
-#   - The tag already exists locally and ideally pushed to remote (do-release.sh handles this).
+#   - 'gh' CLI is installed, authenticated, and in the PATH.
+#   - The script is run from within the root of the target Git repository.
+#   - The specified <tag_name> already exists (locally and ideally pushed to remote by the caller).
+#   - Asset files specified exist at the provided paths.
 
 set -e
 

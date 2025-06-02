@@ -1,17 +1,25 @@
 #!/usr/bin/env bash
 #
 # Script: update-spec-version.sh
-# Purpose: Updates the version string in a given .spec or .rockspec file.
+# Purpose: Updates the version string in a given .spec, .rockspec, or spec.template file.
+#          It reads the existing rockspec revision (e.g., the "-1" in "X.Y.Z-1") from the file
+#          and preserves it, only changing the X.Y.Z part to the new semantic version provided.
+#          If no rockspec revision is found, it defaults to using "-1".
+#          The update is done in-place using `sed`.
 #
 # Usage: ./update-spec-version.sh <spec_file_abs_path> <new_semantic_version>
-#   <spec_file_abs_path>    : Absolute path to the .spec or .rockspec file to update.
-#   <new_semantic_version>  : The new semantic version (e.g., "1.2.4") to set.
-#                             The script will assume/maintain a "-1" rockspec revision.
+#   <spec_file_abs_path>    : Absolute path to the .spec or .rockspec file to update (e.g., releases/spec.template).
+#   <new_semantic_version>  : The new semantic version (X.Y.Z format, e.g., "1.2.4") to set.
 #
-# Called by: releases/do-release.sh (conditionally)
+# Output:
+#   - To stderr: Status messages about the update process or if no update was needed.
+#                Error messages if inputs are invalid or file operations fail.
+#   - Modifies the specified file in place.
+#
+# Called by: releases/do-release.sh (conditionally, to update spec.template if its version is bumped).
 # Assumptions:
 #   - The spec file exists and is writable.
-#   - It contains a version line like: version = "X.Y.Z-R"
+#   - It contains a version line like: version = "X.Y.Z-R" or version = "X.Y.Z".
 #
 set -e
 

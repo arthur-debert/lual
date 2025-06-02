@@ -1,15 +1,22 @@
 #!/usr/bin/env bash
 #
 # Script: read-version-from-spec.sh
-# Purpose: Reads the semantic version (X.Y.Z) from a specified rockspec or spec.template file.
-#          Outputs the extracted semantic version string to stdout.
+# Purpose: Reads and extracts the semantic version (X.Y.Z format) from a specified
+#          rockspec or spec.template file. It specifically targets the 'version = "..."' line
+#          and isolates the X.Y.Z part, ignoring any rockspec revision (-R).
+#          Outputs the extracted semantic version string (e.g., "1.2.3") to stdout.
 #
 # Usage: ./read-version-from-spec.sh <spec_file_abs_path>
 #   <spec_file_abs_path> : Absolute path to the rockspec or spec.template file.
 #
-# Called by: releases/do-release.sh
+# Output:
+#   - To stdout: The extracted semantic version string (X.Y.Z).
+#   - To stderr: Error messages if file not found or version cannot be parsed.
+#
+# Called by: releases/do-release.sh (to get the INITIAL_SEMANTIC_VERSION).
 # Assumptions:
-#   - The spec file at <spec_file_abs_path> exists and contains a line like: version = "X.Y.Z-R"
+#   - The spec file at <spec_file_abs_path> exists and is readable.
+#   - The file contains a line like: version = "X.Y.Z-R" or version = "X.Y.Z".
 #
 set -e
 
