@@ -8,6 +8,7 @@ describe("lual Logger - Effective Level Calculation (Step 2.5)", function()
     before_each(function()
         -- Reset config for each test
         lual.reset_config()
+        lual.reset_cache() -- Ensure logger cache is cleared
     end)
 
     describe("_get_effective_level() method", function()
@@ -204,5 +205,52 @@ describe("lual Logger - Effective Level Calculation (Step 2.5)", function()
                 assert.are.equal(first_result, result)
             end
         end)
+    end)
+end)
+
+describe("lual Logger - Naming Conventions", function()
+    before_each(function()
+        lual.reset_config()
+        lual.reset_cache() -- Ensure logger cache is cleared for naming tests too
+    end)
+
+    it("should use the user-provided name for the logger", function()
+        local logger = lual.logger("my.explicit.name")
+        assert.are.equal("my.explicit.name", logger.name)
+    end)
+
+    it("should auto-generate a name if no name is provided", function()
+        -- This test assumes that caller_info.get_caller_info(3) will return a valid module path
+        -- when called from the test environment. We check that the name is not nil, not empty,
+        -- and not the ultimate fallback "anonymous".
+        local logger = lual.logger(nil)
+        assert.is_not_nil(logger.name, "Logger name should not be nil")
+        assert.is_not_equal("", logger.name, "Logger name should not be an empty string")
+        assert.is_not_equal("anonymous", logger.name,
+            "Logger name should be auto-generated, not the fallback \"anonymous\"")
+    end)
+
+    it("should handle lual.logger() without arguments, equivalent to lual.logger(nil)", function()
+        local logger = lual.logger()
+        assert.is_not_nil(logger.name, "Logger name should not be nil when called with no arguments")
+        assert.is_not_equal("", logger.name, "Logger name should not be an empty string when called with no arguments")
+        assert.is_not_equal("anonymous", logger.name,
+            "Logger name should be auto-generated, not fallback, when called with no arguments")
+    end)
+
+    it("should correctly name the _root logger when fetched", function()
+        -- _root logger is often created implicitly when a child logger is requested
+        -- or when lual.config is called. Explicitly get it to check its name.
+        lual.config({ level = lual.INFO }) -- Ensures _root logger is created/configured
+        local root_logger = lual.logger("_root")
+        assert.are.equal("_root", root_logger.name)
+    end)
+
+    it("should raise an error for invalid user-provided names", function()
+        assert.has_error(function() lual.logger("") end, "Logger name must be a non-empty string if provided, got string")
+        assert.has_error(function() lual.logger(123) end,
+            "Logger name must be a non-empty string if provided, got number")
+        assert.has_error(function() lual.logger("_user.logger") end,
+            "Logger names starting with '_' are reserved for internal use. Please use a different name.")
     end)
 end)

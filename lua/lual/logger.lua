@@ -13,6 +13,7 @@ local core_levels = require("lua.lual.levels")
 local config_module = require("lual.config")
 local dispatch_module = require("lual.dispatch")
 local table_utils = require("lual.utils.table")
+local caller_info = require("lual.utils.caller_info")
 local all_dispatchers = require("lual.dispatchers.init")   -- Require the new dispatchers init
 local all_presenters = require("lual.presenters.init")     -- Require the new presenters init
 local all_transformers = require("lual.transformers.init") -- Require the new transformers init
@@ -128,9 +129,27 @@ local function create_logger(name, level, parent)
     logger[k] = v
   end
 
+  local final_name
+  if name and name ~= "" then
+    final_name = name
+  else                      -- name is nil or empty, try to auto-generate
+    if name == "_root" then -- This case should ideally not be hit if log.logger guards _root naming
+      final_name = "_root"
+    else
+      -- Stack: caller_info.get_caller_info -> create_logger -> lual.logger -> test/user code
+      -- We expect lual.logger to be called, then create_logger. So level 3 should be the user code.
+      local _, _, auto_name = caller_info.get_caller_info(3)
+      if auto_name and auto_name ~= "" then
+        final_name = auto_name
+      else
+        final_name = "anonymous" -- Fallback if caller_info fails or returns empty
+      end
+    end
+  end
+
   -- Set logger properties
-  logger.name = name or "unnamed"
-  logger.level = level or (name == "_root" and core_levels.definition.WARNING or core_levels.definition.NOTSET)
+  logger.name = final_name
+  logger.level = level or (final_name == "_root" and core_levels.definition.WARNING or core_levels.definition.NOTSET)
   logger.parent = parent
   logger.dispatchers = {}
   logger.propagate = true
@@ -301,14 +320,15 @@ end
 -- @param config_table table|nil Optional configuration table
 -- @return table The logger instance
 function log.logger(name, config_table)
-  -- Validate name
-  if type(name) ~= "string" or name == "" then
-    error("Logger name must be a non-empty string, got " .. type(name))
-  end
-
-  -- Validate that user loggers cannot start with underscore (reserved for internal use)
-  if name ~= "_root" and string.sub(name, 1, 1) == "_" then
-    error("Logger names starting with '_' are reserved for internal use. Please use a different name.")
+  -- If name is nil, it signifies intent for auto-naming. Skip direct validation for it.
+  if name ~= nil then
+    if type(name) ~= "string" or name == "" then
+      error("Logger name must be a non-empty string if provided, got " .. type(name))
+    end
+    -- Validate that user loggers cannot start with underscore (reserved for internal use)
+    if name ~= "_root" and string.sub(name, 1, 1) == "_" then
+      error("Logger names starting with '_' are reserved for internal use. Please use a different name.")
+    end
   end
 
   -- Use default config if none provided
