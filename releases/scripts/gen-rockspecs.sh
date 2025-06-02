@@ -66,13 +66,13 @@ print_status_stderr "Generating final rockspec ${FINAL_ROCKSPEC_FILENAME} from s
 
 cp "$SOURCE_SPEC_FILE_ARG" "$FINAL_ROCKSPEC_FILENAME"
 
-# Replace the placeholder for package name with the actual PKG_NAME.
-# Assumes the template/source spec has: package = "@@PKG_NAME_PLACEHOLDER@@"
-sed -i.bak "s/package = \"@@PKG_NAME_PLACEHOLDER@@\"/package = \"${PKG_NAME}\"/g" "$FINAL_ROCKSPEC_FILENAME"
+# Replace the package name line with the actual PKG_NAME.
+# This ensures 'package = "PKG_NAME"' is set, regardless of source format.
+sed -i.bak -E "s/^[[:space:]]*package[[:space:]]*=[[:space:]]*[\"\\'].*[\"\\']$/package = \\\"${PKG_NAME}\\\"/g" "$FINAL_ROCKSPEC_FILENAME"
 
 # Ensure version is set correctly to FINAL_VERSION with ROCK_REVISION in the new file
 # This replaces the whole line like 'version = "anything"' with 'version = "actual_version-rev"'
-sed -i.bak -E "s/^[[:space:]]*version[[:space:]]*=[[:space:]]*["\'].*["\']$/version = \"${FINAL_VERSION}-${ROCK_REVISION}\"/g" "$FINAL_ROCKSPEC_FILENAME"
+sed -i.bak -E "s/^[[:space:]]*version[[:space:]]*=[[:space:]]*[\"\\'].*[\"\\']$/version = \\\"${FINAL_VERSION}-${ROCK_REVISION}\\\"/g" "$FINAL_ROCKSPEC_FILENAME"
 
 rm -f "${FINAL_ROCKSPEC_FILENAME}.bak"
 

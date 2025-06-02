@@ -267,6 +267,26 @@ if [ -z "$DRY_RUN_FLAG" ]; then
     echo
 fi
 
+# --- Cleanup Intermediate Files ---
+if [ -z "$DRY_RUN_FLAG" ]; then
+    if [ "$UPLOAD_ROCK_FILE_FLAG" = false ]; then # .rockspec was uploaded
+        print_status "Cleaning up generated .rock files (since .rockspec was uploaded)..."
+        for rock_file_to_clean in "${PACKED_ROCK_FILES[@]}"; do
+            if [ -f "$rock_file_to_clean" ]; then
+                rm -- "$rock_file_to_clean"
+                print_status "Removed $rock_file_to_clean"
+            else
+                # This case should ideally not happen if build-rocks.sh reported success
+                print_warning "Packed rock file $rock_file_to_clean (scheduled for cleanup) not found."
+            fi
+        done
+        echo # Add a blank line for readability
+    else     # .rock file was uploaded
+        print_status "Generated .rock file(s) (${PACKED_ROCK_FILES[*]}) were specified for upload and are not automatically cleaned up."
+        echo # Add a blank line for readability
+    fi
+fi
+
 print_success "--------------------------------------------------"
 print_success "RELEASE PROCESS COMPLETED SUCCESSFULLY for $PKG_NAME v$FINAL_VERSION!"
 print_success "--------------------------------------------------"
