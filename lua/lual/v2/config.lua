@@ -2,6 +2,7 @@
 -- This module provides the new simplified configuration API for the _root logger
 
 local core_levels = require("lua.lual.v2.levels")
+local table_utils = require("lual.utils.table")
 
 local M = {}
 
@@ -27,22 +28,23 @@ local function validate_config(config_table)
         return false, "Configuration must be a table, got " .. type(config_table)
     end
 
-    -- Check for unknown keys
-    for key, value in pairs(config_table) do
-        if not VALID_CONFIG_KEYS[key] then
-            local valid_keys = {}
-            for valid_key, _ in pairs(VALID_CONFIG_KEYS) do
-                table.insert(valid_keys, valid_key)
-            end
-            table.sort(valid_keys)
-            return false, string.format(
-                "Unknown configuration key '%s'. Valid keys are: %s",
-                tostring(key),
-                table.concat(valid_keys, ", ")
-            )
+    -- Check for unknown keys using table_utils.key_diff
+    local key_diff = table_utils.key_diff(VALID_CONFIG_KEYS, config_table)
+    if #key_diff.added_keys > 0 then
+        local valid_keys = {}
+        for valid_key, _ in pairs(VALID_CONFIG_KEYS) do
+            table.insert(valid_keys, valid_key)
         end
+        table.sort(valid_keys)
+        return false, string.format(
+            "Unknown configuration key '%s'. Valid keys are: %s",
+            tostring(key_diff.added_keys[1]),
+            table.concat(valid_keys, ", ")
+        )
+    end
 
-        -- Type validation
+    -- Type validation
+    for key, value in pairs(config_table) do
         local expected_spec = VALID_CONFIG_KEYS[key]
         local expected_type = expected_spec.type
         local actual_type = type(value)
@@ -114,39 +116,14 @@ function M.config(config_table)
         _root_logger_config[key] = value
     end
 
-    -- Return a copy of the current configuration
-    local config_copy = {}
-    for key, value in pairs(_root_logger_config) do
-        if type(value) == "table" then
-            -- Deep copy arrays
-            config_copy[key] = {}
-            for i, item in ipairs(value) do
-                config_copy[key][i] = item
-            end
-        else
-            config_copy[key] = value
-        end
-    end
-
-    return config_copy
+    -- Return a deep copy of the current configuration
+    return table_utils.deepcopy(_root_logger_config)
 end
 
 --- Gets the current _root logger configuration
 -- @return table A copy of the current _root logger configuration
 function M.get_config()
-    local config_copy = {}
-    for key, value in pairs(_root_logger_config) do
-        if type(value) == "table" then
-            -- Deep copy arrays
-            config_copy[key] = {}
-            for i, item in ipairs(value) do
-                config_copy[key][i] = item
-            end
-        else
-            config_copy[key] = value
-        end
-    end
-    return config_copy
+    return table_utils.deepcopy(_root_logger_config)
 end
 
 --- Resets the _root logger configuration to defaults

@@ -4,6 +4,7 @@
 local core_levels = require("lua.lual.v2.levels")
 local v2_config = require("lual.v2.config")
 local v2_dispatch = require("lual.v2.dispatch")
+local table_utils = require("lual.utils.table")
 
 local M = {}
 
@@ -162,22 +163,23 @@ local function validate_logger_config(config_table)
         return false, "Configuration must be a table, got " .. type(config_table)
     end
 
-    -- Check for unknown keys
-    for key, value in pairs(config_table) do
-        if not VALID_LOGGER_CONFIG_KEYS[key] then
-            local valid_keys = {}
-            for valid_key, _ in pairs(VALID_LOGGER_CONFIG_KEYS) do
-                table.insert(valid_keys, valid_key)
-            end
-            table.sort(valid_keys)
-            return false, string.format(
-                "Unknown configuration key '%s'. Valid keys are: %s",
-                tostring(key),
-                table.concat(valid_keys, ", ")
-            )
+    -- Check for unknown keys using table_utils.key_diff
+    local key_diff = table_utils.key_diff(VALID_LOGGER_CONFIG_KEYS, config_table)
+    if #key_diff.added_keys > 0 then
+        local valid_keys = {}
+        for valid_key, _ in pairs(VALID_LOGGER_CONFIG_KEYS) do
+            table.insert(valid_keys, valid_key)
         end
+        table.sort(valid_keys)
+        return false, string.format(
+            "Unknown configuration key '%s'. Valid keys are: %s",
+            tostring(key_diff.added_keys[1]),
+            table.concat(valid_keys, ", ")
+        )
+    end
 
-        -- Type validation
+    -- Type validation
+    for key, value in pairs(config_table) do
         local expected_spec = VALID_LOGGER_CONFIG_KEYS[key]
         local expected_type = expected_spec.type
         local actual_type = type(value)
@@ -302,8 +304,6 @@ function M.logger(name, config_table)
 
     -- Use default config if none provided
     config_table = config_table or {}
-
-
 
     -- Validate configuration
     local valid, error_msg = validate_logger_config(config_table)
