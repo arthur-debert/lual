@@ -2,18 +2,18 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 
 local lual = require("lual.logger")
-local core_levels = require("lual.core.levels")
+local core_levels = require("lua.lual.levels")
 
-describe("lual.v2 Dispatch Loop Logic (Step 2.7)", function()
+describe("Dispatch Loop Logic (Step 2.7)", function()
     before_each(function()
-        -- Reset v2 config and logger cache for each test
-        lual.v2.reset_config()
-        lual.v2.reset_cache()
+        -- Reset config and logger cache for each test
+        lual.reset_config()
+        lual.reset_cache()
     end)
 
     describe("Basic logging methods", function()
         it("should have all logging methods available", function()
-            local logger = lual.v2.logger("test.methods")
+            local logger = lual.logger("test.methods")
 
             assert.is_function(logger.debug)
             assert.is_function(logger.info)
@@ -29,7 +29,7 @@ describe("lual.v2 Dispatch Loop Logic (Step 2.7)", function()
                 table.insert(output_captured, record)
             end
 
-            local logger = lual.v2.logger("test.level.check", {
+            local logger = lual.logger("test.level.check", {
                 level = core_levels.definition.WARNING,
                 dispatchers = { mock_dispatcher }
             })
@@ -52,10 +52,10 @@ describe("lual.v2 Dispatch Loop Logic (Step 2.7)", function()
             end
 
             -- Set root config to ERROR
-            lual.v2.config({ level = core_levels.definition.ERROR })
+            lual.config({ level = core_levels.definition.ERROR })
 
             -- Create child logger with NOTSET (inherits ERROR from root)
-            local child_logger = lual.v2.logger("inherits.error", {
+            local child_logger = lual.logger("inherits.error", {
                 dispatchers = { mock_dispatcher }
             })
 
@@ -89,12 +89,12 @@ describe("lual.v2 Dispatch Loop Logic (Step 2.7)", function()
             end
 
             -- Create hierarchy with dispatchers
-            local parent_logger = lual.v2.logger("parent", {
+            local parent_logger = lual.logger("parent", {
                 level = core_levels.definition.DEBUG,
                 dispatchers = { parent_dispatcher }
             })
 
-            local child_logger = lual.v2.logger("parent.child", {
+            local child_logger = lual.logger("parent.child", {
                 level = core_levels.definition.DEBUG,
                 dispatchers = { child_dispatcher }
             })
@@ -124,12 +124,12 @@ describe("lual.v2 Dispatch Loop Logic (Step 2.7)", function()
             end
 
             -- Create hierarchy with different levels
-            local parent_logger = lual.v2.logger("parent", {
+            local parent_logger = lual.logger("parent", {
                 level = core_levels.definition.ERROR, -- Only ERROR and above
                 dispatchers = { high_level_dispatcher }
             })
 
-            local child_logger = lual.v2.logger("parent.child", {
+            local child_logger = lual.logger("parent.child", {
                 level = core_levels.definition.DEBUG, -- All messages
                 dispatchers = { low_level_dispatcher }
             })
@@ -162,12 +162,12 @@ describe("lual.v2 Dispatch Loop Logic (Step 2.7)", function()
             end
 
             -- Create hierarchy with propagate = false on child
-            local parent_logger = lual.v2.logger("parent", {
+            local parent_logger = lual.logger("parent", {
                 level = core_levels.definition.DEBUG,
                 dispatchers = { parent_dispatcher }
             })
 
-            local child_logger = lual.v2.logger("parent.child", {
+            local child_logger = lual.logger("parent.child", {
                 level = core_levels.definition.DEBUG,
                 dispatchers = { child_dispatcher },
                 propagate = false -- Stop propagation
@@ -194,13 +194,13 @@ describe("lual.v2 Dispatch Loop Logic (Step 2.7)", function()
             end
 
             -- Configure root logger manually
-            lual.v2.config({
+            lual.config({
                 level = core_levels.definition.DEBUG,
                 dispatchers = { root_dispatcher }
             })
 
             -- Create child logger
-            local child_logger = lual.v2.logger("child", {
+            local child_logger = lual.logger("child", {
                 level = core_levels.definition.DEBUG,
                 dispatchers = { child_dispatcher }
             })
@@ -225,12 +225,12 @@ describe("lual.v2 Dispatch Loop Logic (Step 2.7)", function()
             end
 
             -- Create hierarchy where child has no dispatchers
-            local parent_logger = lual.v2.logger("parent", {
+            local parent_logger = lual.logger("parent", {
                 level = core_levels.definition.DEBUG,
                 dispatchers = { parent_dispatcher }
             })
 
-            local child_logger = lual.v2.logger("parent.child", {
+            local child_logger = lual.logger("parent.child", {
                 level = core_levels.definition.DEBUG
                 -- No dispatchers specified
             })
@@ -251,7 +251,7 @@ describe("lual.v2 Dispatch Loop Logic (Step 2.7)", function()
                 captured_record = record
             end
 
-            local logger = lual.v2.logger("record.test", {
+            local logger = lual.logger("record.test", {
                 level = core_levels.definition.DEBUG,
                 dispatchers = { mock_dispatcher }
             })
@@ -286,7 +286,7 @@ describe("lual.v2 Dispatch Loop Logic (Step 2.7)", function()
                 captured_record = record
             end
 
-            local logger = lual.v2.logger("context.test", {
+            local logger = lual.logger("context.test", {
                 level = core_levels.definition.DEBUG,
                 dispatchers = { mock_dispatcher }
             })
@@ -307,7 +307,7 @@ describe("lual.v2 Dispatch Loop Logic (Step 2.7)", function()
                 captured_record = record
             end
 
-            local logger = lual.v2.logger("context.only.test", {
+            local logger = lual.logger("context.only.test", {
                 level = core_levels.definition.DEBUG,
                 dispatchers = { mock_dispatcher }
             })
@@ -340,22 +340,22 @@ describe("lual.v2 Dispatch Loop Logic (Step 2.7)", function()
             end
 
             -- Create deep hierarchy: level1 -> level2 -> level3 -> level4
-            local level1 = lual.v2.logger("level1", {
+            local level1 = lual.logger("level1", {
                 level = core_levels.definition.DEBUG,
                 dispatchers = { dispatchers.level1 }
             })
 
-            local level2 = lual.v2.logger("level1.level2", {
+            local level2 = lual.logger("level1.level2", {
                 level = core_levels.definition.DEBUG,
                 dispatchers = { dispatchers.level2 }
             })
 
-            local level3 = lual.v2.logger("level1.level2.level3", {
+            local level3 = lual.logger("level1.level2.level3", {
                 level = core_levels.definition.DEBUG,
                 dispatchers = { dispatchers.level3 }
             })
 
-            local level4 = lual.v2.logger("level1.level2.level3.level4", {
+            local level4 = lual.logger("level1.level2.level3.level4", {
                 level = core_levels.definition.DEBUG,
                 dispatchers = { dispatchers.level4 }
             })
@@ -392,25 +392,25 @@ describe("lual.v2 Dispatch Loop Logic (Step 2.7)", function()
             end
 
             -- Create hierarchy with mixed propagation settings
-            local level1 = lual.v2.logger("mixed1", {
+            local level1 = lual.logger("mixed1", {
                 level = core_levels.definition.DEBUG,
                 dispatchers = { dispatchers.level1 },
                 propagate = true
             })
 
-            local level2 = lual.v2.logger("mixed1.mixed2", {
+            local level2 = lual.logger("mixed1.mixed2", {
                 level = core_levels.definition.DEBUG,
                 dispatchers = { dispatchers.level2 },
                 propagate = false -- Stop propagation here
             })
 
-            local level3 = lual.v2.logger("mixed1.mixed2.mixed3", {
+            local level3 = lual.logger("mixed1.mixed2.mixed3", {
                 level = core_levels.definition.DEBUG,
                 dispatchers = { dispatchers.level3 },
                 propagate = true
             })
 
-            local level4 = lual.v2.logger("mixed1.mixed2.mixed3.mixed4", {
+            local level4 = lual.logger("mixed1.mixed2.mixed3.mixed4", {
                 level = core_levels.definition.DEBUG,
                 dispatchers = { dispatchers.level4 },
                 propagate = true
@@ -435,7 +435,7 @@ describe("lual.v2 Dispatch Loop Logic (Step 2.7)", function()
                 captured_record = record
             end
 
-            local logger = lual.v2.logger("generic.test", {
+            local logger = lual.logger("generic.test", {
                 level = core_levels.definition.DEBUG,
                 dispatchers = { mock_dispatcher }
             })
@@ -449,7 +449,7 @@ describe("lual.v2 Dispatch Loop Logic (Step 2.7)", function()
         end)
 
         it("should reject invalid log level types", function()
-            local logger = lual.v2.logger("invalid.level.test")
+            local logger = lual.logger("invalid.level.test")
 
             assert.has_error(function()
                 logger:log("warning", "Invalid level type")
@@ -462,7 +462,7 @@ describe("lual.v2 Dispatch Loop Logic (Step 2.7)", function()
                 table.insert(output_captured, record)
             end
 
-            local logger = lual.v2.logger("generic.level.test", {
+            local logger = lual.logger("generic.level.test", {
                 level = core_levels.definition.WARNING,
                 dispatchers = { mock_dispatcher }
             })

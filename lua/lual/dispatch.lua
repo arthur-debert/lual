@@ -1,11 +1,11 @@
---- V2 Dispatch Module
+--- Dispatch Module
 -- This module implements the new dispatch loop logic from step 2.7
 
-local core_levels = require("lual.core.levels")
+local core_levels = require("lua.lual.levels")
 
 local M = {}
 
---- Creates a log record for the v2 system
+--- Creates a log record
 -- @param logger table The source logger
 -- @param level_no number The log level number
 -- @param level_name string The log level name
@@ -51,7 +51,7 @@ local function process_dispatcher(log_record, dispatcher_entry, logger)
     dispatcher_record.owner_logger_propagate = logger.propagate
 
     -- Call the dispatcher function
-    -- For v2, we expect dispatchers to be simple functions that take a record
+    -- dispatchers to be simple functions that take a record
     dispatcher_entry.dispatcher_func(dispatcher_record)
 end
 
@@ -160,7 +160,6 @@ local function parse_log_args(...)
     return msg_fmt_val, args_val, context_val
 end
 
---- Creates logging methods for the v2 logger prototype
 -- @return table Table of logging methods
 function M.create_logging_methods()
     local methods = {}
@@ -180,7 +179,6 @@ function M.create_logging_methods()
             -- Create log record
             local log_record = create_log_record(self, level_no, level_name, msg_fmt, args, context)
 
-            -- Dispatch through the new v2 dispatch loop
             M.dispatch_log_event(self, log_record)
         end
     end
@@ -213,8 +211,6 @@ function M.create_logging_methods()
 
         -- Create log record
         local log_record = create_log_record(self, level_no, level_name, msg_fmt, args, context)
-
-        -- Dispatch through the new v2 dispatch loop
         M.dispatch_log_event(self, log_record)
     end
 
