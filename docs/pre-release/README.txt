@@ -14,54 +14,95 @@ As a final push, we're doing :
         - The design:   docs/pre-release/design.txt
 
 
-2. Implementation: 
-    
-    Critical : there is no backwards compatibility layer. This lib is unreleased and it will be crazy for it
-    to pay the deprecation and multiple implementation costs just to avoid updating tests.
-    We do full switch.
+2. Implementation Plan:
 
-    2.1 Get the config schema correct: 
-        - name is not part of the config
-        - local should be moved to presenters (can be a variable to each one)
-    
-    2.2 Add UNSET level: 
-        - at this point, just add it as the default for every non root logger.
-        - don't change the code to use it.
+    Critical Note: There is no backwards compatibility layer. This library is
+    unreleased. We will perform a full switch to the new design to avoid the
+    costs of deprecation and multiple implementations. Existing tests will need
+    to be updated or replaced to reflect the new, correct behavior.
 
-    2.3 Root logger: 
-        - validate that user logger's name cannot start with a _. note that a module can start with a _, so if it does, we must change that to something else.
-        - change default logger name to _root.
+    2.1. Logger and Configuration Structure Changes:
+        - Ensure `name` is not a configurable property within a logger's settings.
+          It is an identifier.
+        - Time configuration (e.g., UTC/local, format string) should be a property
+          of Presenters, not a top-level logger or dispatcher setting.
+          Refer to `new-design.txt` for details.
 
-    2.4. Implement Root Configure
-        - the lual.config({}) call
-        - only set keys with valid values should update the default root logger  
-        - not that if multiple config() calls are made, we update always the default config with the given table (not the previously set config)
+    2.2. Introduce `lual.NOTSET` Level:
+        - Add this special level value (e.g., could be `0` or a unique table).
+        - Non-root loggers will default to `level = lual.NOTSET`.
+        - This signifies that the logger should inherit its effective level from
+          its closest configured ancestor.
 
-    2.5 Implement get_effective_level method for loggers
+    2.3. Root Logger (`_root`):
+        - Implement the internal root logger, named `_root`.
+        - Ensure user-defined logger names cannot start with `_`. If an auto-generated
+          name (e.g., from module path) starts with `_`, it must be prefixed or altered.
+        - `_root` is automatically created when `lual` is loaded and initialized with
+          library defaults (e.g., level `lual.WARN`, a console dispatcher, default
+          presenter, `propagate = true`).
 
-        - this will walk the tree returning the first non empty level value (UNSET) .
+    2.4. Implement `lual.config(config_table)`:
+        - This function is the HAPI for user configuration of the `_root` logger.
+        - When called, it updates `_root`'s existing configuration with the values
+          provided in `config_table`.
+        - If `config_table` contains a `level` key, `_root.level` is updated.
+        - If `config_table` contains a `dispatchers` key, `_root.dispatchers` are
+          replaced with the new list.
+        - Keys not present in `config_table` will leave `_root`'s corresponding
+          settings unchanged from their current state (either library defaults or
+          values from a previous `lual.config()` call).
 
-    2.6 Implement logger.will_dispatch: 
-        - it uses get_effective_level for getting the level and level matching. 
-        - if positive it looks at the loggers config for dispatchers (not parrents, must be set on this logger)
-        - if both are true (effective_level >= log.level) and logger.dispatchers len >=1 returns true false otherwise
+    2.5. Implement Effective Level Calculation:
+        - Create a method or internal function for loggers, say `logger:_get_effective_level()`.
+        - If `self.level` is not `lual.NOTSET`, return `self.level`.
+        - Else, if `self` is `_root`, return `_root.level` (it must have an explicit level).
+        - Else, recursively call `self.parent:_get_effective_level()`.
 
-    2.7 Implement configuring non root loggers
-        - alter the logger('name", config_table) api to only set keys passed in.
-        - if not passed, propagate is inserted as true.
-        - if not set, level is UNSET
+    2.6. Implement Non-Root Logger Configuration:
+        - The `lual.logger("name", config_table)` API (and imperative methods like
+          `logger:set_level()`, `logger:add_dispatcher()`) should only store the
+          explicitly provided settings in the logger's internal config table.
+        - Default initial state for a new non-root logger:
+            - `level = lual.NOTSET`
+            - `dispatchers = {}` (empty list)
+            - `propagate = true`
 
-    2.8 Alter the dispatch loop: 
-        - create a new function , for now set it as a flag, and unless instructed it uses the old code (ingest)
-        - does the tree walk, using will_dispatch, and effective levels.
-        - write separate tests, most of the test suite should run as before
-        - write good tests for the subtle details in this design (UNSET , dispatchers required to be set, etc)
+    2.7. Implement the New Dispatch Loop Logic:
+        - This is the core of event processing for each logger `L` in the hierarchy
+          (from source up to `_root`).
+        - For a given log event:
+            1. Calculate `L`'s effective level using `L:_get_effective_level()`.
+            2. If `event_level >= L.effective_level` (level match):
+                a. For each dispatcher in `L`'s *own* `dispatchers` list:
+                   i. (Optional) Process record through `L`'s transformers.
+                   ii. Format record using the dispatcher's presenter.
+                   iii. Send formatted output via the dispatcher.
+                b. If `L` has no dispatchers, it produces no output itself.
+            3. If `L.propagate` is `true` AND `L` is not `_root`:
+                a. Pass the original event to `L.parent` to repeat this process.
 
-    2.9 When we are happy with the result.
-        - remove the old ingest code path.
-        - look at tests failures. 
-            - for tests that tested the old behavior, we can delete them (since our new tests cover this)
-            - if they tested other wise, but the new behavior breaks them , fix them
-        
+        - Transitional Strategy: Consider a temporary flag to switch between old and
+          new dispatch logic during development and testing if needed.
 
-    
+    2.8. Testing Strategy:
+        - Write comprehensive tests for the new dispatch logic, specifically covering:
+            - Correct `lual.NOTSET` level inheritance.
+            - Dispatching only occurs if a logger has its own dispatchers AND the
+              level matches.
+            - Propagation logic (including `propagate = false`).
+            - `lual.config()` behavior for `_root`.
+            - Behavior of various logger configurations and their interactions.
+
+    2.9. Final Switch & Test Suite Update:
+        - Once the new implementation is verified by its dedicated tests:
+            - Remove any old dispatch code paths.
+            - Review the existing test suite:
+                - Tests that validated old, incorrect behaviors should be deleted
+                  (as new tests cover the correct design).
+                - Tests that cover valid use cases but fail due to the new, correct
+                  behavior should be updated to expect the new outcomes.
+
+This plan provides a structured approach to refactoring the logging system
+to the new, robust design.
+
