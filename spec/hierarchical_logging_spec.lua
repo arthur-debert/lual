@@ -62,7 +62,7 @@ describe("Hierarchical Logging System", function()
             })
 
             assert.is_not_nil(root_logger)
-            assert.are.equal("root", root_logger.name)
+            assert.are.equal("_root", root_logger.name)
             assert.are.equal(lual.warning, root_logger.level)
             assert.is_not_nil(engine.get_root_logger())
             assert.are.equal(root_logger, engine.get_root_logger())
@@ -73,8 +73,8 @@ describe("Hierarchical Logging System", function()
             local root2 = lual.config({ level = "debug" })
 
             -- Should create a new root logger with updated config
-            assert.are.equal("root", root1.name)
-            assert.are.equal("root", root2.name)
+            assert.are.equal("_root", root1.name)
+            assert.are.equal("_root", root2.name)
             -- The level should be updated
             assert.are.equal(lual.debug, root2.level)
         end)
@@ -201,7 +201,7 @@ describe("Hierarchical Logging System", function()
             assert.are.equal("app", app_call.source_logger_name)
 
             assert.is_not_nil(root_call)
-            assert.are.equal("root", root_call.logger_name)
+            assert.are.equal("_root", root_call.logger_name)
             assert.are.equal("app", root_call.source_logger_name) -- Source is still app
         end)
 
@@ -309,7 +309,7 @@ describe("Hierarchical Logging System", function()
             assert.are.equal("app.database", app_call.source_logger_name)
 
             assert.is_not_nil(root_call)
-            assert.are.equal("root", root_call.logger_name)
+            assert.are.equal("_root", root_call.logger_name)
             assert.are.equal("app.database", root_call.source_logger_name)
         end)
     end)
@@ -367,7 +367,7 @@ describe("Hierarchical Logging System", function()
             assert.are.equal(app_logger, db_logger.parent)
 
             -- The app logger should have root as parent
-            assert.are.equal("root", app_logger.parent.name)
+            assert.are.equal("_root", app_logger.parent.name)
 
             -- Log an error from db_logger
             db_logger:error("connection failed")

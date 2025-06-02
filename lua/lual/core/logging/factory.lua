@@ -47,7 +47,7 @@ function M.create_simple_logger(name, parent_logger)
         if filename then
             logger_name = filename
         else
-            logger_name = "root"
+            logger_name = "_root"
         end
     end
 

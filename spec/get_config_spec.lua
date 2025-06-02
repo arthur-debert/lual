@@ -33,7 +33,7 @@ describe("get_config functionality", function()
 
             local config = lual.get_config()
             assert.is_not_nil(config)
-            assert.are.equal("root", config.name)
+            assert.are.equal("_root", config.name)
             assert.are.equal(lual.warning, config.level)
             assert.is_false(config.propagate) -- Root logger doesn't propagate
             assert.are.equal(1, #config.dispatchers)
@@ -83,7 +83,7 @@ describe("get_config functionality", function()
                 }
             })
 
-            -- Create a hierarchy: root -> app -> app.database -> app.database.connection
+            -- Create a hierarchy: _root -> app -> app.database -> app.database.connection
             local app_logger = lual.logger("app", {
                 level = "warning",
                 dispatchers = {
@@ -105,14 +105,14 @@ describe("get_config functionality", function()
 
             -- Should have 4 loggers in hierarchy
             assert.is_table(hierarchy)
-            assert.is_not_nil(hierarchy["root"])
+            assert.is_not_nil(hierarchy["_root"])
             assert.is_not_nil(hierarchy["app"])
             assert.is_not_nil(hierarchy["app.database"])
             assert.is_not_nil(hierarchy["app.database.connection"])
 
             -- Check root logger config
-            local root_config = hierarchy["root"]
-            assert.are.equal("root", root_config.name)
+            local root_config = hierarchy["_root"]
+            assert.are.equal("_root", root_config.name)
             assert.are.equal(lual.error, root_config.level)
             assert.is_nil(root_config.parent_name)
             assert.is_false(root_config.propagate)
@@ -121,7 +121,7 @@ describe("get_config functionality", function()
             local app_config = hierarchy["app"]
             assert.are.equal("app", app_config.name)
             assert.are.equal(lual.warning, app_config.level)
-            assert.are.equal("root", app_config.parent_name)
+            assert.are.equal("_root", app_config.parent_name)
             assert.is_true(app_config.propagate)
 
             -- Check database logger config (default settings)
@@ -154,7 +154,7 @@ describe("get_config functionality", function()
 
             -- Should have 2 loggers in hierarchy
             assert.is_table(hierarchy)
-            assert.is_not_nil(hierarchy["root"])
+            assert.is_not_nil(hierarchy["_root"])
             assert.is_not_nil(hierarchy["app"])
 
             -- Check counts
@@ -166,11 +166,11 @@ describe("get_config functionality", function()
             local app_config = hierarchy["app"]
             assert.are.equal("app", app_config.name)
             assert.are.equal(lual.debug, app_config.level)
-            assert.are.equal("root", app_config.parent_name)
+            assert.are.equal("_root", app_config.parent_name)
 
             -- Check root logger
-            local root_config = hierarchy["root"]
-            assert.are.equal("root", root_config.name)
+            local root_config = hierarchy["_root"]
+            assert.are.equal("_root", root_config.name)
             assert.is_nil(root_config.parent_name)
         end)
 
@@ -182,7 +182,7 @@ describe("get_config functionality", function()
             -- Should only have the standalone logger (no root)
             assert.is_table(hierarchy)
             assert.is_not_nil(hierarchy["standalone"])
-            assert.is_nil(hierarchy["root"])
+            assert.is_nil(hierarchy["_root"])
 
             -- Check counts
             local count = 0
@@ -211,14 +211,14 @@ describe("get_config functionality", function()
 
             -- Should only have the root logger
             assert.is_table(hierarchy)
-            assert.is_not_nil(hierarchy["root"])
+            assert.is_not_nil(hierarchy["_root"])
 
             local count = 0
             for _ in pairs(hierarchy) do count = count + 1 end
             assert.are.equal(1, count)
 
-            local root_config = hierarchy["root"]
-            assert.are.equal("root", root_config.name)
+            local root_config = hierarchy["_root"]
+            assert.are.equal("_root", root_config.name)
             assert.are.equal(lual.critical, root_config.level)
             assert.is_nil(root_config.parent_name)
         end)

@@ -54,8 +54,8 @@ function M.config_root_logger(config)
     canonical_config.propagate = false -- Root logger doesn't propagate
 
     -- Create the root logger
-    _root_logger = factory.create_logger_from_config("root", canonical_config)
-    _loggers_cache["root"] = _root_logger
+    _root_logger = factory.create_logger_from_config("_root", canonical_config)
+    _loggers_cache["_root"] = _root_logger
 
     return _root_logger
 end
@@ -74,7 +74,7 @@ end
 --- @param logger_name string The logger name
 --- @return string|nil The parent logger name or nil if this is a top-level logger
 local function get_parent_name(logger_name)
-    if logger_name == "root" then
+    if logger_name == "_root" then
         return nil -- Root logger has no parent
     end
 
@@ -83,7 +83,7 @@ local function get_parent_name(logger_name)
 
     -- If no dot found, parent is root (if root logger exists)
     if not parent_name then
-        return _root_logger and "root" or nil
+        return _root_logger and "_root" or nil
     end
 
     return parent_name
@@ -139,7 +139,7 @@ function M._get_logger_simple(name)
         if filename then
             logger_name = filename
         else
-            logger_name = "root"
+            logger_name = "_root"
         end
     end
 
@@ -234,8 +234,8 @@ function M.logger(input_config, config_table)
         error("logger() expects nil, string, or table argument, got " .. type(input_config))
     end
 
-    -- Auto-generate logger name (defaults to "root")
-    local logger_name = "root"
+    -- Auto-generate logger name (defaults to "_root")
+    local logger_name = "_root"
 
     -- Define default config
     local default_config = {

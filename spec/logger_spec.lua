@@ -23,9 +23,9 @@ describe("lualog Logger Object", function()
 
 	describe("lualog.logger(name)", function()
 		it("should create a logger with auto-generated name when no name provided", function()
-			-- Use a unique name for root to avoid cache from other tests if any test used "root" explicitly
-			-- However, logger() or logger("root") should always return the canonical root.
-			-- Forcing a reload for pristine cache is complex here. Assuming "root" is testable.
+			-- Use a unique name for root to avoid cache from other tests if any test used "_root" explicitly
+			-- However, logger() or logger("_root") should always return the canonical root.
+			-- Forcing a reload for pristine cache is complex here. Assuming "_root" is testable.
 			package.loaded["lual.logger"] = nil -- Attempt to reset cache by reloading module
 			local fresh_lualog = require("lual.logger")
 
@@ -41,8 +41,8 @@ describe("lualog Logger Object", function()
 			assert.is_false(string.find(auto_logger.name, ".lua", 1, true) ~= nil)
 			assert.are.same(fresh_lualog.levels.INFO, auto_logger.level) -- Default level
 
-			local root_logger_named = fresh_lualog.logger("root")
-			assert.are.same("root", root_logger_named.name)
+			local root_logger_named = fresh_lualog.logger("_root")
+			assert.are.same("_root", root_logger_named.name)
 			assert.is_nil(root_logger_named.parent)
 		end)
 
@@ -548,7 +548,7 @@ describe("lual.logger (Facade)", function()
 			})
 
 			assert.is_not_nil(root_logger)
-			assert.are.same("root", root_logger.name)
+			assert.are.same("_root", root_logger.name)
 			assert.are.same(1, #root_logger.dispatchers, "Root logger should have 1 dispatcher after config.")
 			if #root_logger.dispatchers == 1 then
 				local dispatcher_entry = root_logger.dispatchers[1]

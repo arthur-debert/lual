@@ -31,12 +31,13 @@ describe("lual.core.logging", function()
 
 			-- Should use the test filename (without .lua extension)
 			assert.are.equal("string", type(auto_logger.name), "auto_logger.name should be a string")
-			assert.are.equal(current_test_filename, auto_logger.name, "auto_logger.name should match current_test_filename")
+			assert.are.equal(current_test_filename, auto_logger.name,
+				"auto_logger.name should match current_test_filename")
 			assert.is_false(string.find(auto_logger.name, ".lua", 1, true) ~= nil)
 			assert.are.same(fresh_core_levels.definition.INFO, auto_logger.level) -- Default level
 
-			local root_logger_named = fresh_engine.logger("root")
-			assert.are.same("root", root_logger_named.name)
+			local root_logger_named = fresh_engine.logger("_root")
+			assert.are.same("_root", root_logger_named.name)
 			assert.is_nil(root_logger_named.parent)
 		end)
 
@@ -55,7 +56,7 @@ describe("lual.core.logging", function()
 			assert.is_not_nil(logger_a_b.parent)
 			assert.are.same("spec_a", logger_a_b.parent.name)
 			assert.is_not_nil(logger_a_b.parent.parent)
-			assert.are.same("root", logger_a_b.parent.parent.name)
+			assert.are.same("_root", logger_a_b.parent.parent.name)
 			assert.is_nil(logger_a_b.parent.parent.parent)
 		end)
 
@@ -238,8 +239,8 @@ describe("lual.core.logging", function()
 				logger_p.propagate = true
 				logger_c.propagate = true
 
-				-- Crucially, ensure the canonical "root" logger (parent of eff_root) also has clean dispatchers for this test
-				local canonical_root = test_cl_module_for_dispatchers.logger("root")
+				-- Crucially, ensure the canonical "_root" logger (parent of eff_root) also has clean dispatchers for this test
+				local canonical_root = test_cl_module_for_dispatchers.logger("_root")
 				if canonical_root then
 					canonical_root.dispatchers = {}
 				end

@@ -146,7 +146,7 @@ describe("Unified Config API", function()
             })
 
             assert.is_not_nil(logger)
-            assert.are.same("root", logger.name)              -- Default name
+            assert.are.same("_root", logger.name)             -- Default name
             assert.are.same(lualog.levels.INFO, logger.level) -- Default level
             assert.is_true(logger.propagate)                  -- Default propagate
             assert.are.same(1, #logger.dispatchers)
@@ -647,7 +647,7 @@ describe("Unified Config API", function()
             assert.is_not_nil(logger.parent.parent)
             assert.are.same("app", logger.parent.parent.name)
             assert.is_not_nil(logger.parent.parent.parent)
-            assert.are.same("root", logger.parent.parent.parent.name)
+            assert.are.same("_root", logger.parent.parent.parent.name)
         end)
 
         it("should cache created loggers", function()
@@ -761,21 +761,21 @@ describe("Unified Config API", function()
         end)
 
         it("should handle root logger creation", function()
-            local logger = lualog.logger("root", {
+            local logger = lualog.logger("_root", {
                 level = "debug"
             })
 
-            assert.are.same("root", logger.name)
+            assert.are.same("_root", logger.name)
             assert.are.same(lualog.levels.DEBUG, logger.level)
             assert.is_nil(logger.parent)
         end)
 
-        it("should handle logger without name (should default to root)", function()
+        it("should handle logger without name (should default to _root)", function()
             local logger = lualog.logger({
                 level = "error"
             })
 
-            assert.are.same("root", logger.name)
+            assert.are.same("_root", logger.name)
             assert.are.same(lualog.levels.ERROR, logger.level)
         end)
     end)
@@ -790,7 +790,7 @@ describe("Unified Config API", function()
             })
 
             assert.is_not_nil(logger)
-            assert.are.same("root", logger.name) -- Default name
+            assert.are.same("_root", logger.name) -- Default name
             assert.are.same(lualog.levels.DEBUG, logger.level)
             assert.are.same(1, #logger.dispatchers)
 

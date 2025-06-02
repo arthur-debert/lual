@@ -121,7 +121,7 @@ describe("lual.core.engine auto-naming", function()
             -- Restore original function
             caller_info.get_caller_info = original_get_caller_info
 
-            assert.are.equal("root", logger.name)
+            assert.are.equal("_root", logger.name)
         end)
 
         it("should fall back to root when caller_info returns nil", function()
@@ -136,7 +136,7 @@ describe("lual.core.engine auto-naming", function()
             -- Restore original function
             caller_info.get_caller_info = original_get_caller_info
 
-            assert.are.equal("root", logger.name)
+            assert.are.equal("_root", logger.name)
         end)
 
         it("should still use provided name when explicitly given", function()
@@ -192,7 +192,19 @@ describe("lual.core.engine auto-naming", function()
             assert.is_not_nil(logger.parent.parent)
             assert.are.equal("app", logger.parent.parent.name)
             assert.is_not_nil(logger.parent.parent.parent)
-            assert.are.equal("root", logger.parent.parent.parent.name)
+            assert.are.equal("_root", logger.parent.parent.parent.name)
+        end)
+
+        it("should create entire hierarchy with auto-generated names", function()
+            local deep_logger = engine.logger("a.b.c.d")
+
+            -- Should create entire hierarchy: a -> a.b -> a.b.c -> a.b.c.d
+            -- Starting from parent instead of great-great-grandparent for clarity
+            assert.is_not_nil(deep_logger.parent)                  -- a.b.c
+            assert.is_not_nil(deep_logger.parent.parent)           -- a.b
+            assert.is_not_nil(deep_logger.parent.parent.parent)    -- a
+            assert.are.equal("a", deep_logger.parent.parent.parent.name)
+            assert.is_nil(deep_logger.parent.parent.parent.parent) -- No parent for a (no root configured)
         end)
     end)
 end)

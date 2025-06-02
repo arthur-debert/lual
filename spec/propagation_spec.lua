@@ -84,7 +84,7 @@ describe("Logger Propagation", function()
             assert.are.equal("INFO", app_call.level_name)
 
             assert.is_not_nil(root_call)
-            assert.are.equal("root", root_call.logger_name)                -- Owner of the dispatcher
+            assert.are.equal("_root", root_call.logger_name)               -- Owner of the dispatcher
             assert.are.equal("app.database", root_call.source_logger_name) -- Originator of the message
             assert.are.equal("INFO", root_call.level_name)
 
@@ -279,7 +279,7 @@ describe("Logger Propagation", function()
 
             -- Check that each dispatcher has the correct owner and source
             local expected_owners = { "webapp.api.v1.users.auth", "webapp.api.v1.users", "webapp.api.v1", "webapp.api",
-                "webapp", "root" }
+                "webapp", "_root" }
             for i, call in ipairs(mock_dispatcher_calls) do
                 assert.are.equal("webapp.api.v1.users.auth", call.source_logger_name) -- Same source for all
                 assert.are.equal("CRITICAL", call.level_name)
@@ -336,7 +336,7 @@ describe("Logger Propagation", function()
             -- Should still propagate to root
             assert.are.equal(1, #mock_dispatcher_calls)
             assert.are.equal("root_dispatcher", mock_dispatcher_calls[1].dispatcher_name)
-            assert.are.equal("root", mock_dispatcher_calls[1].logger_name)                -- Root owns the dispatcher
+            assert.are.equal("_root", mock_dispatcher_calls[1].logger_name)               -- Root owns the dispatcher
             assert.are.equal("app.database", mock_dispatcher_calls[1].source_logger_name) -- db_logger originated the message
         end)
 

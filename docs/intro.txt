@@ -23,7 +23,6 @@ design is done over functions and tables, look ma, no classes.
         })
         
         local bigLogging = lual.logger({
-            name = "app.database",
             level = lual.debug,
             dispatchers = {
                 {type = lual.console, presenter = lual.color, timezone = lual.utc},
