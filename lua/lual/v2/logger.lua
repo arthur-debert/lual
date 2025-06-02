@@ -1,7 +1,7 @@
 --- V2 Logger Module
 -- This module provides the new logger implementation with effective level calculation
 
-local core_levels = require("lual.core.levels")
+local core_levels = require("lua.lual.prev.core.levels")
 local v2_config = require("lual.v2.config")
 local v2_dispatch = require("lual.v2.dispatch")
 

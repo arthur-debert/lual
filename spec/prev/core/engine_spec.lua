@@ -1,26 +1,26 @@
 #!/usr/bin/env lua
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 
--- local lualog = require("lual.logger") -- Will require lual.core.logging directly or via a facade
-local engine = require("lual.core.logging")
-local core_levels = require("lual.core.levels")
-local ingest = require("lual.ingest")
+-- local lualog = require("lual.logger") -- Will require lual.prev.core.logging directly or via a facade
+local engine = require("lua.lual.prev.core.logging.init")
+local core_levels = require("lua.lual.prev.core.levels")
+local ingest = require("lual.prev.ingest")
 local spy = require("luassert.spy")
 local match = require("luassert.match")
-local caller_info = require("lual.core.caller_info")
+local caller_info = require("lua.lual.prev.core.caller_info")
 -- local utils = require("luassert.utils") -- For stringify - remove debug prints later
 
 -- Get the current test file's name dynamically
 local current_test_filename, _, _ = caller_info.get_caller_info(1, true)
 current_test_filename = current_test_filename or "unknown_test"
 
-describe("lual.core.logging", function()
+describe("lual.prev.core.logging", function()
 	describe("engine.logger(name)", function()
 		it("should create a logger with auto-generated name when no name provided", function()
-			package.loaded["lual.core.logging"] = nil
-			package.loaded["lual.core.levels"] = nil
-			local fresh_core_levels = require("lual.core.levels")
-			local fresh_engine = require("lual.core.logging")
+			package.loaded["lual.prev.core.logging"] = nil
+			package.loaded["lual.prev.core.levels"] = nil
+			local fresh_core_levels = require("lua.lual.prev.core.levels")
+			local fresh_engine = require("lua.lual.prev.core.logging.init")
 			fresh_engine.reset_cache() -- Ensure cache is clean
 
 			local auto_logger = fresh_engine.logger()
@@ -42,10 +42,10 @@ describe("lual.core.logging", function()
 		end)
 
 		it("should create a named logger and its parents", function()
-			package.loaded["lual.core.logging"] = nil
-			package.loaded["lual.core.levels"] = nil
-			local fresh_core_levels = require("lual.core.levels")
-			local fresh_engine = require("lual.core.logging")
+			package.loaded["lual.prev.core.logging"] = nil
+			package.loaded["lual.prev.core.levels"] = nil
+			local fresh_core_levels = require("lua.lual.prev.core.levels")
+			local fresh_engine = require("lua.lual.prev.core.logging.init")
 			fresh_engine.reset_cache()
 
 			-- Configure root logger to enable full hierarchy
@@ -61,8 +61,8 @@ describe("lual.core.logging", function()
 		end)
 
 		it("should cache loggers", function()
-			package.loaded["lual.core.logging"] = nil
-			local fresh_engine = require("lual.core.logging")
+			package.loaded["lual.prev.core.logging"] = nil
+			local fresh_engine = require("lua.lual.prev.core.logging.init")
 			fresh_engine.reset_cache()
 
 			local logger1 = fresh_engine.logger("spec_cache_test")
@@ -71,16 +71,16 @@ describe("lual.core.logging", function()
 		end)
 
 		it("should have propagation enabled by default", function()
-			package.loaded["lual.core.logging"] = nil
-			local fresh_engine = require("lual.core.logging")
+			package.loaded["lual.prev.core.logging"] = nil
+			local fresh_engine = require("lua.lual.prev.core.logging.init")
 			fresh_engine.reset_cache()
 			local logger = fresh_engine.logger("spec_prop_test")
 			assert.is_true(logger.propagate)
 		end)
 
 		it("should reject logger names starting with underscore", function()
-			package.loaded["lual.core.logging"] = nil
-			local fresh_engine = require("lual.core.logging")
+			package.loaded["lual.prev.core.logging"] = nil
+			local fresh_engine = require("lua.lual.prev.core.logging.init")
 			fresh_engine.reset_cache()
 
 			assert.has_error(function()
@@ -89,8 +89,8 @@ describe("lual.core.logging", function()
 		end)
 
 		it("should allow _root as a special exception", function()
-			package.loaded["lual.core.logging"] = nil
-			local fresh_engine = require("lual.core.logging")
+			package.loaded["lual.prev.core.logging"] = nil
+			local fresh_engine = require("lua.lual.prev.core.logging.init")
 			fresh_engine.reset_cache()
 
 			local logger = fresh_engine.logger("_root")
@@ -99,9 +99,9 @@ describe("lual.core.logging", function()
 		end)
 
 		it("should default non-root loggers to NOTSET level", function()
-			package.loaded["lual.core.logging"] = nil
-			local fresh_engine = require("lual.core.logging")
-			local fresh_levels = require("lual.core.levels")
+			package.loaded["lual.prev.core.logging"] = nil
+			local fresh_engine = require("lua.lual.prev.core.logging.init")
+			local fresh_levels = require("lua.lual.prev.core.levels")
 			fresh_engine.reset_cache()
 
 			local logger = fresh_engine.logger("test.notset.default")
@@ -109,10 +109,10 @@ describe("lual.core.logging", function()
 		end)
 
 		it("should resolve effective level through inheritance", function()
-			package.loaded["lual.core.logging"] = nil
-			package.loaded["lual.core.levels"] = nil
-			local fresh_engine = require("lual.core.logging")
-			local fresh_levels = require("lual.core.levels")
+			package.loaded["lual.prev.core.logging"] = nil
+			package.loaded["lual.prev.core.levels"] = nil
+			local fresh_engine = require("lua.lual.prev.core.logging.init")
+			local fresh_levels = require("lua.lual.prev.core.levels")
 			fresh_engine.reset_cache()
 
 			-- Configure root logger with WARNING level
@@ -133,23 +133,26 @@ describe("lual.core.logging", function()
 
 	describe("Logger Instance Methods", function()
 		local test_logger
-		local C_LEVELS_DEF = require("lual.core.levels").definition
+		local C_LEVELS_DEF = require("lua.lual.prev.core.levels").definition
 
 		before_each(function()
-			package.loaded["lual.core.logging"] = nil
-			package.loaded["lual.core.levels"] = nil
-			package.loaded["lual.ingest"] = nil
-			local current_engine_module = require("lual.core.logging")
-			ingest = require("lual.ingest")
-
-			current_engine_module.reset_cache()
-			test_logger = current_engine_module.logger("suite_logger_methods")
-
+			-- Clear any existing spy first
 			local current_dispatch = ingest.dispatch_log_event
 			if type(current_dispatch) == "table" and current_dispatch.revert then
 				current_dispatch:revert()
 			end
+
+			-- Set up spy on the ingest module BEFORE reloading modules
 			spy.on(ingest, "dispatch_log_event")
+
+			package.loaded["lual.prev.core.logging"] = nil
+			package.loaded["lual.prev.core.levels"] = nil
+			-- Don't reload ingest since we want to keep the spy on it
+
+			local current_engine_module = require("lua.lual.prev.core.logging.init")
+
+			current_engine_module.reset_cache()
+			test_logger = current_engine_module.logger("suite_logger_methods")
 		end)
 
 		after_each(function()
@@ -270,10 +273,10 @@ describe("lual.core.logging", function()
 			local logger_root, logger_p, logger_c
 
 			before_each(function()
-				package.loaded["lual.core.logging"] = nil
-				package.loaded["lual.core.levels"] = nil
-				test_cl_module_for_dispatchers = require("lual.core.logging")
-				test_clevels_module_for_dispatchers = require("lual.core.levels")
+				package.loaded["lual.prev.core.logging"] = nil
+				package.loaded["lual.prev.core.levels"] = nil
+				test_cl_module_for_dispatchers = require("lua.lual.prev.core.logging.init")
+				test_clevels_module_for_dispatchers = require("lua.lual.prev.core.levels")
 				test_cl_module_for_dispatchers.reset_cache()
 
 				logger_root = test_cl_module_for_dispatchers.logger("eff_root")

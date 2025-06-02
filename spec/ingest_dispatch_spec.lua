@@ -140,9 +140,9 @@ describe("ingest.dispatch_log_event", function()
 		mock_logger_internal -- Retain for other potential internal uses or direct logger method tests.
 
 	-- Require the ingest module
-	local ingest_module_status, ingest = pcall(require, "lual.ingest")
+	local ingest_module_status, ingest = pcall(require, "lual.prev.ingest")
 	if not ingest_module_status then
-		error("Failed to require lual.ingest: " .. tostring(ingest))
+		error("Failed to require lual.prev.ingest: " .. tostring(ingest))
 	end
 	-- local dispatch_log_event = ingest.dispatch_log_event -- This will be used in tests
 

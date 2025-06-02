@@ -1,8 +1,8 @@
 --- Logger prototype and instance methods
 -- This module defines the logger prototype and all methods that operate on logger instances
 
-local core_levels = require("lual.core.levels")
-local caller_info = require("lual.core.caller_info")
+local core_levels = require("lual.prev.core.levels")
+local caller_info = require("lual.prev.core.caller_info")
 
 local M = {}
 

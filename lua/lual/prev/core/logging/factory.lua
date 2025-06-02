@@ -1,10 +1,10 @@
 --- Logger factory and creation logic
 -- This module handles the creation and instantiation of logger objects
 
-local core_levels = require("lual.core.levels")
-local caller_info = require("lual.core.caller_info")
+local core_levels = require("lual.prev.core.levels")
+local caller_info = require("lual.prev.core.caller_info")
 local config_module = require("lual.config")
-local prototype = require("lual.core.logging.prototype")
+local prototype = require("lual.prev.core.logging.prototype")
 
 local M = {}
 

@@ -1,12 +1,12 @@
 --- Main logging engine module
 -- This module provides the public API and orchestrates all logging components
 
-local ingest = require("lual.ingest")
-local core_levels = require("lual.core.levels")
+local ingest = require("lual.prev.ingest")
+local core_levels = require("lual.prev.core.levels")
 local config_module = require("lual.config")
-local prototype = require("lual.core.logging.prototype")
-local factory = require("lual.core.logging.factory")
-local management = require("lual.core.logging.management")
+local prototype = require("lual.prev.core.logging.prototype")
+local factory = require("lual.prev.core.logging.factory")
+local management = require("lual.prev.core.logging.management")
 
 local M = {}
 
@@ -133,7 +133,7 @@ function M._get_logger_simple(name)
     local logger_name = name
     if name == nil or name == "" then
         -- Auto-generate logger name from caller's filename
-        local caller_info = require("lual.core.caller_info")
+        local caller_info = require("lual.prev.core.caller_info")
         -- Use caller_info to automatically find the first non-lual file
         local filename, _, _ = caller_info.get_caller_info(nil, true)
         if filename then

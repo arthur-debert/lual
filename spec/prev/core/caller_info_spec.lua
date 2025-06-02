@@ -1,10 +1,10 @@
 #!/usr/bin/env lua
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 
-local caller_info = require("lual.core.caller_info")
+local caller_info = require("lua.lual.prev.core.caller_info")
 local assert = require("luassert")
 
-describe("lual.core.caller_info", function()
+describe("lual.prev.core.caller_info", function()
     describe("get_caller_info()", function()
         it("should return filename and line number for direct call", function()
             local filename, lineno, lua_path = caller_info.get_caller_info()

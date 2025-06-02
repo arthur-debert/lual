@@ -2,7 +2,7 @@
 -- This module centralizes all the schema-related logic for configs
 
 local constants = require("lual.config.constants")
-local core_levels = require("lual.core.levels")
+local core_levels = require("lua.lual.prev.core.levels")
 
 local M = {}
 
