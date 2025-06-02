@@ -8,10 +8,11 @@ local prototype = require("lual.core.logging.prototype")
 
 local M = {}
 
---- Creates a logger from a canonical config table
+--- Creates a logger from a canonical config table and name
+-- @param name string The logger name
 -- @param config (table) The canonical config
 -- @return table The logger instance
-function M.create_logger_from_config(config)
+function M.create_logger_from_config(name, config)
     local valid, err = config_module.validate_canonical_config(config)
     if not valid then
         error("Invalid logger config: " .. err)
@@ -25,7 +26,7 @@ function M.create_logger_from_config(config)
         new_logger[k] = v
     end
 
-    new_logger.name = canonical_config.name
+    new_logger.name = name
     new_logger.level = canonical_config.level
     new_logger.dispatchers = canonical_config.dispatchers
     new_logger.propagate = canonical_config.propagate
@@ -52,27 +53,26 @@ function M.create_simple_logger(name, parent_logger)
 
     -- Create logger using config-based approach
     local config = {
-        name = logger_name,
         level = core_levels.definition.INFO,
         dispatchers = {},
         propagate = true,
-        parent = parent_logger,
-        timezone = "local", -- Default to local time
+        parent = parent_logger
     }
 
-    return M.create_logger_from_config(config)
+    return M.create_logger_from_config(logger_name, config)
 end
 
 --- Creates a logger from configuration (kept for backward compatibility)
+-- @param name string The logger name
 -- @param input_config table The config
 -- @param default_config table Default configuration to merge with
 -- @param get_logger_func function Function to get parent loggers (deprecated, parent should be in config)
 -- @return table The logger instance
-function M.create_logger(input_config, default_config, get_logger_func)
+function M.create_logger(name, input_config, default_config, get_logger_func)
     -- Use the config module to process the input config
     local canonical_config = config_module.process_config(input_config, default_config)
 
-    return M.create_logger_from_config(canonical_config)
+    return M.create_logger_from_config(name, canonical_config)
 end
 
 return M

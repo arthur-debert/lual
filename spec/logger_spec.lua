@@ -89,13 +89,12 @@ describe("lualog Logger Object", function()
 			assert.is_false(logger.propagate)
 		end)
 
-		it("should override name in config when using two-parameter API", function()
+		it("should use name from first parameter in two-parameter API", function()
 			package.loaded["lual.logger"] = nil
 			local fresh_lualog = require("lual.logger")
 
-			-- Test that name from first parameter overrides name in config
+			-- Test that name from first parameter is used
 			local logger = fresh_lualog.logger("first-param-name", {
-				name = "config-name", -- This should be ignored
 				level = "warning"
 			})
 

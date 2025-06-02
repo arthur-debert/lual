@@ -246,10 +246,6 @@ function M.validate_canonical_config(config)
         return false, "Config must be a table"
     end
 
-    if config.name and type(config.name) ~= "string" then
-        return false, "Config.name must be a string"
-    end
-
     if config.level and type(config.level) ~= "number" then
         return false, "Config.level must be a number"
     end

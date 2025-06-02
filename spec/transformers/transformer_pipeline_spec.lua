@@ -38,8 +38,7 @@ describe("Transformer pipeline integration", function()
             end
 
             -- Create logger with transformer
-            local logger = lual.logger({
-                name = "test_logger",
+            local logger = lual.logger("test_logger", {
                 level = "debug",
                 dispatchers = {
                     {
@@ -82,8 +81,7 @@ describe("Transformer pipeline integration", function()
             assert.are.equal("noop", lual.noop)
 
             -- Test that the flat constant works in logger config
-            local logger = lual.logger({
-                name = "test_noop",
+            local logger = lual.logger("test_noop", {
                 dispatcher = lual.console,
                 presenter = lual.text,
                 level = lual.debug

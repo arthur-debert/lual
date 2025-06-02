@@ -14,7 +14,7 @@ function M.set_level(logger, level, create_logger_func, update_cache_func)
     -- Get current config, modify it, and recreate logger
     local current_config = M.get_config(logger)
     current_config.level = level
-    local new_logger = create_logger_func(current_config)
+    local new_logger = create_logger_func(logger.name, current_config)
 
     -- Update the cache with the new logger
     update_cache_func(logger.name, new_logger)
@@ -43,7 +43,7 @@ function M.add_dispatcher(logger, dispatcher_func, presenter_func, dispatcher_co
         presenter_func = presenter_func,
         dispatcher_config = dispatcher_config or {},
     })
-    local new_logger = create_logger_func(current_config)
+    local new_logger = create_logger_func(logger.name, current_config)
 
     -- Update the cache with the new logger
     update_cache_func(logger.name, new_logger)
@@ -65,7 +65,7 @@ function M.set_propagate(logger, propagate, create_logger_func, update_cache_fun
     -- Get current config, modify it, and recreate logger
     local current_config = M.get_config(logger)
     current_config.propagate = propagate
-    local new_logger = create_logger_func(current_config)
+    local new_logger = create_logger_func(logger.name, current_config)
 
     -- Update the cache with the new logger
     update_cache_func(logger.name, new_logger)
@@ -91,12 +91,14 @@ function M.get_config(logger, full_tree)
         while current_logger do
             -- Create canonical config for this logger
             local canonical_config = config_module.create_canonical_config({
-                name = current_logger.name,
                 level = current_logger.level,
                 dispatchers = current_logger.dispatchers or {},
                 propagate = current_logger.propagate,
                 parent = current_logger.parent
             })
+
+            -- Add name for debugging/introspection (identifier, not config property)
+            canonical_config.name = current_logger.name
 
             -- Add parent name reference for clarity
             canonical_config.parent_name = current_logger.parent and current_logger.parent.name or nil
@@ -113,13 +115,17 @@ function M.get_config(logger, full_tree)
         return hierarchy_configs
     else
         -- Return just this logger's configuration (existing behavior)
-        return config_module.create_canonical_config({
-            name = logger.name,
+        local canonical_config = config_module.create_canonical_config({
             level = logger.level,
             dispatchers = logger.dispatchers or {},
             propagate = logger.propagate,
             parent = logger.parent
         })
+
+        -- Add name for debugging/introspection (identifier, not config property)
+        canonical_config.name = logger.name
+
+        return canonical_config
     end
 end
 

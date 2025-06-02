@@ -45,8 +45,7 @@ describe("get_config functionality", function()
             -- Configure root logger first
             lual.config({ level = "info" })
 
-            local logger = lual.logger({
-                name = "app.database",
+            local logger = lual.logger("app.database", {
                 level = "debug",
                 dispatchers = {
                     { type = "console", presenter = "color", timezone = "local" }
@@ -85,8 +84,7 @@ describe("get_config functionality", function()
             })
 
             -- Create a hierarchy: root -> app -> app.database -> app.database.connection
-            local app_logger = lual.logger({
-                name = "app",
+            local app_logger = lual.logger("app", {
                 level = "warning",
                 dispatchers = {
                     { type = "console", presenter = "color" }
@@ -95,8 +93,7 @@ describe("get_config functionality", function()
 
             local db_logger = lual.logger("app.database") -- Default config
 
-            local conn_logger = lual.logger({
-                name = "app.database.connection",
+            local conn_logger = lual.logger("app.database.connection", {
                 level = "debug",
                 dispatchers = {
                     { type = "console", presenter = "text",      timezone = "utc" },
@@ -146,8 +143,7 @@ describe("get_config functionality", function()
             -- Configure root logger
             lual.config({ level = "info" })
 
-            local app_logger = lual.logger({
-                name = "app",
+            local app_logger = lual.logger("app", {
                 level = "debug",
                 dispatchers = {
                     { type = "console", presenter = "text" }

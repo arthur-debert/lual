@@ -6,7 +6,6 @@ describe("Schema Validation", function()
     describe("Config validation", function()
         it("should validate a valid config", function()
             local config = {
-                name = "test.logger",
                 level = "info",
                 propagate = true,
                 dispatchers = {
@@ -21,7 +20,6 @@ describe("Schema Validation", function()
             assert.is_table(result.data)
             assert.is_table(result._errors)
             assert.is_true(next(result._errors) == nil, "Should have no errors")
-            assert.are.same(config.name, result.data.name)
             assert.are.same(config.level, result.data.level)
         end)
 
@@ -60,17 +58,7 @@ describe("Schema Validation", function()
             assert.matches("Invalid timezone", result._errors["dispatchers[1]"].timezone)
         end)
 
-        it("should reject invalid type for name", function()
-            local config = {
-                name = 123
-            }
 
-            local result = schema.validate_config(config)
-
-            assert.is_not_nil(result._errors.name)
-            local expected_error = config_schema.generate_expected_error("ConfigSchema", "name", "type")
-            assert.are.equal(expected_error, result._errors.name)
-        end)
 
         it("should reject unknown fields", function()
             local config = {

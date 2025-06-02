@@ -147,6 +147,9 @@ function M.logger_prototype:get_effective_dispatchers()
                 dispatcher_config = dispatcher_item.dispatcher_config,
             }
 
+            -- Add owner logger name (identifier, not config property)
+            effective_dispatcher.owner_logger_name = current_logger.name
+
             -- Add owner logger configuration fields based on schema
             for _, field in ipairs(owner_config_fields) do
                 local owner_field_name = "owner_logger_" .. field

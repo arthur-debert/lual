@@ -19,7 +19,6 @@ local function create_canonical_config(config)
     config = config or {}
 
     return {
-        name = config.name or schema.DEFAULTS.name,
         level = config.level or schema.DEFAULTS.level,
         dispatchers = config.dispatchers or schema.DEFAULTS.dispatchers,
         propagate = config.propagate ~= false, -- Default to true unless explicitly false
@@ -197,9 +196,7 @@ end
 -- @return table The canonical config
 function M.config_to_canonical(user_config)
     local canonical = {
-        name = user_config.name,
-        propagate = user_config.propagate,
-        timezone = user_config.timezone
+        propagate = user_config.propagate
     }
 
     -- Convert level string to number if needed

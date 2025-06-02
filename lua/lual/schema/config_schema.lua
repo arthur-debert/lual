@@ -90,13 +90,6 @@ end
 
 -- Configuration schema definition
 M.ConfigSchema = {
-    name = {
-        multiple = false,
-        type = "string",
-        required = false,
-        description = "The name of the logger instance."
-    },
-
     level = {
         multiple = false,
         type = { "string", "number" },

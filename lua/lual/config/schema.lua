@@ -12,7 +12,6 @@ local M = {}
 
 --- Valid keys for the full config format
 M.VALID_CONFIG_KEYS = {
-    name = true,
     level = true,
     dispatchers = true,
     propagate = true
@@ -20,7 +19,6 @@ M.VALID_CONFIG_KEYS = {
 
 --- Valid keys for convenience config format
 M.VALID_CONVENIENCE_KEYS = {
-    name = true,
     level = true,
     dispatcher = true,
     presenter = true,
@@ -41,7 +39,6 @@ M.LEVEL_MAP = {
 
 --- Default config values
 M.DEFAULTS = {
-    name = "root",
     level = core_levels.definition.INFO,
     dispatchers = {},
     propagate = true
@@ -53,15 +50,6 @@ M.DEFAULTS = {
 
 --- Field validation specifications
 M.FIELD_VALIDATORS = {
-    name = {
-        optional = true,
-        type = "string",
-        validate = function(value)
-            return type(value) == "string"
-        end,
-        error_msg = "Config.name must be a string"
-    },
-
     propagate = {
         optional = true,
         type = "boolean",

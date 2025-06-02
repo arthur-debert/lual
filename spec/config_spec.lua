@@ -103,8 +103,7 @@ describe("Unified Config API", function()
 
     describe("Basic logger creation - convenience syntax", function()
         it("should create a logger with console dispatcher using convenience syntax", function()
-            local logger = lualog.logger({
-                name = "test.shortcut.console",
+            local logger = lualog.logger("test.shortcut.console", {
                 dispatcher = "console",
                 presenter = "text",
                 level = "debug"
@@ -122,8 +121,7 @@ describe("Unified Config API", function()
         end)
 
         it("should create a logger with file dispatcher using convenience syntax", function()
-            local logger = lualog.logger({
-                name = "test.shortcut.file",
+            local logger = lualog.logger("test.shortcut.file", {
                 dispatcher = "file",
                 path = "test.log",
                 presenter = "color",
@@ -155,8 +153,7 @@ describe("Unified Config API", function()
         end)
 
         it("should support console dispatcher with custom stream", function()
-            local logger = lualog.logger({
-                name = "test.shortcut.stderr",
+            local logger = lualog.logger("test.shortcut.stderr", {
                 dispatcher = "console",
                 presenter = "color",
                 stream = io.stderr
@@ -170,9 +167,7 @@ describe("Unified Config API", function()
 
     describe("Basic logger creation - full syntax", function()
         it("should create a logger with minimal config", function()
-            local logger = lualog.logger({
-                name = "test.minimal"
-            })
+            local logger = lualog.logger("test.minimal", {})
 
             assert.is_not_nil(logger)
             assert.are.same("test.minimal", logger.name)
@@ -182,8 +177,7 @@ describe("Unified Config API", function()
         end)
 
         it("should create a logger with full config", function()
-            local logger = lualog.logger({
-                name = "test.full",
+            local logger = lualog.logger("test.full", {
                 level = "debug",
                 propagate = false,
                 dispatchers = {
@@ -213,8 +207,7 @@ describe("Unified Config API", function()
         end)
 
         it("should merge user config with defaults", function()
-            local logger = lualog.logger({
-                name = "test.merge",
+            local logger = lualog.logger("test.merge", {
                 level = "error"
                 -- propagate and dispatchers should use defaults
             })
@@ -228,8 +221,7 @@ describe("Unified Config API", function()
 
     describe("Dispatcher configuration - full syntax", function()
         it("should configure console dispatcher correctly", function()
-            local logger = lualog.logger({
-                name = "test.console",
+            local logger = lualog.logger("test.console", {
                 dispatchers = {
                     { type = "console", presenter = "text" }
                 }
@@ -244,8 +236,7 @@ describe("Unified Config API", function()
         end)
 
         it("should configure console dispatcher with custom stream", function()
-            local logger = lualog.logger({
-                name = "test.console.stderr",
+            local logger = lualog.logger("test.console.stderr", {
                 dispatchers = {
                     { type = "console", presenter = "text", stream = io.stderr }
                 }
@@ -257,8 +248,7 @@ describe("Unified Config API", function()
         end)
 
         it("should configure file dispatcher correctly", function()
-            local logger = lualog.logger({
-                name = "test.file",
+            local logger = lualog.logger("test.file", {
                 dispatchers = {
                     { type = "file", path = "app.log", presenter = "color" }
                 }
@@ -272,8 +262,7 @@ describe("Unified Config API", function()
         end)
 
         it("should support multiple dispatchers", function()
-            local logger = lualog.logger({
-                name = "test.multiple",
+            local logger = lualog.logger("test.multiple", {
                 dispatchers = {
                     { type = "console", presenter = "color" },
                     { type = "file",    path = "debug.log", presenter = "text" },
@@ -297,8 +286,7 @@ describe("Unified Config API", function()
         end)
 
         it("should configure JSON presenter correctly", function()
-            local logger = lualog.logger({
-                name = "test.json",
+            local logger = lualog.logger("test.json", {
                 dispatchers = {
                     { type = "console", presenter = "json" },
                     { type = "file",    path = "app.json", presenter = "json" }
@@ -340,8 +328,7 @@ describe("Unified Config API", function()
             }
 
             for _, case in ipairs(test_cases) do
-                local logger = lualog.logger({
-                    name = "test.shortcut.level." .. case.input,
+                local logger = lualog.logger("test.shortcut.level." .. case.input, {
                     dispatcher = "console",
                     presenter = "text",
                     level = case.input
@@ -367,8 +354,7 @@ describe("Unified Config API", function()
             }
 
             for _, case in ipairs(test_cases) do
-                local logger = lualog.logger({
-                    name = "test.level." .. case.input,
+                local logger = lualog.logger("test.level." .. case.input, {
                     level = case.input
                 })
                 assert.are.same(case.expected, logger.level, "Failed for level: " .. case.input)
@@ -376,8 +362,7 @@ describe("Unified Config API", function()
         end)
 
         it("should accept numeric levels - convenience syntax", function()
-            local logger = lualog.logger({
-                name = "test.shortcut.numeric.level",
+            local logger = lualog.logger("test.shortcut.numeric.level", {
                 dispatcher = "console",
                 presenter = "text",
                 level = lualog.levels.WARNING
@@ -386,8 +371,7 @@ describe("Unified Config API", function()
         end)
 
         it("should accept numeric levels - full syntax", function()
-            local logger = lualog.logger({
-                name = "test.numeric.level",
+            local logger = lualog.logger("test.numeric.level", {
                 level = lualog.levels.WARNING
             })
             assert.are.same(lualog.levels.WARNING, logger.level)
@@ -503,15 +487,7 @@ describe("Unified Config API", function()
                 expected_error)
         end)
 
-        it("should reject invalid name type in convenience config", function()
-            assert.has_error(function()
-                lualog.logger({
-                    dispatcher = "console",
-                    presenter = "text",
-                    name = 123
-                })
-            end, "Invalid convenience config: Config.name must be a string")
-        end)
+
 
         it("should reject invalid propagate type in convenience config", function()
             assert.has_error(function()
@@ -542,7 +518,6 @@ describe("Unified Config API", function()
         it("should reject unknown config keys", function()
             assert.has_error(function()
                 lualog.logger({
-                    name = "test",
                     unknown_key = "value"
                 })
             end, "Invalid config: Unknown config key: unknown_key")
@@ -553,7 +528,6 @@ describe("Unified Config API", function()
                 constants.generate_expected_error_message("invalid_level", constants.VALID_LEVEL_STRINGS)
             assert.has_error(function()
                     lualog.logger({
-                        name = "test",
                         level = "invalid_level"
                     })
                 end,
@@ -563,24 +537,16 @@ describe("Unified Config API", function()
         it("should reject invalid level types", function()
             assert.has_error(function()
                 lualog.logger({
-                    name = "test",
                     level = true
                 })
             end, "Invalid config: Level must be a string or number")
         end)
 
-        it("should reject invalid name types", function()
-            assert.has_error(function()
-                lualog.logger({
-                    name = 123
-                })
-            end, "Invalid config: Config.name must be a string")
-        end)
+
 
         it("should reject invalid propagate types", function()
             assert.has_error(function()
                 lualog.logger({
-                    name = "test",
                     propagate = "yes"
                 })
             end, "Invalid config: Config.propagate must be a boolean")
@@ -589,7 +555,6 @@ describe("Unified Config API", function()
         it("should reject invalid dispatchers type", function()
             assert.has_error(function()
                 lualog.logger({
-                    name = "test",
                     dispatchers = "not an array"
                 })
             end, "Invalid config: Config.dispatchers must be a table")
@@ -598,7 +563,6 @@ describe("Unified Config API", function()
         it("should reject dispatchers without type field", function()
             assert.has_error(function()
                 lualog.logger({
-                    name = "test",
                     dispatchers = {
                         { presenter = "text" }
                     }
@@ -609,7 +573,6 @@ describe("Unified Config API", function()
         it("should reject dispatchers without presenter field", function()
             assert.has_error(function()
                 lualog.logger({
-                    name = "test",
                     dispatchers = {
                         { type = "console" }
                     }
@@ -622,7 +585,6 @@ describe("Unified Config API", function()
                 constants.generate_expected_error_message("unknown", constants.VALID_dispatcher_TYPES)
             assert.has_error(function()
                 lualog.logger({
-                    name = "test",
                     dispatchers = {
                         { type = "unknown", presenter = "text" }
                     }
@@ -635,7 +597,6 @@ describe("Unified Config API", function()
                 constants.generate_expected_error_message("unknown", constants.VALID_PRESENTER_TYPES)
             assert.has_error(function()
                 lualog.logger({
-                    name = "test",
                     dispatchers = {
                         { type = "console", presenter = "unknown" }
                     }
@@ -646,7 +607,6 @@ describe("Unified Config API", function()
         it("should reject file dispatcher without path", function()
             assert.has_error(function()
                 lualog.logger({
-                    name = "test",
                     dispatchers = {
                         { type = "file", presenter = "text" }
                     }
@@ -657,7 +617,6 @@ describe("Unified Config API", function()
         it("should reject file dispatcher with non-string path", function()
             assert.has_error(function()
                 lualog.logger({
-                    name = "test",
                     dispatchers = {
                         { type = "file", presenter = "text", path = 123 }
                     }
@@ -668,7 +627,6 @@ describe("Unified Config API", function()
         it("should reject console dispatcher with invalid stream type", function()
             assert.has_error(function()
                 lualog.logger({
-                    name = "test",
                     dispatchers = {
                         { type = "console", presenter = "text", stream = "stdout" }
                     }
@@ -682,9 +640,7 @@ describe("Unified Config API", function()
             -- First configure a root logger to enable full hierarchy
             lualog.config({ level = "info" })
 
-            local logger = lualog.logger({
-                name = "app.database.connection"
-            })
+            local logger = lualog.logger("app.database.connection", {})
 
             assert.is_not_nil(logger.parent)
             assert.are.same("app.database", logger.parent.name)
@@ -695,16 +651,15 @@ describe("Unified Config API", function()
         end)
 
         it("should cache created loggers", function()
-            local logger1 = lualog.logger({ name = "test.cache" })
-            local logger2 = lualog.logger({ name = "test.cache" })
+            local logger1 = lualog.logger("test.cache", {})
+            local logger2 = lualog.logger("test.cache", {})
 
             -- Should return the same cached instance
             assert.are.same(logger1, logger2)
         end)
 
         it("should work with logging methods - convenience syntax", function()
-            local logger = lualog.logger({
-                name = "test.shortcut.integration",
+            local logger = lualog.logger("test.shortcut.integration", {
                 dispatcher = "console",
                 presenter = "text",
                 level = "debug"
@@ -721,8 +676,7 @@ describe("Unified Config API", function()
         end)
 
         it("should work with logging methods - full syntax", function()
-            local logger = lualog.logger({
-                name = "test.integration",
+            local logger = lualog.logger("test.integration", {
                 level = "debug",
                 dispatchers = {
                     { type = "console", presenter = "text" }
@@ -740,8 +694,7 @@ describe("Unified Config API", function()
         end)
 
         it("should work with level checking", function()
-            local logger = lualog.logger({
-                name = "test.level.check",
+            local logger = lualog.logger("test.level.check", {
                 level = "warning"
             })
 
@@ -753,8 +706,7 @@ describe("Unified Config API", function()
         end)
 
         it("should work with imperative API methods", function()
-            local logger = lualog.logger({
-                name = "test.imperative",
+            local logger = lualog.logger("test.imperative", {
                 level = "info"
             })
 
@@ -773,15 +725,13 @@ describe("Unified Config API", function()
         end)
 
         it("should work with propagation", function()
-            local parent_logger = lualog.logger({
-                name = "test.parent",
+            local parent_logger = lualog.logger("test.parent", {
                 dispatchers = {
                     { type = "console", presenter = "text" }
                 }
             })
 
-            local child_logger = lualog.logger({
-                name = "test.parent.child",
+            local child_logger = lualog.logger("test.parent.child", {
                 propagate = true
             })
 
@@ -803,8 +753,7 @@ describe("Unified Config API", function()
 
     describe("Edge cases", function()
         it("should handle empty dispatchers array", function()
-            local logger = lualog.logger({
-                name = "test.empty.dispatchers",
+            local logger = lualog.logger("test.empty.dispatchers", {
                 dispatchers = {}
             })
 
@@ -812,8 +761,7 @@ describe("Unified Config API", function()
         end)
 
         it("should handle root logger creation", function()
-            local logger = lualog.logger({
-                name = "root",
+            local logger = lualog.logger("root", {
                 level = "debug"
             })
 
@@ -852,8 +800,7 @@ describe("Unified Config API", function()
         end)
 
         it("should work with named logger using convenience syntax", function()
-            local logger = lualog.logger({
-                name = "app.database",
+            local logger = lualog.logger("app.database", {
                 dispatcher = "console",
                 level = "debug",
                 presenter = "color"

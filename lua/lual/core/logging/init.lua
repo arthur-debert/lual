@@ -43,21 +43,18 @@ end
 function M.config_root_logger(config)
     -- Set default config for root logger
     local default_config = {
-        name = "root",
         level = "info",
         dispatchers = {},
-        propagate = false, -- Root logger doesn't propagate (no parent)
-        timezone = "local",
+        propagate = false -- Root logger doesn't propagate (no parent)
     }
 
     -- Process the configuration
     local canonical_config = config_module.process_config(config, default_config)
-    canonical_config.name = "root"     -- Ensure root logger is always named "root"
     canonical_config.parent = nil      -- Root logger has no parent
     canonical_config.propagate = false -- Root logger doesn't propagate
 
     -- Create the root logger
-    _root_logger = factory.create_logger_from_config(canonical_config)
+    _root_logger = factory.create_logger_from_config("root", canonical_config)
     _loggers_cache["root"] = _root_logger
 
     return _root_logger
@@ -172,35 +169,33 @@ end
 -- 1. No arguments: lual.logger() - auto-named logger creation
 -- 2. String name: lual.logger("name") - simple logger creation with name
 -- 3. String name + config: lual.logger("name", {level="debug", ...}) - name from first param, config from second
--- 4. Config table: lual.logger({name="app", level="debug", dispatchers={...}}) - full configuration
+-- 4. Config table: lual.logger({level="debug", dispatchers={...}}) - auto-named with configuration (name not allowed in config)
 -- @param input_config (string|table|nil) The logger name or configuration
 -- @param config_table (table|nil) Optional configuration table when first param is a string name
 -- @return table The logger instance
 function M.logger(input_config, config_table)
     -- Handle two-parameter form: logger("name", config_table)
     if type(input_config) == "string" and type(config_table) == "table" then
+        local logger_name = input_config
+
         -- Define default config
         local default_config = {
-            name = input_config, -- Use name from first parameter
             level = "info",
             dispatchers = {},
-            propagate = true,
-            timezone = "local", -- Default to local time
+            propagate = true
         }
 
-        -- Use the config module to process the input config, but override the name
+        -- Use the config module to process the input config
         local canonical_config = config_module.process_config(config_table, default_config)
-        canonical_config.name = input_config -- Ensure name comes from first parameter
 
         -- Continue with config processing...
         -- Check if logger already exists in cache and if its configuration matches
-        if canonical_config.name and _loggers_cache[canonical_config.name] then
-            local cached_logger = _loggers_cache[canonical_config.name]
+        if _loggers_cache[logger_name] then
+            local cached_logger = _loggers_cache[logger_name]
             local cached_config = cached_logger:get_config()
 
             -- Compare key configuration fields to see if we can reuse the cached logger
             if cached_config.level == canonical_config.level and
-                cached_config.timezone == canonical_config.timezone and
                 cached_config.propagate == canonical_config.propagate then
                 -- For dispatchers, we'll do a simple length check for now
                 -- A more sophisticated comparison could be added later if needed
@@ -212,7 +207,7 @@ function M.logger(input_config, config_table)
         end
 
         -- Determine parent based on hierarchical naming
-        local parent_name = get_parent_name(canonical_config.name)
+        local parent_name = get_parent_name(logger_name)
         local parent_logger = nil
 
         if parent_name then
@@ -221,12 +216,10 @@ function M.logger(input_config, config_table)
 
         canonical_config.parent = parent_logger
 
-        local new_logger = factory.create_logger_from_config(canonical_config)
+        local new_logger = factory.create_logger_from_config(logger_name, canonical_config)
 
-        -- Cache the logger if it has a name
-        if canonical_config.name then
-            _loggers_cache[canonical_config.name] = new_logger
-        end
+        -- Cache the logger
+        _loggers_cache[logger_name] = new_logger
 
         return new_logger
     end
@@ -241,9 +234,11 @@ function M.logger(input_config, config_table)
         error("logger() expects nil, string, or table argument, got " .. type(input_config))
     end
 
+    -- Auto-generate logger name (defaults to "root")
+    local logger_name = "root"
+
     -- Define default config
     local default_config = {
-        name = "root",
         level = "info",
         dispatchers = {},
         propagate = true
@@ -253,13 +248,12 @@ function M.logger(input_config, config_table)
     local canonical_config = config_module.process_config(input_config, default_config)
 
     -- Check if logger already exists in cache and if its configuration matches
-    if canonical_config.name and _loggers_cache[canonical_config.name] then
-        local cached_logger = _loggers_cache[canonical_config.name]
+    if _loggers_cache[logger_name] then
+        local cached_logger = _loggers_cache[logger_name]
         local cached_config = cached_logger:get_config()
 
         -- Compare key configuration fields to see if we can reuse the cached logger
         if cached_config.level == canonical_config.level and
-            cached_config.timezone == canonical_config.timezone and
             cached_config.propagate == canonical_config.propagate then
             -- For dispatchers, we'll do a simple length check for now
             -- A more sophisticated comparison could be added later if needed
@@ -271,7 +265,7 @@ function M.logger(input_config, config_table)
     end
 
     -- Determine parent based on hierarchical naming
-    local parent_name = get_parent_name(canonical_config.name)
+    local parent_name = get_parent_name(logger_name)
     local parent_logger = nil
 
     if parent_name then
@@ -280,12 +274,10 @@ function M.logger(input_config, config_table)
 
     canonical_config.parent = parent_logger
 
-    local new_logger = factory.create_logger_from_config(canonical_config)
+    local new_logger = factory.create_logger_from_config(logger_name, canonical_config)
 
-    -- Cache the logger if it has a name
-    if canonical_config.name then
-        _loggers_cache[canonical_config.name] = new_logger
-    end
+    -- Cache the logger
+    _loggers_cache[logger_name] = new_logger
 
     return new_logger
 end

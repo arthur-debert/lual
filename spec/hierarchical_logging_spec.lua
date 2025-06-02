@@ -172,8 +172,7 @@ describe("Hierarchical Logging System", function()
             root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_presenter("root_presenter"))
 
             -- Create child logger with different config
-            local app_logger = lual.logger({
-                name = "app",
+            local app_logger = lual.logger("app", {
                 level = "debug",
                 dispatchers = {
                     { type = "console", presenter = "color", timezone = "local" }
@@ -214,8 +213,7 @@ describe("Hierarchical Logging System", function()
             root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_presenter("root_presenter"))
 
             -- Create child logger with low threshold
-            local app_logger = lual.logger({
-                name = "app",
+            local app_logger = lual.logger("app", {
                 level = "info" -- Info and above
             })
             app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_presenter("app_presenter"))
@@ -240,8 +238,7 @@ describe("Hierarchical Logging System", function()
                 }
             })
 
-            local app_logger = lual.logger({
-                name = "app",
+            local app_logger = lual.logger("app", {
                 level = "info",
                 dispatchers = {
                     { type = "console", presenter = "text", timezone = "local" }
@@ -266,8 +263,7 @@ describe("Hierarchical Logging System", function()
             root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"),
                 create_mock_presenter("root_presenter"))
 
-            local app_logger = lual.logger({
-                name = "app",
+            local app_logger = lual.logger("app", {
                 level = "info",
                 dispatchers = {
                     { type = "console", presenter = "text", timezone = "local" }
@@ -276,8 +272,7 @@ describe("Hierarchical Logging System", function()
             app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"),
                 create_mock_presenter("app_presenter"))
 
-            local db_logger = lual.logger({
-                name = "app.database",
+            local db_logger = lual.logger("app.database", {
                 level = "info",
                 dispatchers = {
                     { type = "console", presenter = "text", timezone = "utc" }
@@ -332,8 +327,7 @@ describe("Hierarchical Logging System", function()
                 create_mock_presenter("audit_presenter"))
 
             -- Child: Development logging (simplified to avoid dispatcher config issues)
-            local app_logger = lual.logger({
-                name = "app",
+            local app_logger = lual.logger("app", {
                 level = "debug",
                 dispatchers = {
                     { type = "console", presenter = "text", timezone = "local" }
@@ -360,8 +354,7 @@ describe("Hierarchical Logging System", function()
             })
             root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"), create_mock_presenter("root_presenter"))
 
-            local db_logger = lual.logger({
-                name = "app.database",
+            local db_logger = lual.logger("app.database", {
                 level = "info",
                 dispatchers = {
                     { type = "console", presenter = "text" }

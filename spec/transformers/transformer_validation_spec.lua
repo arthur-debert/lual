@@ -94,7 +94,6 @@ describe("Transformer validation", function()
     describe("Config processing with transformers", function()
         it("should process config with transformers", function()
             local config = {
-                name = "test.transformer",
                 dispatchers = {
                     {
                         type = "console",
@@ -106,7 +105,7 @@ describe("Transformer validation", function()
                 }
             }
 
-            local logger = lualog.logger(config)
+            local logger = lualog.logger("test.transformer", config)
 
             -- Verify transformer was properly set up
             assert.are.same(1, #logger.dispatchers)
@@ -122,7 +121,6 @@ describe("Transformer validation", function()
 
         it("should process config without transformers", function()
             local config = {
-                name = "test.no.transformer",
                 dispatchers = {
                     {
                         type = "console",
@@ -131,7 +129,7 @@ describe("Transformer validation", function()
                 }
             }
 
-            local logger = lualog.logger(config)
+            local logger = lualog.logger("test.no.transformer", config)
 
             -- Verify no transformers are present
             assert.are.same(1, #logger.dispatchers)
@@ -141,8 +139,7 @@ describe("Transformer validation", function()
 
         it("should reject invalid transformer type", function()
             assert.has_error(function()
-                lualog.logger({
-                    name = "test.invalid.transformer",
+                lualog.logger("test.invalid.transformer", {
                     dispatchers = {
                         {
                             type = "console",
