@@ -223,30 +223,11 @@ echo
 # --- Pre-flight Check ---
 if [ -z "$DRY_RUN_FLAG" ]; then
     print_status "Pre-flight Check: Verifying if '$PKG_NAME' v$FINAL_VERSION is on LuaRocks..."
-    # Suppress stderr of luarocks search (e.g. "falling back to wget")
-    # Grep will get stdout. If luarocks search fails, set -e handles it.
-    if (luarocks search "$PKG_NAME" "$FINAL_VERSION" 2>/dev/null) | grep -q -- "--rockspec-version=${FINAL_VERSION}-1"; then
-        print_error "Version ${PKG_NAME} ${FINAL_VERSION}-1 already published."
-    elif (luarocks search "$PKG_NAME" "$FINAL_VERSION" 2>/dev/null) | grep -q -- "${FINAL_VERSION}-1 (rockspec)"; then # Legacy check, some luarocks versions might show this
-        print_error "Version ${PKG_NAME} ${FINAL_VERSION}-1 already published."
-    elif (luarocks search "$PKG_NAME" "$FINAL_VERSION" 2>/dev/null) | grep -q -- "${PKG_NAME} ${FINAL_VERSION}"; then # Broader check for the package and version
-        # This might indicate the version is published in some form, even if not an exact rockspec match string
-        # For safety, consider this as potentially published, though it may need manual verification
-        # Example: luarocks search lpeg -> lpeg 1.0.2-1 (installed)
-        # Example: luarocks search lual 0.8.19 -> lual 0.8.19-1 (rockspec) ... but what if only 'lual 0.8.19' is listed by 'luarocks list'?
-        # The original grep was for "${FINAL_VERSION}-1 (rockspec)" which is quite specific.
-        # Let's stick to a more direct check if possible. The API returns rockspec files with specific version-revision.
-        # The original grep was: grep -q "${FINAL_VERSION}-1 (rockspec)"
-        # Updated to be more robust with various luarocks versions output:
-        # Match lines like: <pkg_name> <version>-<revision> (rockspec|installed|...) or --rockspec-version=<version>-<revision>
-        # We primarily care if a rockspec for this exact version-revision is findable.
-        SEARCH_OUTPUT=$(luarocks search "$PKG_NAME" "$FINAL_VERSION" 2>/dev/null)
-        if echo "$SEARCH_OUTPUT" | grep -Eq "(${PKG_NAME}[[:space:]]+${FINAL_VERSION}-1|--rockspec-version=${FINAL_VERSION}-1)"; then
-            print_error "Version ${PKG_NAME} ${FINAL_VERSION}-1 appears to be already published or registered on LuaRocks."
-        else
-            print_success "Version ${PKG_NAME} $FINAL_VERSION appears available."
-        fi
+    if "$SCRIPTS_DIR/luarocks-check-version-published.sh" "$PKG_NAME" "$FINAL_VERSION"; then
+        # Script exits 0 if version IS found, which is an error for pre-flight.
+        print_error "Version ${PKG_NAME} ${FINAL_VERSION}-1 appears to be already published on LuaRocks."
     else
+        # Script exits 1 if version IS NOT found, which means it's available.
         print_success "Version ${PKG_NAME} $FINAL_VERSION appears available."
     fi
     echo
@@ -315,13 +296,14 @@ echo
 # --- Verify on LuaRocks ---
 if [ -z "$DRY_RUN_FLAG" ]; then
     print_status "Verifying package on LuaRocks..."
-    # PKG_NAME and FINAL_VERSION are from env/spec, should be reliable
     print_status "Searching for ${PKG_NAME} v$FINAL_VERSION on LuaRocks..."
-    # Suppress stderr of luarocks search (e.g. "falling back to wget")
-    SEARCH_OUTPUT_VERIFY=$(luarocks search "$PKG_NAME" "$FINAL_VERSION" 2>/dev/null)
-    if echo "$SEARCH_OUTPUT_VERIFY" | grep -Eq "(${PKG_NAME}[[:space:]]+${FINAL_VERSION}-1|--rockspec-version=${FINAL_VERSION}-1)"; then
+    if "$SCRIPTS_DIR/luarocks-check-version-published.sh" "$PKG_NAME" "$FINAL_VERSION"; then
+        # Script exits 0 if version IS found, which is success for verification.
         print_success "Found ${PKG_NAME} ${FINAL_VERSION} on LuaRocks."
     else
+        # Script exits 1 if version IS NOT found.
+        # To provide context, we can optionally run the search again and show its output.
+        SEARCH_OUTPUT_VERIFY=$(luarocks search "$PKG_NAME" "$FINAL_VERSION" 2>/dev/null)
         print_warning "Could not verify ${PKG_NAME} ${FINAL_VERSION} on LuaRocks. Check manually. Search output:\n$SEARCH_OUTPUT_VERIFY"
     fi
     echo
