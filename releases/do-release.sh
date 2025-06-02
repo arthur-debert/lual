@@ -28,6 +28,7 @@
 #   --use-version-file              : Use version in source spec file without prompt for bump.
 #   --bump <patch|minor|major>      : Bump version from source spec file.
 #   --upload-rock                   : Upload packed .rock file instead of .rockspec.
+#   --gh-release <true|false>       : Create a GitHub release (default: true).
 #
 # Environment Variables Set/Used:
 #   - PKG_NAME (string)               : Base package name. MUST BE SET IN ENVIRONMENT. Exported.
@@ -70,6 +71,7 @@ VERSION_ACTION_ARG=""
 BUMP_TYPE_ARG=""
 UPLOAD_ROCK_FILE_FLAG=false
 USER_PROVIDED_ROCKSPEC_PATH=""
+CREATE_GH_RELEASE=true # Default to true
 
 NEW_ARGS=()
 for arg in "$@"; do
@@ -108,9 +110,31 @@ while [[ "$#" -gt 0 ]]; do
         print_status "Will upload .rock file."
         shift
         ;;
+    --gh-release)
+        if [[ -z "$2" ]] || ! [[ "$2" =~ ^(true|false)$ ]]; then print_error "--gh-release requires true or false."; fi
+        if [ "$2" = "false" ]; then
+            CREATE_GH_RELEASE=false
+            print_status "GitHub release creation will be skipped."
+        else
+            CREATE_GH_RELEASE=true # Explicitly true, or if already default true
+            print_status "Will attempt to create a GitHub release."
+        fi
+        shift # consume --gh-release
+        shift # consume true/false
+        ;;
     *) print_error "Unknown option: $1" ;;
     esac
 done
+
+# --- GH CLI Check (if GitHub release is enabled) ---
+if [ "$CREATE_GH_RELEASE" = true ]; then
+    if ! command -v gh &>/dev/null; then
+        print_error "GitHub CLI 'gh' not found, but GitHub release creation is enabled. \\nPlease install 'gh' (see https://cli.github.com/) or disable GitHub releases with '--gh-release false'."
+    else
+        print_status "'gh' command found. GitHub release creation is active."
+    fi
+    echo # Newline for readability
+fi
 
 # --- Determine METADATA_SOURCE_FILE (for reading initial Pkg Name and Version) ---
 METADATA_SOURCE_FILE_ABS=""
@@ -301,6 +325,38 @@ if [ -z "$DRY_RUN_FLAG" ]; then
         print_warning "Could not verify ${PKG_NAME} ${FINAL_VERSION} on LuaRocks. Check manually. Search output:\n$SEARCH_OUTPUT_VERIFY"
     fi
     echo
+fi
+
+# After LuaRocks publish, before cleanup
+if [ "$CREATE_GH_RELEASE" = true ] && [ -z "$DRY_RUN_FLAG" ]; then
+    print_status "Creating GitHub release for v$FINAL_VERSION..."
+    # Determine assets to upload: typically the .src.rock and the .rockspec
+    # PACKED_ROCK_FILES array contains the .src.rock file(s)
+    # GENERATED_ROCKSPEC_FILES array contains the .rockspec file(s)
+    # Assuming single primary package for now
+    ASSETS_FOR_GH_RELEASE=()
+    if [ ${#PACKED_ROCK_FILES[@]} -gt 0 ]; then
+        ASSETS_FOR_GH_RELEASE+=("${PACKED_ROCK_FILES[0]}") # Add the .src.rock
+    fi
+    if [ ${#GENERATED_ROCKSPEC_FILES[@]} -gt 0 ]; then
+        ASSETS_FOR_GH_RELEASE+=("${GENERATED_ROCKSPEC_FILES[0]}") # Add the .rockspec
+    fi
+
+    if [ ${#ASSETS_FOR_GH_RELEASE[@]} -gt 0 ]; then
+        # Call the new script:
+        # Need to pass: tag, and asset files
+        # Tag is v$FINAL_VERSION
+        GH_RELEASE_TAG="v${FINAL_VERSION}"
+        "$SCRIPTS_DIR/create-gh-release.sh" "$GH_RELEASE_TAG" "${ASSETS_FOR_GH_RELEASE[@]}"
+        # create-gh-release.sh should handle its own success/error messages
+        # set -e will cause do-release.sh to exit if create-gh-release.sh fails
+    else
+        print_warning "No assets found to attach to GitHub release for v$FINAL_VERSION. Skipping GitHub release creation."
+    fi
+    echo # Newline
+elif [ "$CREATE_GH_RELEASE" = true ] && [ -n "$DRY_RUN_FLAG" ]; then
+    print_warning "DRY RUN: Would attempt to create GitHub release for v$FINAL_VERSION."
+    echo # Newline
 fi
 
 # --- Cleanup Intermediate Files ---
