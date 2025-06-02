@@ -13,9 +13,15 @@ local log = {}
 local core_levels = require("lual.core.levels")
 -- V2 system is now the default
 local v2_api = require("lual.v2")
+local all_dispatchers = require("lual.dispatchers.init")   -- Require the new dispatchers init
+local all_presenters = require("lual.presenters.init")     -- Require the new presenters init
+local all_transformers = require("lual.transformers.init") -- Require the new transformers init
 
 log.levels = core_levels.definition
-log.logger = v2_api.logger -- V2 API is now the default
+log.logger = v2_api.logger          -- V2 API is now the default
+log.dispatchers = all_dispatchers   -- Assign the dispatchers table
+log.presenters = all_presenters     -- Assign the presenters table
+log.transformers = all_transformers -- Assign the transformers table
 
 -- =============================================================================
 -- FLAT NAMESPACE CONSTANTS FOR QUICK ACCESS
@@ -30,7 +36,21 @@ log.error = core_levels.definition.ERROR
 log.critical = core_levels.definition.CRITICAL
 log.none = core_levels.definition.NONE
 
--- V2 system uses function-based dispatchers rather than string constants
+-- Dispatcher constants (string identifiers for config API)
+log.console = "console"
+log.file = "file"
+
+-- Presenter constants (string identifiers for config API)
+log.text = "text"
+log.color = "color"
+log.json = "json"
+
+-- Timezone constants
+log.local_time = "local"
+log.utc = "utc"
+
+-- Transformer constants
+log.noop = "noop"
 
 -- =============================================================================
 -- NEW ROOT LOGGER CONFIGURATION API
