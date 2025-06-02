@@ -1,7 +1,7 @@
 --- Configuration schema definitions and field specifications
 -- This module centralizes all the schema-related logic for configs
 
-local constants = require("lual.config.constants")
+local constants = require("lual.prev.config.constants")
 local core_levels = require("lua.lual.prev.core.levels")
 
 local M = {}

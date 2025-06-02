@@ -1,8 +1,8 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 local config = require("lual.config")
 local lualog = require("lual.logger")
-local schema = require("lual.config.schema")
-local normalization = require("lual.config.normalization")
+local schema = require("lual.prev.config.schema")
+local normalization = require("lual.prev.config.normalization")
 
 describe("Validation Functions", function()
     before_each(function()

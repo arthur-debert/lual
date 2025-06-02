@@ -21,7 +21,7 @@ Validation returns a result table with two keys:
 
 BASIC USAGE
 
-    local schema = require("lual.schema")
+    local schema = require("lual.prev.schema")
     
     -- Validate a configuration
     local config = { name = "app", level = "info" }
@@ -68,7 +68,7 @@ error messages:
 
 For expected error messages, use the schema helper:
 
-    local config_schema = require("lual.schema.config_schema")
+    local config_schema = require("lual.prev.schema.config_schema")
     local expected = config_schema.generate_expected_error(
         "ConfigSchema", "name", "type"
     )

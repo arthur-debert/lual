@@ -1,7 +1,7 @@
 --- Configuration validation utilities
 -- This module provides reusable validation functions and patterns
 
-local schema = require("lual.config.schema")
+local schema = require("lual.prev.config.schema")
 local table_utils = require("lual.utils.table")
 
 local M = {}
@@ -79,7 +79,7 @@ local function validate_transformer(transformer, index)
     end
 
     -- Validate transformer type using constants
-    local constants = require("lual.config.constants")
+    local constants = require("lual.prev.config.nfigconstants")
     local valid, err = constants.validate_against_constants(transformer.type, constants.VALID_TRANSFORMER_TYPES, false,
         "string")
     if not valid then
@@ -93,7 +93,7 @@ end
 -- @param dispatcher table The dispatcher config to validate
 -- @return boolean, string True if valid, or false with error message
 local function validate_type_specific_fields(dispatcher)
-    local normalization = require("lual.config.normalization")
+    local normalization = require("lual.prev.config.nfignormalization")
     local mappings = normalization.get_mappings()
 
     local dispatcher_type = dispatcher.type
@@ -150,7 +150,7 @@ local function validate_dispatcher_config(dispatcher, index)
     end
 
     -- Validate dispatcher type using constants directly
-    local constants = require("lual.config.constants")
+    local constants = require("lual.prev.config.nfigconstants")
     local valid, err = constants.validate_against_constants(dispatcher.type, constants.VALID_dispatcher_TYPES, false,
         "string")
     if not valid then

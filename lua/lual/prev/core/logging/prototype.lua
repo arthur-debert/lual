@@ -144,7 +144,7 @@ function M.logger_prototype:get_effective_dispatchers()
     local current_logger = self
 
     -- Get logger configuration fields from schema for consistency and maintainability
-    local config_schema = require("lual.schema.config_schema")
+    local config_schema = require("lual.prev.schema.config_schema")
     local owner_config_fields = {}
 
     -- Extract field names from ConfigSchema, excluding fields that shouldn't be propagated

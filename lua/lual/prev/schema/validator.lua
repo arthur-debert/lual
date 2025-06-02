@@ -1,7 +1,7 @@
 --- Generic schema validation functions
 -- This module provides the core validation logic for all schemas
 
-local constants = require("lual.config.constants")
+local constants = require("lual.prev.config.constants")
 
 local M = {}
 

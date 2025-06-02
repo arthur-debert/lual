@@ -7,7 +7,7 @@ to address its concepts is quite helpful.
 
     1.1. Module Path:
         The name for a Lua file as what `require(<module path>)` would use to load it.
-        e.g., `lual.prev.core.logging` or `lual.config.constants`.
+        e.g., `lual.prev.core.logging` or `lual.prev.config.constants`.
 
     1.2. Logger Name:
         A string that identifies a logger. Names are dot-separated to define

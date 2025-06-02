@@ -1,8 +1,8 @@
 --- Configuration normalization utilities
 -- This module handles convenience syntax detection and transformation
 
-local schema = require("lual.config.schema")
-local validation = require("lual.config.validation")
+local schema = require("lual.prev.config.schema")
+local validation = require("lual.prev.config.validation")
 local table_utils = require("lual.utils.table")
 
 local M = {}

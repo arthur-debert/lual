@@ -1,7 +1,7 @@
 --- Configuration schema definition
 -- This module defines the schema for validating configuration objects
 
-local constants = require("lual.config.constants")
+local constants = require("lual.prev.config.constants")
 
 local M = {}
 

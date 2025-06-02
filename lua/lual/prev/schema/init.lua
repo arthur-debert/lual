@@ -1,8 +1,8 @@
 --- Schema validation module
 -- This module provides validation functions for different config schemas
 
-local validator = require("lual.schema.validator")
-local config_schema = require("lual.schema.config_schema")
+local validator = require("lual.prev.schema.validator")
+local config_schema = require("lual.prev.schema.config_schema")
 
 local M = {}
 

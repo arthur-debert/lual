@@ -1,10 +1,10 @@
 --- Main configuration API
 -- This module provides the main config processing API
 
-local schema = require("lual.config.schema")
-local validation = require("lual.config.validation")
-local normalization = require("lual.config.normalization")
-local canonicalization = require("lual.config.canonicalization")
+local schema = require("lual.prev.config.schema")
+local validation = require("lual.prev.config.validation")
+local normalization = require("lual.prev.config.normalization")
+local canonicalization = require("lual.prev.config.canonicalization")
 
 local M = {}
 

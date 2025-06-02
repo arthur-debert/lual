@@ -1,6 +1,6 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
-local schema = require("lual.schema")
-local config_schema = require("lual.schema.config_schema")
+local schema = require("lual.prev.schema")
+local config_schema = require("lual.prev.schema.config_schema")
 
 describe("Schema Validation", function()
     describe("Config validation", function()

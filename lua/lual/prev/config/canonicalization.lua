@@ -1,7 +1,7 @@
 --- Configuration canonicalization utilities
 -- This module converts validated configs to runtime (canonical) format
 
-local schema = require("lual.config.schema")
+local schema = require("lual.prev.config.schema")
 local table_utils = require("lual.utils.table")
 
 local M = {}
@@ -94,7 +94,7 @@ end
 -- @param dispatcher_config table The dispatcher configuration
 -- @return table The type-specific configuration
 local function prepare_type_specific_config(dispatcher_config)
-    local normalization = require("lual.config.normalization")
+    local normalization = require("lual.prev.config.nfignormalization")
     local mappings = normalization.get_mappings()
 
     local dispatcher_type = dispatcher_config.type
