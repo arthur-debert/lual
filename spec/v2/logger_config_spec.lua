@@ -3,6 +3,7 @@ package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lu
 
 local lual = require("lual.logger")
 local core_levels = require("lua.lual.levels")
+local table_utils = require("lual.utils.table")
 
 describe("lual Logger Configuration API (Step 2.6)", function()
     before_each(function()
@@ -20,7 +21,8 @@ describe("lual Logger Configuration API (Step 2.6)", function()
 
             -- Default initial state for non-root loggers (Step 2.6 requirement)
             assert.are.equal(core_levels.definition.NOTSET, logger.level)
-            assert.are.same({}, logger.dispatchers)
+            assert.is_table(logger.dispatchers)
+            assert.are.equal(0, #logger.dispatchers)
             assert.are.equal(true, logger.propagate)
         end)
 
@@ -46,21 +48,17 @@ describe("lual Logger Configuration API (Step 2.6)", function()
         it("should reject invalid logger names", function()
             assert.has_error(function()
                 lual.logger("")
-            end, "Logger name must be a non-empty string, got string")
+            end, "Logger name cannot be an empty string.")
 
             assert.has_error(function()
                 lual.logger(123)
-            end, "Logger name must be a non-empty string, got number")
-
-            assert.has_error(function()
-                lual.logger(nil)
-            end, "Logger name must be a non-empty string, got nil")
+            end, "Invalid 1st arg: expected name (string), config (table), or nil, got number")
         end)
 
         it("should reject names starting with underscore", function()
             assert.has_error(function()
                 lual.logger("_internal.logger")
-            end, "Logger names starting with '_' are reserved for internal use. Please use a different name.")
+            end, "Logger names starting with '_' are reserved (except '_root'). Name: _internal.logger")
         end)
 
         it("should allow _root as special exception", function()
@@ -88,20 +86,20 @@ describe("lual Logger Configuration API (Step 2.6)", function()
         it("should use defaults for unspecified settings", function()
             local logger = lual.logger("partial.config", {
                 propagate = false
-                -- level and dispatchers not specified, should use defaults
             })
 
             assert.are.equal(core_levels.definition.NOTSET, logger.level) -- Default
-            assert.are.same({}, logger.dispatchers)                       -- Default
+            assert.is_table(logger.dispatchers)                           -- Default is empty table
+            assert.are.equal(0, #logger.dispatchers)
             assert.are.equal(false, logger.propagate)                     -- Explicitly set
         end)
 
         it("should handle empty configuration table", function()
             local logger = lual.logger("empty.config", {})
 
-            -- Should use all defaults
             assert.are.equal(core_levels.definition.NOTSET, logger.level)
-            assert.are.same({}, logger.dispatchers)
+            assert.is_table(logger.dispatchers)
+            assert.are.equal(0, #logger.dispatchers)
             assert.are.equal(true, logger.propagate)
         end)
 
@@ -122,19 +120,19 @@ describe("lual Logger Configuration API (Step 2.6)", function()
     end)
 
     describe("Configuration validation", function()
-        it("should reject non-table configuration", function()
+        it("should reject non-table configuration if name is provided", function()
             assert.has_error(function()
                 lual.logger("test", "not a table")
-            end, "Invalid logger configuration: Configuration must be a table, got string")
+            end, "Invalid 2nd arg: expected table (config) or nil, got string")
 
             assert.has_error(function()
                 lual.logger("test", 123)
-            end, "Invalid logger configuration: Configuration must be a table, got number")
+            end, "Invalid 2nd arg: expected table (config) or nil, got number")
         end)
 
         it("should reject unknown configuration keys", function()
             assert.has_error(function()
-                    lual.logger("test", {
+                    lual.logger("test_unknown", {
                         level = core_levels.definition.DEBUG,
                         unknown_key = "value"
                     })
@@ -144,8 +142,8 @@ describe("lual Logger Configuration API (Step 2.6)", function()
 
         it("should reject invalid level type", function()
             assert.has_error(function()
-                    lual.logger("test", {
-                        level = "debug" -- Should be number
+                    lual.logger("test_leveltype", {
+                        level = "debug"
                     })
                 end,
                 "Invalid logger configuration: Invalid type for 'level': expected number, got string. Logging level (use lual.DEBUG, lual.INFO, etc.)")
@@ -153,11 +151,11 @@ describe("lual Logger Configuration API (Step 2.6)", function()
 
         it("should reject invalid level values", function()
             assert.has_error(function()
-                lual.logger("test", {
-                    level = 999 -- Invalid level
-                })
-            end)
-            -- Should contain info about valid levels
+                    lual.logger("test_levelval", {
+                        level = 999
+                    })
+                end,
+                "Invalid logger configuration: Invalid level value 999. Valid levels are: CRITICAL(50), DEBUG(10), ERROR(40), INFO(20), NONE(100), NOTSET(0), WARNING(30)")
         end)
 
         it("should accept all valid level values", function()
@@ -170,18 +168,17 @@ describe("lual Logger Configuration API (Step 2.6)", function()
                 core_levels.definition.CRITICAL,
                 core_levels.definition.NONE
             }
-
-            for _, level in ipairs(valid_levels) do
+            for _, level_val in ipairs(valid_levels) do
                 assert.has_no_error(function()
-                    lual.logger("test.level." .. level, { level = level })
-                end, "Should accept level " .. level)
+                    lual.logger("test.level." .. tostring(level_val) .. math.random(), { level = level_val })
+                end, "Should accept level " .. tostring(level_val))
             end
         end)
 
         it("should reject invalid propagate type", function()
             assert.has_error(function()
-                    lual.logger("test", {
-                        propagate = "true" -- Should be boolean
+                    lual.logger("test_propag", {
+                        propagate = "true"
                     })
                 end,
                 "Invalid logger configuration: Invalid type for 'propagate': expected boolean, got string. Whether to propagate messages to parent loggers")
@@ -189,30 +186,32 @@ describe("lual Logger Configuration API (Step 2.6)", function()
 
         it("should reject invalid dispatchers type", function()
             assert.has_error(function()
-                    lual.logger("test", {
+                    lual.logger("test_disptype", {
                         dispatchers = "not a table"
                     })
                 end,
-                "Invalid logger configuration: Invalid type for 'dispatchers': expected table, got string. Array of dispatcher functions")
+                "Invalid logger configuration: Invalid type for 'dispatchers': expected table, got string. Array of dispatcher functions or dispatcher config tables")
         end)
 
-        it("should reject non-function dispatchers", function()
+        it("should reject non-function/non-table dispatchers in array", function()
             assert.has_error(function()
-                lual.logger("test", {
-                    dispatchers = { "not a function" }
-                })
-            end, "Invalid logger configuration: dispatchers[1] must be a function, got string")
+                    lual.logger("test_dispitem1", {
+                        dispatchers = { "not a function" }
+                    })
+                end,
+                "Invalid logger configuration: dispatchers[1] must be a function or a table like {dispatcher_func=func, config=tbl}, got string")
 
             assert.has_error(function()
-                lual.logger("test", {
-                    dispatchers = { function() end, 123, function() end }
-                })
-            end, "Invalid logger configuration: dispatchers[2] must be a function, got number")
+                    lual.logger("test_dispitem2", {
+                        dispatchers = { function() end, 123, function() end }
+                    })
+                end,
+                "Invalid logger configuration: dispatchers[2] must be a function or a table like {dispatcher_func=func, config=tbl}, got number")
         end)
 
         it("should accept empty dispatchers array", function()
             assert.has_no_error(function()
-                lual.logger("test", {
+                lual.logger("test_empty_disp_ok", {
                     dispatchers = {}
                 })
             end)
@@ -274,7 +273,8 @@ describe("lual Logger Configuration API (Step 2.6)", function()
 
                 assert.are.equal(1, #test_logger.dispatchers)
                 assert.are.equal(mock_dispatcher, test_logger.dispatchers[1].dispatcher_func)
-                assert.are.same({}, test_logger.dispatchers[1].config)
+                assert.is_table(test_logger.dispatchers[1].config)
+                assert.is_nil(next(test_logger.dispatchers[1].config))
             end)
 
             it("should add dispatcher with config", function()
@@ -344,9 +344,11 @@ describe("lual Logger Configuration API (Step 2.6)", function()
             end)
 
             it("should return nil parent_name for orphaned logger", function()
-                local orphan_logger = lual.create_logger("orphan", core_levels.definition.INFO, nil)
-                local config = orphan_logger:get_config()
-                assert.is_nil(config.parent_name)
+                local orphan_logger = lual.logger("orphan_no_parent_explicit")
+                lual.reset_cache()
+                local root_logger = lual.logger("_root")
+                local config = root_logger:get_config()
+                assert.is_nil(config.parent_name, "_root logger should have nil parent_name")
             end)
         end)
     end)
@@ -365,13 +367,12 @@ describe("lual Logger Configuration API (Step 2.6)", function()
         end)
 
         it("should inherit from parent when using NOTSET", function()
-            -- Create parent with explicit level
-            local parent = lual.logger("parent", {
+            lual.reset_cache()
+            local parent = lual.logger("parent_for_inherit", {
                 level = core_levels.definition.WARNING
             })
 
-            -- Create child with default NOTSET level
-            local child = lual.logger("parent.child")
+            local child = lual.logger("parent_for_inherit.child")
 
             assert.are.equal(core_levels.definition.NOTSET, child.level)
             assert.are.equal(core_levels.definition.WARNING, child:_get_effective_level())
@@ -380,20 +381,21 @@ describe("lual Logger Configuration API (Step 2.6)", function()
 
     describe("Default behavior alignment", function()
         it("should have correct defaults for non-root loggers", function()
-            local logger = lual.logger("non.root")
+            local logger = lual.logger("non.root.defaults")
 
-            -- Step 2.6 requirements
             assert.are.equal(core_levels.definition.NOTSET, logger.level)
-            assert.are.same({}, logger.dispatchers)
+            assert.is_table(logger.dispatchers)
+            assert.are.equal(0, #logger.dispatchers)
             assert.are.equal(true, logger.propagate)
         end)
 
         it("should have correct defaults for _root logger", function()
+            lual.reset_cache()
             local root_logger = lual.logger("_root")
 
-            -- Root should use WARNING by default (different from non-root)
             assert.are.equal(core_levels.definition.WARNING, root_logger.level)
-            assert.are.same({}, root_logger.dispatchers)
+            assert.is_table(root_logger.dispatchers)
+            assert.are.equal(0, #root_logger.dispatchers)
             assert.are.equal(true, root_logger.propagate)
         end)
     end)

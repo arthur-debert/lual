@@ -116,115 +116,159 @@ for method_name, method_func in pairs(logging_methods) do
   logger_prototype[method_name] = method_func
 end
 
---- Creates a new logger instance
--- @param name string The logger name
--- @param level number The logger level (defaults to NOTSET for non-root)
--- @param parent table|nil The parent logger (if any)
--- @return table The logger instance
-local function create_logger(name, level, parent)
-  local logger = {}
+-- Forward declarations
+local create_root_logger_instance
+local get_parent_name_from_hierarchical
+local get_or_create_parent_logger
+local _get_or_create_logger_internal
 
-  -- Copy prototype methods
-  for k, v in pairs(logger_prototype) do
-    logger[k] = v
+-- Define get_parent_name_from_hierarchical
+get_parent_name_from_hierarchical = function(logger_name)
+  if logger_name == "_root" then return nil end
+  local match = logger_name:match("(.+)%.[^%.]+$")
+  return match or "_root" -- Always return "_root" for top-level loggers
+end
+
+-- Define _get_or_create_logger_internal
+_get_or_create_logger_internal = function(requested_name_or_nil, config_data)
+  local final_name
+  if requested_name_or_nil and requested_name_or_nil ~= "" then
+    final_name = requested_name_or_nil
+  else
+    local _, _, auto_module_path = caller_info.get_caller_info(4)
+    final_name = (auto_module_path and auto_module_path ~= "") and auto_module_path or "anonymous"
   end
 
-  local final_name
-  if name and name ~= "" then
-    final_name = name
-  else                      -- name is nil or empty, try to auto-generate
-    if name == "_root" then -- This case should ideally not be hit if log.logger guards _root naming
-      final_name = "_root"
-    else
-      -- Stack: caller_info.get_caller_info -> create_logger -> lual.logger -> test/user code
-      -- We expect lual.logger to be called, then create_logger. So level 3 should be the user code.
-      local _, _, auto_name = caller_info.get_caller_info(3)
-      if auto_name and auto_name ~= "" then
-        final_name = auto_name
-      else
-        final_name = "anonymous" -- Fallback if caller_info fails or returns empty
+  if _logger_cache[final_name] then
+    return _logger_cache[final_name]
+  end
+
+  local new_logger = {}
+  for k, v in pairs(logger_prototype) do new_logger[k] = v end
+  new_logger.name = final_name
+
+  -- Update parent logic here
+  if final_name == "_root" then
+    new_logger.parent = nil
+  else
+    local parent_name_hierarchical = get_parent_name_from_hierarchical(final_name)
+    new_logger.parent = get_or_create_parent_logger(parent_name_hierarchical) -- Use the helper
+  end
+
+  -- Set level based on config or defaults
+  if config_data.level ~= nil then
+    new_logger.level = config_data.level
+  else
+    -- Default level is NOTSET for all loggers except _root
+    new_logger.level = final_name == "_root" and core_levels.definition.WARNING or core_levels.definition.NOTSET
+  end
+
+  new_logger.dispatchers = {}
+  if config_data.dispatchers then
+    for _, item in ipairs(config_data.dispatchers) do
+      if type(item) == "function" then
+        table.insert(new_logger.dispatchers, { dispatcher_func = item, config = {} })
+      elseif type(item) == "table" and type(item.dispatcher_func) == "function" then
+        table.insert(new_logger.dispatchers, { dispatcher_func = item.dispatcher_func, config = item.config or {} })
       end
     end
   end
 
-  -- Set logger properties
-  logger.name = final_name
-  logger.level = level or (final_name == "_root" and core_levels.definition.WARNING or core_levels.definition.NOTSET)
-  logger.parent = parent
-  logger.dispatchers = {}
-  logger.propagate = true
-
-  return logger
-end
-
---- Creates the _root logger using config
--- @return table The _root logger instance
-local function create_root_logger()
-  local root_config = config_module.get_config()
-  local root_logger = create_logger("_root", root_config.level, nil)
-
-  -- Convert root config dispatchers to proper format
-  root_logger.dispatchers = {}
-  for _, dispatcher_func in ipairs(root_config.dispatchers) do
-    table.insert(root_logger.dispatchers, {
-      dispatcher_func = dispatcher_func,
-      config = {}
-    })
+  if config_data.propagate ~= nil then
+    new_logger.propagate = config_data.propagate
+  else
+    new_logger.propagate = true
   end
 
-  root_logger.propagate = root_config.propagate
-  return root_logger
+  _logger_cache[final_name] = new_logger
+  return new_logger
 end
+
+-- Define get_or_create_parent_logger
+get_or_create_parent_logger = function(parent_name_str)
+  if not parent_name_str then return nil end
+  -- Special case: if parent is _root, create it from config
+  if parent_name_str == "_root" then
+    if _logger_cache["_root"] then
+      return _logger_cache["_root"]
+    else
+      -- Create _root logger from config
+      local root_logger = create_root_logger_instance()
+      _logger_cache["_root"] = root_logger
+      return root_logger
+    end
+  end
+  -- Parents are created with default configuration via the main factory.
+  return _get_or_create_logger_internal(parent_name_str, {})
+end
+
+-- Define create_root_logger_instance
+create_root_logger_instance = function()       -- Renamed from create_root_logger if that was the old name
+  local main_conf = config_module.get_config() -- Get current global defaults
+  local root_config_for_logger = {
+    level = main_conf.level,
+    dispatchers = main_conf.dispatchers or {}, -- Use dispatchers directly from config
+    propagate = main_conf.propagate
+  }
+  -- Convert raw function dispatchers to internal format
+  if root_config_for_logger.dispatchers then
+    local converted_dispatchers = {}
+    for _, disp_fn in ipairs(root_config_for_logger.dispatchers) do
+      if type(disp_fn) == "function" then
+        table.insert(converted_dispatchers, { dispatcher_func = disp_fn, config = {} })
+      elseif type(disp_fn) == "table" and type(disp_fn.dispatcher_func) == "function" then
+        table.insert(converted_dispatchers, disp_fn)
+      end
+    end
+    root_config_for_logger.dispatchers = converted_dispatchers
+  end
+  -- Use the new internal factory to get or create _root
+  return _get_or_create_logger_internal("_root", root_config_for_logger)
+end
+
+function log.reset_cache()
+  _logger_cache = {}
+end
+
+-- Expose create_root_logger_instance for testing or internal advanced use if needed.
+-- The old log.create_root_logger might have been used by tests.
+log.create_root_logger = create_root_logger_instance
 
 -- Configuration validation for non-root loggers
 local VALID_LOGGER_CONFIG_KEYS = {
   level = { type = "number", description = "Logging level (use lual.DEBUG, lual.INFO, etc.)" },
-  dispatchers = { type = "table", description = "Array of dispatcher functions" },
+  dispatchers = { type = "table", description = "Array of dispatcher functions or dispatcher config tables" },
   propagate = { type = "boolean", description = "Whether to propagate messages to parent loggers" }
 }
 
---- Validates a logger configuration table
+--- Validates a logger configuration table (renamed from validate_logger_config)
 -- @param config_table table The configuration to validate
 -- @return boolean, string True if valid, or false with error message
-local function validate_logger_config(config_table)
+local function validate_logger_config_table(config_table)
   if type(config_table) ~= "table" then
     return false, "Configuration must be a table, got " .. type(config_table)
   end
 
-  -- Check for unknown keys using table_utils.key_diff
   local key_diff = table_utils.key_diff(VALID_LOGGER_CONFIG_KEYS, config_table)
   if #key_diff.added_keys > 0 then
-    local valid_keys = {}
-    for valid_key, _ in pairs(VALID_LOGGER_CONFIG_KEYS) do
-      table.insert(valid_keys, valid_key)
-    end
-    table.sort(valid_keys)
-    return false, string.format(
-      "Unknown configuration key '%s'. Valid keys are: %s",
-      tostring(key_diff.added_keys[1]),
-      table.concat(valid_keys, ", ")
-    )
+    local valid_keys_list = {}
+    for valid_key, _ in pairs(VALID_LOGGER_CONFIG_KEYS) do table.insert(valid_keys_list, valid_key) end
+    table.sort(valid_keys_list)
+    return false,
+        string.format("Unknown configuration key '%s'. Valid keys are: %s", tostring(key_diff.added_keys[1]),
+          table.concat(valid_keys_list, ", "))
   end
 
-  -- Type validation
   for key, value in pairs(config_table) do
     local expected_spec = VALID_LOGGER_CONFIG_KEYS[key]
     local expected_type = expected_spec.type
     local actual_type = type(value)
-
     if actual_type ~= expected_type then
-      return false, string.format(
-        "Invalid type for '%s': expected %s, got %s. %s",
-        key,
-        expected_type,
-        actual_type,
-        expected_spec.description
-      )
+      return false,
+          string.format("Invalid type for '%s': expected %s, got %s. %s", key, expected_type, actual_type,
+            expected_spec.description)
     end
-
-    -- Additional validation for specific keys
     if key == "level" then
-      -- Validate that level is a known level value
       local valid_level = false
       for _, level_value in pairs(core_levels.definition) do
         if value == level_value then
@@ -233,34 +277,27 @@ local function validate_logger_config(config_table)
         end
       end
       if not valid_level then
-        local valid_levels = {}
-        for level_name, level_value in pairs(core_levels.definition) do
-          table.insert(valid_levels, string.format("%s(%d)", level_name, level_value))
+        local valid_levels_list = {}
+        for level_name, level_val in pairs(core_levels.definition) do
+          table.insert(valid_levels_list,
+            string.format("%s(%d)", level_name, level_val))
         end
-        table.sort(valid_levels)
-        return false, string.format(
-          "Invalid level value %d. Valid levels are: %s",
-          value,
-          table.concat(valid_levels, ", ")
-        )
+        table.sort(valid_levels_list)
+        return false,
+            string.format("Invalid level value %d. Valid levels are: %s", value, table.concat(valid_levels_list, ", "))
       end
     elseif key == "dispatchers" then
-      -- Validate that dispatchers is an array of functions
-      if not (#value >= 0) then -- Basic array check
-        return false, "dispatchers must be an array (table with numeric indices)"
-      end
-      for i, dispatcher in ipairs(value) do
-        if type(dispatcher) ~= "function" then
-          return false, string.format(
-            "dispatchers[%d] must be a function, got %s",
-            i,
-            type(dispatcher)
-          )
+      if not (#value >= 0) then return false, "'dispatchers' must be an array (table with numeric indices)" end
+      for i, dispatcher_item in ipairs(value) do
+        if not (type(dispatcher_item) == "function" or (type(dispatcher_item) == "table" and type(dispatcher_item.dispatcher_func) == "function")) then
+          return false,
+              string.format(
+                "dispatchers[%d] must be a function or a table like {dispatcher_func=func, config=tbl}, got %s", i,
+                type(dispatcher_item))
         end
       end
     end
   end
-
   return true
 end
 
@@ -297,7 +334,7 @@ local function get_or_create_parent(parent_name)
       return _logger_cache["_root"]
     else
       -- Create _root logger from config
-      local root_logger = create_root_logger()
+      local root_logger = create_root_logger_instance()
       _logger_cache["_root"] = root_logger
       return root_logger
     end
@@ -312,84 +349,44 @@ local function get_or_create_parent(parent_name)
   return log.logger(parent_name)
 end
 
---- Main logger creation API (Step 2.6)
--- Creates a logger from a config table. Can be called with:
--- 1. String name only: lual.logger("name") - creates logger with defaults
--- 2. String name + config: lual.logger("name", {level=lual.debug, ...})
--- @param name string The logger name
--- @param config_table table|nil Optional configuration table
--- @return table The logger instance
-function log.logger(name, config_table)
-  -- If name is nil, it signifies intent for auto-naming. Skip direct validation for it.
-  if name ~= nil then
-    if type(name) ~= "string" or name == "" then
-      error("Logger name must be a non-empty string if provided, got " .. type(name))
+-- Restore log.logger with argument parsing from Step 1
+--- Main public API to get or create a logger.
+function log.logger(arg1, arg2)
+  local name_input = nil
+  local config_input = {}
+
+  if type(arg1) == "string" then
+    name_input = arg1
+    if type(arg2) == "table" then
+      config_input = arg2
+    elseif arg2 ~= nil then
+      error("Invalid 2nd arg: expected table (config) or nil, got " .. type(arg2))
     end
-    -- Validate that user loggers cannot start with underscore (reserved for internal use)
-    if name ~= "_root" and string.sub(name, 1, 1) == "_" then
-      error("Logger names starting with '_' are reserved for internal use. Please use a different name.")
+  elseif type(arg1) == "table" then
+    config_input = arg1
+    if arg2 ~= nil then error("Invalid 2nd arg: config table as 1st arg means no 2nd arg, got " .. type(arg2)) end
+  elseif arg1 == nil then
+    if type(arg2) == "table" then
+      config_input = arg2
+    elseif arg2 ~= nil then
+      error("Invalid 2nd arg: expected table (config) or nil, got " .. type(arg2))
     end
+  elseif arg1 ~= nil then
+    error("Invalid 1st arg: expected name (string), config (table), or nil, got " .. type(arg1))
   end
 
-  -- Use default config if none provided
-  config_table = config_table or {}
-
-  -- Validate configuration
-  local valid, error_msg = validate_logger_config(config_table)
-  if not valid then
-    error("Invalid logger configuration: " .. error_msg)
-  end
-
-  -- Check if logger already exists in cache
-  if _logger_cache[name] then
-    return _logger_cache[name]
-  end
-
-  -- Default initial state for non-root loggers (Step 2.6 requirement)
-  local defaults = {
-    level = name == "_root" and core_levels.definition.WARNING or core_levels.definition.NOTSET,
-    dispatchers = {},
-    propagate = true
-  }
-
-  -- Apply only explicitly provided settings (Step 2.6 requirement)
-  local logger_config = {}
-  for key, default_value in pairs(defaults) do
-    if config_table[key] ~= nil then
-      -- Use explicitly provided value
-      logger_config[key] = config_table[key]
-    else
-      -- Use default value
-      logger_config[key] = default_value
+  if name_input ~= nil then
+    if name_input == "" then error("Logger name cannot be an empty string.") end
+    if name_input ~= "_root" and name_input:sub(1, 1) == "_" then
+      error("Logger names starting with '_' are reserved (except '_root'). Name: " .. name_input)
     end
   end
 
-  -- Determine parent based on hierarchical naming
-  local parent_name = get_parent_name(name)
-  local parent_logger = nil
+  local ok, err_msg = validate_logger_config_table(config_input)
+  if not ok then error("Invalid logger configuration: " .. err_msg) end
 
-  if parent_name then
-    parent_logger = get_or_create_parent(parent_name)
-  end
-
-  -- Create logger
-  local new_logger = create_logger(name, logger_config.level, parent_logger)
-
-  -- Set dispatcher functions (convert simple functions to dispatcher objects)
-  new_logger.dispatchers = {}
-  for _, dispatcher_func in ipairs(logger_config.dispatchers) do
-    table.insert(new_logger.dispatchers, {
-      dispatcher_func = dispatcher_func,
-      config = {}
-    })
-  end
-
-  new_logger.propagate = logger_config.propagate
-
-  -- Cache the logger
-  _logger_cache[name] = new_logger
-
-  return new_logger
+  -- Connect log.logger to the internal factory
+  return _get_or_create_logger_internal(name_input, config_input)
 end
 
 --- Resets the logger cache (for testing)
@@ -398,8 +395,8 @@ function log.reset_cache()
 end
 
 -- Expose internal functions for testing
-log.create_logger = create_logger
-log.create_root_logger = create_root_logger
+-- log.create_logger = create_logger -- REMOVE THIS LINE
+log.create_root_logger = create_root_logger_instance
 
 -- =============================================================================
 -- EXPOSED MODULES AND FLAT NAMESPACE CONSTANTS
@@ -467,6 +464,7 @@ end
 function log.reset_config()
   config_module.reset_config()
   log.reset_cache()
+  -- Comments about _root re-creation are fine. No active code needed here for _root.
 end
 
 return log

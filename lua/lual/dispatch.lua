@@ -51,8 +51,12 @@ local function process_dispatcher(log_record, dispatcher_entry, logger)
     dispatcher_record.owner_logger_propagate = logger.propagate
 
     -- Call the dispatcher function
-    -- dispatchers to be simple functions that take a record
-    dispatcher_entry.dispatcher_func(dispatcher_record)
+    -- Handle both raw functions and internal format
+    if type(dispatcher_entry) == "function" then
+        dispatcher_entry(dispatcher_record)
+    else
+        dispatcher_entry.dispatcher_func(dispatcher_record)
+    end
 end
 
 --- Implements the new dispatch loop logic from step 2.7
@@ -81,14 +85,18 @@ function M.dispatch_log_event(source_logger, log_record)
             -- (This is handled naturally by the empty loop above)
         end
 
-        -- Step 3: If L.propagate is true AND L is not _root
-        if current_logger.propagate and current_logger.name ~= "_root" then
-            -- Step 3a: Pass the original event to L.parent to repeat this process
-            current_logger = current_logger.parent
-        else
-            -- Stop propagation
+        -- Step 3: If L is _root, stop after processing its dispatchers
+        if current_logger.name == "_root" then
             break
         end
+
+        -- Step 4: If L.propagate is false, stop propagation
+        if not current_logger.propagate then
+            break
+        end
+
+        -- Step 5: Continue to parent
+        current_logger = current_logger.parent
     end
 end
 

@@ -81,6 +81,10 @@ local function validate_config(config_table)
                     table.concat(valid_levels, ", ")
                 )
             end
+            -- Root logger cannot be set to NOTSET
+            if value == core_levels.definition.NOTSET then
+                return false, "Root logger level cannot be set to NOTSET"
+            end
         elseif key == "dispatchers" then
             -- Validate that dispatchers is an array of functions
             if not (#value >= 0) then -- Basic array check
@@ -113,17 +117,45 @@ function M.config(config_table)
 
     -- Update _root logger configuration with provided values
     for key, value in pairs(config_table) do
-        _root_logger_config[key] = value
+        if key == "dispatchers" then
+            -- Store dispatchers in internal format but return raw functions
+            _root_logger_config[key] = {}
+            for _, disp_fn in ipairs(value) do
+                if type(disp_fn) == "function" then
+                    table.insert(_root_logger_config[key], { dispatcher_func = disp_fn, config = {} })
+                elseif type(disp_fn) == "table" and type(disp_fn.dispatcher_func) == "function" then
+                    table.insert(_root_logger_config[key], disp_fn)
+                end
+            end
+        else
+            _root_logger_config[key] = value
+        end
     end
 
-    -- Return a deep copy of the current configuration
-    return table_utils.deepcopy(_root_logger_config)
+    -- Return a copy with raw functions for dispatchers
+    local config_copy = table_utils.deepcopy(_root_logger_config)
+    if config_copy.dispatchers then
+        local raw_dispatchers = {}
+        for _, disp in ipairs(config_copy.dispatchers) do
+            table.insert(raw_dispatchers, disp.dispatcher_func)
+        end
+        config_copy.dispatchers = raw_dispatchers
+    end
+    return config_copy
 end
 
 --- Gets the current _root logger configuration
 -- @return table A copy of the current _root logger configuration
 function M.get_config()
-    return table_utils.deepcopy(_root_logger_config)
+    local config_copy = table_utils.deepcopy(_root_logger_config)
+    if config_copy.dispatchers then
+        local raw_dispatchers = {}
+        for _, disp in ipairs(config_copy.dispatchers) do
+            table.insert(raw_dispatchers, disp.dispatcher_func)
+        end
+        config_copy.dispatchers = raw_dispatchers
+    end
+    return config_copy
 end
 
 --- Resets the _root logger configuration to defaults
