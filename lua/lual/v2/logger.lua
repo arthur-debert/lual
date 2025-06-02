@@ -3,6 +3,7 @@
 
 local core_levels = require("lual.core.levels")
 local v2_config = require("lual.v2.config")
+local v2_dispatch = require("lual.v2.dispatch")
 
 local M = {}
 
@@ -98,6 +99,12 @@ function M.logger_prototype:get_config()
     }
 end
 
+-- Add logging methods from the v2 dispatch system (Step 2.7)
+local logging_methods = v2_dispatch.create_logging_methods()
+for method_name, method_func in pairs(logging_methods) do
+    M.logger_prototype[method_name] = method_func
+end
+
 --- Creates a new v2 logger instance
 -- @param name string The logger name
 -- @param level number The logger level (defaults to NOTSET for non-root)
@@ -126,7 +133,16 @@ end
 function M.create_root_logger()
     local root_config = v2_config.get_config()
     local root_logger = M.create_logger("_root", root_config.level, nil)
-    root_logger.dispatchers = root_config.dispatchers
+
+    -- Convert root config dispatchers to proper format
+    root_logger.dispatchers = {}
+    for _, dispatcher_func in ipairs(root_config.dispatchers) do
+        table.insert(root_logger.dispatchers, {
+            dispatcher_func = dispatcher_func,
+            config = {}
+        })
+    end
+
     root_logger.propagate = root_config.propagate
     return root_logger
 end
@@ -243,6 +259,18 @@ end
 local function get_or_create_parent(parent_name)
     if not parent_name then
         return nil
+    end
+
+    -- Special case: if parent is _root, create it from v2 config
+    if parent_name == "_root" then
+        if _logger_cache["_root"] then
+            return _logger_cache["_root"]
+        else
+            -- Create _root logger from v2 config
+            local root_logger = M.create_root_logger()
+            _logger_cache["_root"] = root_logger
+            return root_logger
+        end
     end
 
     -- If parent is already in cache, return it

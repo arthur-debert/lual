@@ -3,6 +3,7 @@
 
 local config_module = require("lual.v2.config")
 local logger_module = require("lual.v2.logger")
+local dispatch_module = require("lual.v2.dispatch")
 
 local M = {}
 
@@ -18,5 +19,8 @@ M.create_root_logger = logger_module.create_root_logger
 -- Expose the main logger API (Step 2.6)
 M.logger = logger_module.logger
 M.reset_cache = logger_module.reset_cache
+
+-- Expose the dispatch API (Step 2.7)
+M.dispatch_log_event = dispatch_module.dispatch_log_event
 
 return M
