@@ -107,10 +107,10 @@ describe("Unified Config API", function()
 
             local result = config.transform_convenience_config_to_full(shortcut)
 
-            assert.are.same("utc", result.timezone)
             assert.are.same(1, #result.dispatchers)
             assert.are.same("console", result.dispatchers[1].type)
             assert.are.same("color", result.dispatchers[1].presenter)
+            assert.are.same("utc", result.dispatchers[1].timezone)
         end)
     end)
 

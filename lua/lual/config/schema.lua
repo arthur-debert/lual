@@ -15,8 +15,7 @@ M.VALID_CONFIG_KEYS = {
     name = true,
     level = true,
     dispatchers = true,
-    propagate = true,
-    timezone = true
+    propagate = true
 }
 
 --- Valid keys for convenience config format
@@ -46,8 +45,7 @@ M.DEFAULTS = {
     name = "root",
     level = core_levels.definition.INFO,
     dispatchers = {},
-    propagate = true,
-    timezone = "local"
+    propagate = true
 }
 
 -- =============================================================================

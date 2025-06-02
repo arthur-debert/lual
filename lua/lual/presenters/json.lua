@@ -1,10 +1,11 @@
 local time_utils = require("lual.utils.time")
 
 --- Factory that creates a JSON presenter function
--- @param config (table, optional) Configuration for the JSON presenter
+-- @param config (table, optional) Configuration for the JSON presenter (including timezone)
 -- @return function The presenter function with schema attached
 local function json_presenter_factory(config)
     config = config or {}
+    local timezone = config.timezone or "local" -- Default to local timezone
 
     -- Validate pretty option if provided
     if config.pretty ~= nil and type(config.pretty) ~= "boolean" then
@@ -22,8 +23,8 @@ local function json_presenter_factory(config)
         -- Prepare the JSON object
         local json_record = {
             timestamp = record.timestamp,
-            timestamp_iso = time_utils.format_iso_timestamp(record.timestamp, record.timezone),
-            timezone = record.timezone or "local",
+            timestamp_iso = time_utils.format_iso_timestamp(record.timestamp, timezone),
+            timezone = timezone,
             level = record.level_name or "UNKNOWN_LEVEL",
             logger = record.logger_name or "UNKNOWN_LOGGER",
             message_fmt = record.message_fmt,

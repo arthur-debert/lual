@@ -12,7 +12,6 @@ describe("lual.presenters.text", function()
         it("should format a basic log record as text", function()
             local record = {
                 timestamp = 1678886400, -- 2023-03-15 10:00:00 UTC
-                timezone = "utc",
                 level_name = "INFO",
                 logger_name = "test.logger",
                 message_fmt = "User %s logged in from %s",
@@ -32,7 +31,6 @@ describe("lual.presenters.text", function()
         it("should handle records with no arguments", function()
             local record = {
                 timestamp = 1678886401,
-                timezone = "local",
                 level_name = "DEBUG",
                 logger_name = "test.debug",
                 message_fmt = "Simple debug message",
@@ -50,7 +48,6 @@ describe("lual.presenters.text", function()
         it("should handle context-only logs", function()
             local record = {
                 timestamp = 1678886402,
-                timezone = "local",
                 level_name = "INFO",
                 logger_name = "test.context",
                 message_fmt = nil,
@@ -70,64 +67,64 @@ describe("lual.presenters.text", function()
 
     describe("Timezone handling", function()
         it("should format timestamp in UTC when timezone is 'utc'", function()
+            local utc_presenter = text_presenter_factory({ timezone = "utc" })
             local record = {
                 timestamp = 1609459200, -- 2021-01-01 00:00:00 UTC
-                timezone = "utc",
                 level_name = "INFO",
                 logger_name = "test.utc",
                 message_fmt = "UTC test message",
                 args = {},
             }
 
-            local formatted = text_presenter(record)
+            local formatted = utc_presenter(record)
 
             -- Should contain UTC formatted timestamp
             assert.truthy(formatted:find("2021%-01%-01 00:00:00"))
         end)
 
         it("should format timestamp in local time when timezone is 'local'", function()
+            local local_presenter = text_presenter_factory({ timezone = "local" })
             local record = {
                 timestamp = 1609459200, -- 2021-01-01 00:00:00 UTC
-                timezone = "local",
                 level_name = "INFO",
                 logger_name = "test.local",
                 message_fmt = "Local test message",
                 args = {},
             }
 
-            local formatted = text_presenter(record)
+            local formatted = local_presenter(record)
 
             -- Should contain a valid timestamp format (can't predict exact local time)
             assert.matches("%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d", formatted)
         end)
 
-        it("should default to local timezone when timezone is nil", function()
+        it("should default to local timezone when no timezone is configured", function()
+            local default_presenter = text_presenter_factory() -- No timezone config, defaults to local
             local record = {
                 timestamp = 1609459200,
-                timezone = nil,
                 level_name = "INFO",
                 logger_name = "test.default",
                 message_fmt = "Default timezone test",
                 args = {},
             }
 
-            local formatted = text_presenter(record)
+            local formatted = default_presenter(record)
 
             -- Should contain a valid timestamp format
             assert.matches("%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d", formatted)
         end)
 
         it("should handle case insensitive timezone values", function()
+            local case_presenter = text_presenter_factory({ timezone = "UTC" }) -- Uppercase
             local record = {
                 timestamp = 1609459200,
-                timezone = "UTC", -- Uppercase
                 level_name = "INFO",
                 logger_name = "test.case",
                 message_fmt = "Case test message",
                 args = {},
             }
 
-            local formatted = text_presenter(record)
+            local formatted = case_presenter(record)
 
             -- Should contain UTC formatted timestamp
             assert.truthy(formatted:find("2021%-01%-01 00:00:00"))

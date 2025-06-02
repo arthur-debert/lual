@@ -27,16 +27,14 @@ describe("get_config functionality", function()
             lual.config({
                 level = "warning",
                 dispatchers = {
-                    { type = "console", presenter = "text" }
-                },
-                timezone = "utc"
+                    { type = "console", presenter = "text", timezone = "utc" }
+                }
             })
 
             local config = lual.get_config()
             assert.is_not_nil(config)
             assert.are.equal("root", config.name)
             assert.are.equal(lual.warning, config.level)
-            assert.are.equal("utc", config.timezone)
             assert.is_false(config.propagate) -- Root logger doesn't propagate
             assert.are.equal(1, #config.dispatchers)
         end)
@@ -51,9 +49,8 @@ describe("get_config functionality", function()
                 name = "app.database",
                 level = "debug",
                 dispatchers = {
-                    { type = "console", presenter = "color" }
+                    { type = "console", presenter = "color", timezone = "local" }
                 },
-                timezone = "local",
                 propagate = true
             })
 
@@ -61,7 +58,6 @@ describe("get_config functionality", function()
             assert.is_not_nil(config)
             assert.are.equal("app.database", config.name)
             assert.are.equal(lual.debug, config.level)
-            assert.are.equal("local", config.timezone)
             assert.is_true(config.propagate)
             assert.are.equal(1, #config.dispatchers)
         end)
@@ -72,10 +68,9 @@ describe("get_config functionality", function()
             local config = logger:get_config()
             assert.is_not_nil(config)
             assert.are.equal("simple.logger", config.name)
-            assert.are.equal(lual.info, config.level)  -- Default level
-            assert.are.equal("local", config.timezone) -- Default timezone
-            assert.is_true(config.propagate)           -- Default propagate
-            assert.are.equal(0, #config.dispatchers)   -- No dispatchers by default
+            assert.are.equal(lual.info, config.level) -- Default level
+            assert.is_true(config.propagate)          -- Default propagate
+            assert.are.equal(0, #config.dispatchers)  -- No dispatchers by default
         end)
     end)
 
@@ -104,10 +99,9 @@ describe("get_config functionality", function()
                 name = "app.database.connection",
                 level = "debug",
                 dispatchers = {
-                    { type = "console", presenter = "text" },
-                    { type = "file",    path = "connection.log", presenter = "json" }
-                },
-                timezone = "utc"
+                    { type = "console", presenter = "text",      timezone = "utc" },
+                    { type = "file",    path = "connection.log", presenter = "json", timezone = "utc" }
+                }
             })
 
             local hierarchy = conn_logger:get_config(true)
@@ -144,7 +138,6 @@ describe("get_config functionality", function()
             local conn_config = hierarchy["app.database.connection"]
             assert.are.equal("app.database.connection", conn_config.name)
             assert.are.equal(lual.debug, conn_config.level)
-            assert.are.equal("utc", conn_config.timezone)
             assert.are.equal("app.database", conn_config.parent_name)
             assert.are.equal(2, #conn_config.dispatchers)
         end)
@@ -210,7 +203,9 @@ describe("get_config functionality", function()
         it("should handle root logger get_config with hierarchy", function()
             lual.config({
                 level = "critical",
-                timezone = "utc"
+                dispatchers = {
+                    { type = "console", presenter = "text", timezone = "utc" }
+                }
             })
 
             local engine = require("lual.core.logging")
@@ -229,7 +224,6 @@ describe("get_config functionality", function()
             local root_config = hierarchy["root"]
             assert.are.equal("root", root_config.name)
             assert.are.equal(lual.critical, root_config.level)
-            assert.are.equal("utc", root_config.timezone)
             assert.is_nil(root_config.parent_name)
         end)
 

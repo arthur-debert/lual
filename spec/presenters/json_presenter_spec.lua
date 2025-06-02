@@ -5,10 +5,9 @@ local dkjson = require("dkjson")
 describe("lual.presenters.json", function()
     describe("Basic functionality", function()
         it("should format a basic log record as JSON", function()
-            local json_presenter = json_presenter_factory()
+            local json_presenter = json_presenter_factory({ timezone = "utc" }) -- Set timezone in config for predictable test
             local record = {
-                timestamp = 1678886400, -- 2023-03-15 10:00:00 UTC
-                timezone = "utc",       -- Explicitly set timezone to UTC for predictable test
+                timestamp = 1678886400,                                         -- 2023-03-15 10:00:00 UTC
                 level_name = "INFO",
                 logger_name = "test.logger",
                 message_fmt = "User %s logged in from %s",
@@ -350,10 +349,9 @@ describe("lual.presenters.json", function()
 
     describe("Timezone handling", function()
         it("should format timestamp in UTC when timezone is 'utc'", function()
-            local json_presenter = json_presenter_factory()
+            local json_presenter = json_presenter_factory({ timezone = "utc" })
             local record = {
                 timestamp = 1609459200, -- 2021-01-01 00:00:00 UTC
-                timezone = "utc",
                 level_name = "INFO",
                 logger_name = "test.utc",
                 message_fmt = "UTC test message",
@@ -369,10 +367,9 @@ describe("lual.presenters.json", function()
         end)
 
         it("should format timestamp in local time when timezone is 'local'", function()
-            local json_presenter = json_presenter_factory()
+            local json_presenter = json_presenter_factory({ timezone = "local" })
             local record = {
                 timestamp = 1609459200, -- 2021-01-01 00:00:00 UTC
-                timezone = "local",
                 level_name = "INFO",
                 logger_name = "test.local",
                 message_fmt = "Local test message",
@@ -390,11 +387,10 @@ describe("lual.presenters.json", function()
             assert.matches("%d%d%d%d%-%d%d%-%d%dT%d%d:%d%d:%d%d", parsed.timestamp_iso)
         end)
 
-        it("should default to local timezone when timezone is nil", function()
-            local json_presenter = json_presenter_factory()
+        it("should default to local timezone when no timezone is configured", function()
+            local json_presenter = json_presenter_factory() -- No timezone config, defaults to local
             local record = {
                 timestamp = 1609459200,
-                timezone = nil,
                 level_name = "INFO",
                 logger_name = "test.default",
                 message_fmt = "Default timezone test",
@@ -409,10 +405,9 @@ describe("lual.presenters.json", function()
         end)
 
         it("should handle case insensitive timezone values", function()
-            local json_presenter = json_presenter_factory()
+            local json_presenter = json_presenter_factory({ timezone = "UTC" }) -- Uppercase
             local record = {
                 timestamp = 1609459200,
-                timezone = "UTC", -- Uppercase
                 level_name = "INFO",
                 logger_name = "test.case",
                 message_fmt = "Case test message",
@@ -446,7 +441,6 @@ describe("lual.presenters.json", function()
             -- Test that it actually works as a presenter
             local test_record = {
                 timestamp = 1640995200,
-                timezone = "utc",
                 level_name = "INFO",
                 logger_name = "test",
                 message_fmt = "test message",

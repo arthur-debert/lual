@@ -7,11 +7,10 @@ local lualog = require("lual.logger")
 describe("text presenter", function()
 	it("should format a basic log record", function()
 		local all_presenters = require("lual.presenters.init")
-		local text_presenter = all_presenters.text()
+		local text_presenter = all_presenters.text({ timezone = "utc" }) -- Configure UTC for predictable test
 
 		local record = {
 			timestamp = 1678886400, -- 2023-03-15 10:00:00 UTC
-			timezone = "utc", -- Explicitly set timezone for predictable test
 			level_name = "INFO",
 			logger_name = "test.logger",
 			message_fmt = "User %s logged in from %s",
@@ -24,11 +23,10 @@ describe("text presenter", function()
 
 	it("should handle nil arguments gracefully", function()
 		local all_presenters = require("lual.presenters.init")
-		local text_presenter = all_presenters.text()
+		local text_presenter = all_presenters.text({ timezone = "utc" }) -- Configure UTC for predictable test
 
 		local record = {
 			timestamp = 1678886401, -- 2023-03-15 10:00:01 UTC
-			timezone = "utc", -- Explicitly set timezone for predictable test
 			level_name = "DEBUG",
 			logger_name = "nil.args.test",
 			message_fmt = "Test message with no args",
@@ -41,11 +39,10 @@ describe("text presenter", function()
 
 	it("should handle empty arguments table", function()
 		local all_presenters = require("lual.presenters.init")
-		local text_presenter = all_presenters.text()
+		local text_presenter = all_presenters.text({ timezone = "utc" }) -- Configure UTC for predictable test
 
 		local record = {
 			timestamp = 1678886402, -- 2023-03-15 10:00:02 UTC
-			timezone = "utc", -- Explicitly set timezone for predictable test
 			level_name = "WARNING",
 			logger_name = "empty.args.test",
 			message_fmt = "Test message with empty args",
@@ -58,14 +55,13 @@ describe("text presenter", function()
 
 	it("should use fallbacks for missing optional record fields", function()
 		local all_presenters = require("lual.presenters.init")
-		local text_presenter = all_presenters.text()
+		local text_presenter = all_presenters.text({ timezone = "utc" }) -- Configure UTC for predictable test
 
-		local ts = 1678886403 -- 2023-03-15 10:00:03 UTC
+		local ts = 1678886403                                      -- 2023-03-15 10:00:03 UTC
 		local expected_timestamp = os.date("!%Y-%m-%d %H:%M:%S", ts)
 
 		local record1 = {
 			timestamp = ts,
-			timezone = "utc", -- Explicitly set timezone for predictable test
 			level_name = nil, -- Missing level_name
 			logger_name = "test.missing.level",
 			message_fmt = "Message with nil level",
@@ -76,7 +72,6 @@ describe("text presenter", function()
 
 		local record2 = {
 			timestamp = ts,
-			timezone = "utc", -- Explicitly set timezone for predictable test
 			level_name = "ERROR",
 			logger_name = nil, -- Missing logger_name
 			message_fmt = "Message with nil logger name",
@@ -87,7 +82,6 @@ describe("text presenter", function()
 
 		local record3 = {
 			timestamp = ts,
-			timezone = "utc", -- Explicitly set timezone for predictable test
 			level_name = "CRITICAL",
 			logger_name = "test.missing.args",
 			message_fmt = "Message with missing args",

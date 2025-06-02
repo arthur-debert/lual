@@ -30,7 +30,6 @@ function M.create_logger_from_config(config)
     new_logger.dispatchers = canonical_config.dispatchers
     new_logger.propagate = canonical_config.propagate
     new_logger.parent = canonical_config.parent
-    new_logger.timezone = canonical_config.timezone
 
     return new_logger
 end

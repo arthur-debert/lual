@@ -95,8 +95,7 @@ function M.get_config(logger, full_tree)
                 level = current_logger.level,
                 dispatchers = current_logger.dispatchers or {},
                 propagate = current_logger.propagate,
-                parent = current_logger.parent,
-                timezone = current_logger.timezone,
+                parent = current_logger.parent
             })
 
             -- Add parent name reference for clarity
@@ -119,8 +118,7 @@ function M.get_config(logger, full_tree)
             level = logger.level,
             dispatchers = logger.dispatchers or {},
             propagate = logger.propagate,
-            parent = logger.parent,
-            timezone = logger.timezone,
+            parent = logger.parent
         })
     end
 end

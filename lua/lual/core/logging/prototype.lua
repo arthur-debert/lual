@@ -92,14 +92,13 @@ function M.logger_prototype:log(level_no, ...)
         level_name = core_levels.get_level_name(level_no),
         message_fmt = msg_fmt_val,
         args = args_val,
-        context = context_val,               -- Add the new context field
+        context = context_val, -- Add the new context field
         timestamp = os.time(),
-        timezone = self.timezone or "local", -- Add timezone configuration
         logger_name = self.name,
-        source_logger_name = self.name,      -- Initially the same as logger_name
+        source_logger_name = self.name, -- Initially the same as logger_name
         filename = filename,
-        file_path = filename,                -- Keep file_path for backward compatibility
-        lua_path = lua_path,                 -- Add the new lua_path field
+        file_path = filename,           -- Keep file_path for backward compatibility
+        lua_path = lua_path,            -- Add the new lua_path field
         lineno = lineno,
     }
 

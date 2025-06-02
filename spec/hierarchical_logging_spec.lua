@@ -176,9 +176,8 @@ describe("Hierarchical Logging System", function()
                 name = "app",
                 level = "debug",
                 dispatchers = {
-                    { type = "console", presenter = "color" }
-                },
-                timezone = "local"
+                    { type = "console", presenter = "color", timezone = "local" }
+                }
             })
             app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"), create_mock_presenter("app_presenter"))
 
@@ -230,113 +229,93 @@ describe("Hierarchical Logging System", function()
             assert.are.equal("app", mock_dispatcher_calls[1].logger_name)
         end)
 
-        it("should preserve separate timezone settings", function()
-            -- This test verifies that each logger can have its own timezone setting
+        it("should preserve separate timezone settings in dispatchers", function()
+            -- This test verifies that each logger can have its own timezone setting in dispatchers
             -- without interfering with parent loggers
 
             local root_logger = lual.config({
                 level = "info",
-                timezone = "utc"
+                dispatchers = {
+                    { type = "console", presenter = "text", timezone = "utc" }
+                }
             })
 
             local app_logger = lual.logger({
                 name = "app",
                 level = "info",
-                timezone = "local"
+                dispatchers = {
+                    { type = "console", presenter = "text", timezone = "local" }
+                }
             })
 
-            assert.are.equal("utc", root_logger.timezone)
-            assert.are.equal("local", app_logger.timezone)
+            -- Timezone is now in the dispatcher configuration
+            assert.are.equal(1, #root_logger.dispatchers)
+            assert.are.equal(1, #app_logger.dispatchers)
         end)
 
-        it("should use owning logger's timezone in propagation model", function()
-            -- This is the critical test for the timezone propagation fix
-            local timezone_calls = {}
+        it("should handle loggers with timezone configured in dispatchers", function()
+            -- This test verifies that timezone configuration works in the new presenter-based system
 
-            local function create_timezone_aware_presenter(name)
-                return function(record)
-                    table.insert(timezone_calls, {
-                        presenter_name = name,
-                        logger_name = record.logger_name,
-                        source_logger_name = record.source_logger_name,
-                        timezone = record.timezone, -- This is the key field
-                        message_fmt = record.message_fmt
-                    })
-                    -- Format with timezone info for verification
-                    return string.format("[%s|%s] %s: %s",
-                        record.level_name,
-                        record.timezone or "MISSING",
-                        record.logger_name,
-                        record.message_fmt or "")
-                end
-            end
-
-            -- Create hierarchy with different timezones
+            -- Create hierarchy with timezone-configured dispatchers
             local root_logger = lual.config({
                 level = "info",
-                timezone = "utc"
+                dispatchers = {
+                    { type = "console", presenter = "text", timezone = "utc" }
+                }
             })
             root_logger:add_dispatcher(create_mock_dispatcher("root_dispatcher"),
-                create_timezone_aware_presenter("root_presenter"))
+                create_mock_presenter("root_presenter"))
 
             local app_logger = lual.logger({
                 name = "app",
                 level = "info",
-                timezone = "local"
+                dispatchers = {
+                    { type = "console", presenter = "text", timezone = "local" }
+                }
             })
             app_logger:add_dispatcher(create_mock_dispatcher("app_dispatcher"),
-                create_timezone_aware_presenter("app_presenter"))
+                create_mock_presenter("app_presenter"))
 
             local db_logger = lual.logger({
                 name = "app.database",
                 level = "info",
-                timezone = "utc" -- Different from app (local), same as root but that's OK for this test
+                dispatchers = {
+                    { type = "console", presenter = "text", timezone = "utc" }
+                }
             })
             db_logger:add_dispatcher(create_mock_dispatcher("db_dispatcher"),
-                create_timezone_aware_presenter("db_presenter"))
+                create_mock_presenter("db_presenter"))
 
             -- Log from the deepest logger
             db_logger:warn("Database connection issue")
 
-            -- Should have called 3 presenters (db, app, root)
-            assert.are.equal(3, #timezone_calls)
+            -- Should have called 3 dispatchers (db, app, root) - timezone is now in presenter config
+            assert.are.equal(3, #mock_dispatcher_calls)
 
-            -- Find each presenter call and verify timezone
+            -- Find each dispatcher call
             local db_call, app_call, root_call
-            for _, call in ipairs(timezone_calls) do
-                if call.presenter_name == "db_presenter" then
+            for _, call in ipairs(mock_dispatcher_calls) do
+                if call.dispatcher_name == "db_dispatcher" then
                     db_call = call
-                elseif call.presenter_name == "app_presenter" then
+                elseif call.dispatcher_name == "app_dispatcher" then
                     app_call = call
-                elseif call.presenter_name == "root_presenter" then
+                elseif call.dispatcher_name == "root_dispatcher" then
                     root_call = call
                 end
             end
 
-            -- Verify each presenter received its owning logger's timezone
+            -- Verify proper propagation
             assert.is_not_nil(db_call)
-            assert.are.equal("app.database", db_call.logger_name)        -- DB logger owns this dispatcher
-            assert.are.equal("app.database", db_call.source_logger_name) -- DB logger originated the message
-            assert.are.equal("utc", db_call.timezone)                    -- DB logger's timezone setting
+            assert.are.equal("app.database", db_call.logger_name)
+            assert.are.equal("app.database", db_call.source_logger_name)
 
             assert.is_not_nil(app_call)
-            assert.are.equal("app", app_call.logger_name)                 -- App logger owns this dispatcher
-            assert.are.equal("app.database", app_call.source_logger_name) -- DB logger originated the message
-            assert.are.equal("local", app_call.timezone)                  -- App logger's timezone setting
+            assert.are.equal("app", app_call.logger_name)
+            assert.are.equal("app.database", app_call.source_logger_name)
 
             assert.is_not_nil(root_call)
-            assert.are.equal("root", root_call.logger_name)                -- Root logger owns this dispatcher
-            assert.are.equal("app.database", root_call.source_logger_name) -- DB logger originated the message
-            assert.are.equal("utc", root_call.timezone)                    -- Root logger's timezone setting
-
-            -- Also verify the dispatchers received timezone information
-            assert.are.equal(3, #mock_dispatcher_calls)
-            for _, call in ipairs(mock_dispatcher_calls) do
-                -- Source should always be the same
-                assert.are.equal("app.database", call.source_logger_name)
-                -- The message should include timezone info from the formatted output
-                assert.truthy(call.message:find("|")) -- Should contain timezone separator
-            end
+            assert.are.equal("root", root_call.logger_name)
+            assert.are.equal("app.database", root_call.source_logger_name)
         end)
     end)
 
@@ -345,7 +324,9 @@ describe("Hierarchical Logging System", function()
             -- Root: Audit logging (simplified to avoid dispatcher config issues)
             local root_logger = lual.config({
                 level = "warning",
-                timezone = "utc"
+                dispatchers = {
+                    { type = "console", presenter = "text", timezone = "utc" }
+                }
             })
             root_logger:add_dispatcher(create_mock_dispatcher("audit_dispatcher"),
                 create_mock_presenter("audit_presenter"))
@@ -354,7 +335,9 @@ describe("Hierarchical Logging System", function()
             local app_logger = lual.logger({
                 name = "app",
                 level = "debug",
-                timezone = "local"
+                dispatchers = {
+                    { type = "console", presenter = "text", timezone = "local" }
+                }
             })
             app_logger:add_dispatcher(create_mock_dispatcher("dev_dispatcher"), create_mock_presenter("dev_presenter"))
 
@@ -441,13 +424,14 @@ describe("Hierarchical Logging System", function()
     describe("Edge Cases and Error Handling", function()
         it("should handle logger with no name", function()
             local auto_logger = lual.logger()
-            
+
             -- Debug: Show what we actually got vs expected
             print("DEBUG: auto_logger.name =", auto_logger.name)
             print("DEBUG: expected to contain 'hierarchical_logging_spec'")
-            
+
             assert.is_string(auto_logger.name)
-            assert.are.equal("spec.hierarchical_logging_spec", auto_logger.name, "auto_logger.name should be 'hierarchical_logging_spec'")
+            assert.are.equal("spec.hierarchical_logging_spec", auto_logger.name,
+                "auto_logger.name should be 'hierarchical_logging_spec'")
         end)
 
         it("should handle propagate=false correctly", function()

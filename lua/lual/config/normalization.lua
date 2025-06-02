@@ -16,7 +16,8 @@ local CONVENIENCE_MAPPINGS = {
     -- Core fields that always map from convenience to full syntax
     core = {
         dispatcher = "type",
-        presenter = "presenter"
+        presenter = "presenter",
+        timezone = "timezone"
     },
 
     -- Type-specific fields based on dispatcher type
@@ -48,7 +49,7 @@ local CONVENIENCE_MAPPINGS = {
     },
 
     -- Fields to remove after transformation (convenience syntax fields)
-    cleanup_fields = { "dispatcher", "presenter", "path", "stream" }
+    cleanup_fields = { "dispatcher", "presenter", "timezone", "path", "stream" }
 }
 
 --- Validates a field according to mapping rules

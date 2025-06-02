@@ -9,10 +9,9 @@ describe("Schema Validation", function()
                 name = "test.logger",
                 level = "info",
                 propagate = true,
-                timezone = "utc",
                 dispatchers = {
-                    { type = "console", presenter = "text" },
-                    { type = "file",    presenter = "json", path = "test.log" }
+                    { type = "console", presenter = "text", timezone = "utc" },
+                    { type = "file",    presenter = "json", path = "test.log", timezone = "utc" }
                 }
             }
 
@@ -47,15 +46,18 @@ describe("Schema Validation", function()
             assert.matches("Valid values are:", result._errors.level)
         end)
 
-        it("should reject invalid timezone", function()
+        it("should reject invalid timezone in dispatcher", function()
             local config = {
-                timezone = "invalid_timezone"
+                dispatchers = {
+                    { type = "console", presenter = "text", timezone = "invalid_timezone" }
+                }
             }
 
             local result = schema.validate_config(config)
 
-            assert.is_not_nil(result._errors.timezone)
-            assert.matches("Invalid timezone", result._errors.timezone)
+            assert.is_not_nil(result._errors["dispatchers[1]"])
+            assert.is_not_nil(result._errors["dispatchers[1]"].timezone)
+            assert.matches("Invalid timezone", result._errors["dispatchers[1]"].timezone)
         end)
 
         it("should reject invalid type for name", function()
@@ -217,9 +219,11 @@ describe("Schema Validation", function()
             assert.is_true(next(result._errors) == nil, "Should accept uppercase level")
         end)
 
-        it("should accept case insensitive timezone values", function()
+        it("should accept case insensitive timezone values in dispatcher", function()
             local config = {
-                timezone = "UTC"
+                dispatchers = {
+                    { type = "console", presenter = "text", timezone = "UTC" }
+                }
             }
 
             local result = schema.validate_config(config)

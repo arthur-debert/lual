@@ -23,8 +23,7 @@ local function create_canonical_config(config)
         level = config.level or schema.DEFAULTS.level,
         dispatchers = config.dispatchers or schema.DEFAULTS.dispatchers,
         propagate = config.propagate ~= false, -- Default to true unless explicitly false
-        parent = config.parent or nil,
-        timezone = config.timezone or schema.DEFAULTS.timezone
+        parent = config.parent or nil
     }
 end
 
@@ -53,16 +52,18 @@ end
 
 --- Gets presenter function by type
 -- @param presenter_type string The presenter type
+-- @param presenter_config table Configuration for the presenter (including timezone)
 -- @return function The presenter function
-local function get_presenter_function(presenter_type)
+local function get_presenter_function(presenter_type, presenter_config)
     local all_presenters = require("lual.presenters.init")
+    presenter_config = presenter_config or {}
 
     if presenter_type == "text" then
-        return all_presenters.text()
+        return all_presenters.text(presenter_config)
     elseif presenter_type == "color" then
-        return all_presenters.color()
+        return all_presenters.color(presenter_config)
     elseif presenter_type == "json" then
-        return all_presenters.json()
+        return all_presenters.json(presenter_config)
     end
 
     error("Unknown presenter type: " .. tostring(presenter_type))
@@ -139,9 +140,14 @@ local function convert_dispatchers_to_canonical(dispatchers_config)
         -- Prepare type-specific config using mapping system
         local type_config = prepare_type_specific_config(dispatcher_config)
 
+        -- Prepare presenter config (including timezone)
+        local presenter_config = {
+            timezone = dispatcher_config.timezone or "local" -- Default to local if not specified
+        }
+
         -- Get function instances
         local dispatcher_func = get_dispatcher_function(dispatcher_type, type_config)
-        local presenter_func = get_presenter_function(presenter_type)
+        local presenter_func = get_presenter_function(presenter_type, presenter_config)
         local transformer_funcs = get_transformer_functions(dispatcher_config.transformers)
 
         table.insert(canonical_dispatchers, {

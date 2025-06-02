@@ -53,10 +53,11 @@ local function colorize(text, color_name)
 end
 
 --- Factory that creates a color presenter function
--- @param config (table, optional) Configuration for the color presenter
+-- @param config (table, optional) Configuration for the color presenter (including timezone)
 -- @return function The presenter function with schema attached
 local function color_presenter_factory(config)
     config = config or {}
+    local timezone = config.timezone or "local" -- Default to local timezone
 
     -- Validate level_colors if provided
     if config.level_colors then
@@ -69,7 +70,7 @@ local function color_presenter_factory(config)
 
     -- Create the actual presenter function
     local function presenter_func(record)
-        local timestamp_str = time_utils.format_timestamp(record.timestamp, record.timezone)
+        local timestamp_str = time_utils.format_timestamp(record.timestamp, timezone)
         local msg_args = record.args or {}
         -- Make sure msg_args is a table for string.format to use
         if type(msg_args) ~= "table" then msg_args = {} end

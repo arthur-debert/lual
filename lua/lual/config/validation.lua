@@ -262,12 +262,7 @@ function M.validate_canonical_config(config)
         return false, "Config.propagate must be a boolean"
     end
 
-    -- Validate timezone using constants directly
-    local constants = require("lual.config.constants")
-    local valid, err = constants.validate_against_constants(config.timezone, constants.VALID_TIMEZONES, true, "string")
-    if not valid then
-        return false, err
-    end
+
 
     -- Validate dispatchers structure (canonical format)
     if config.dispatchers then

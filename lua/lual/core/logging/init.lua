@@ -246,8 +246,7 @@ function M.logger(input_config, config_table)
         name = "root",
         level = "info",
         dispatchers = {},
-        propagate = true,
-        timezone = "local", -- Default to local time
+        propagate = true
     }
 
     -- Use the config module to process the input config

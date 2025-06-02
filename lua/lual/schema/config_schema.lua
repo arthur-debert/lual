@@ -112,14 +112,6 @@ M.ConfigSchema = {
         description = "Whether to propagate log messages to parent loggers."
     },
 
-    timezone = {
-        multiple = false,
-        type = "string",
-        values = extract_valid_values(constants.VALID_TIMEZONES),
-        required = false,
-        description = "The timezone to use for timestamps."
-    },
-
     dispatchers = {
         multiple = true,
         type = "table",
@@ -145,6 +137,14 @@ M.dispatcherschema = {
         values = extract_valid_values(constants.VALID_PRESENTER_TYPES),
         required = true,
         description = "The presenter type to use for this dispatcher."
+    },
+
+    timezone = {
+        multiple = false,
+        type = "string",
+        values = extract_valid_values(constants.VALID_TIMEZONES),
+        required = false,
+        description = "The timezone to use for timestamps in this dispatcher's presenter."
     },
 
     transformers = {

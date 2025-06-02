@@ -16,10 +16,9 @@ describe("lual.presenters.color", function()
 	}
 
 	it("should format a basic log record with colors", function()
-		local color = color_factory()
+		local color = color_factory({ timezone = "utc" }) -- Set timezone in config for predictable test
 		local record = {
-			timestamp = 1678886400, -- 2023-03-15 10:00:00 UTC
-			timezone = "utc", -- Explicitly set timezone for predictable test
+			timestamp = 1678886400,                 -- 2023-03-15 10:00:00 UTC
 			level_name = "INFO",
 			logger_name = "test.logger",
 			message_fmt = "User %s logged in from %s",
@@ -126,10 +125,9 @@ describe("lual.presenters.color", function()
 
 	describe("Timezone handling", function()
 		it("should format timestamp in UTC when timezone is 'utc'", function()
-			local color = color_factory()
+			local color = color_factory({ timezone = "utc" })
 			local record = {
 				timestamp = 1609459200, -- 2021-01-01 00:00:00 UTC
-				timezone = "utc",
 				level_name = "INFO",
 				logger_name = "test.utc",
 				message_fmt = "UTC test message",
@@ -143,10 +141,9 @@ describe("lual.presenters.color", function()
 		end)
 
 		it("should format timestamp in local time when timezone is 'local'", function()
-			local color = color_factory()
+			local color = color_factory({ timezone = "local" })
 			local record = {
 				timestamp = 1609459200, -- 2021-01-01 00:00:00 UTC
-				timezone = "local",
 				level_name = "INFO",
 				logger_name = "test.local",
 				message_fmt = "Local test message",
@@ -159,11 +156,10 @@ describe("lual.presenters.color", function()
 			assert.matches("%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d", formatted)
 		end)
 
-		it("should default to local timezone when timezone is nil", function()
-			local color = color_factory()
+		it("should default to local timezone when no timezone is configured", function()
+			local color = color_factory() -- No timezone config, defaults to local
 			local record = {
 				timestamp = 1609459200,
-				timezone = nil,
 				level_name = "INFO",
 				logger_name = "test.default",
 				message_fmt = "Default timezone test",
@@ -177,10 +173,9 @@ describe("lual.presenters.color", function()
 		end)
 
 		it("should handle case insensitive timezone values", function()
-			local color = color_factory()
+			local color = color_factory({ timezone = "UTC" }) -- Uppercase
 			local record = {
 				timestamp = 1609459200,
-				timezone = "UTC", -- Uppercase
 				level_name = "INFO",
 				logger_name = "test.case",
 				message_fmt = "Case test message",
