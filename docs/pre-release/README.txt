@@ -50,7 +50,7 @@ As a final push, we're doing :
           library defaults (e.g., level `lual.WARN`, a console dispatcher, default
           presenter, `propagate = true`).
 
-    2.4. Implement `lual.config(config_table)`:
+    2.4. Implement `lual.config(config_table)`: DONE
         - This function is the HAPI for user configuration of the `_root` logger.
         - When called, it updates `_root`'s existing configuration with the values
           provided in `config_table`.

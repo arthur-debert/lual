@@ -100,4 +100,11 @@ end
 -- Remove automatic initialization - root logger only created via lual.config({})
 -- =============================================================================
 
+-- =============================================================================
+-- V2 API NAMESPACE
+-- =============================================================================
+
+-- Add the v2 namespace for the new API
+log.v2 = require("lual.v2")
+
 return log
