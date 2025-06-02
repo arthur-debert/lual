@@ -2,7 +2,7 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 
 local lual = require("lual.logger")
-local core_levels = require("lua.lual.prev.core.levels")
+local core_levels = require("lua.lual.v2.levels")
 
 describe("lual.v2 Dispatch Loop Logic (Step 2.7)", function()
     before_each(function()
