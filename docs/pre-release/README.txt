@@ -34,7 +34,7 @@ As a final push, we're doing :
           It is an identifier.
         - Time configuration (e.g., UTC/local, format string) should be a property
           of Presenters, not a top-level logger or dispatcher setting.
-          Refer to `new-design.txt` for details.
+          Refer to `new-design.txt` for details. DONE
 
     2.2. Introduce `lual.NOTSET` Level:
         - Add this special level value (e.g., could be `0` or a unique table).
