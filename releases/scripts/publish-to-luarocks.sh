@@ -92,8 +92,12 @@ for rockspec_file in "${rockspecs_to_publish[@]}"; do
         UPLOAD_OUTPUT=$(luarocks upload "$rockspec_file" --api-key="$CURRENT_LUAROCKS_API_KEY" 2>&1) # Capture both stdout and stderr from luarocks
         UPLOAD_EXIT_CODE=$?
 
-        # Echo the captured output to stderr for user to see, can be removed if too verbose
-        echo "$UPLOAD_OUTPUT" >&2
+        # Echo the captured output to stderr only if upload failed
+        if [ $UPLOAD_EXIT_CODE -ne 0 ]; then
+            echo "--- LuaRocks Upload Output (Error) ---" >&2
+            echo "$UPLOAD_OUTPUT" >&2
+            echo "--------------------------------------" >&2
+        fi
 
         if [ $UPLOAD_EXIT_CODE -eq 0 ]; then
             print_status_stderr "Successfully published $rockspec_file to LuaRocks!"

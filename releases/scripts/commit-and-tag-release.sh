@@ -69,8 +69,9 @@ for f in "${FILES_TO_COMMIT_ARGS[@]}"; do
         continue
     fi
     print_status_stderr "  - $f"
-    if [ "$DRY_RUN_ARG" != "--dry-run" ]; then git add "$f"; fi
+    if [ "$DRY_RUN_ARG" != "--dry-run" ]; then git add "$f" >/dev/null; fi
 done
+echo >&2 # Newline for readability in stderr
 
 COMMIT_MESSAGE="Release v${FINAL_VERSION}"
 GIT_TAG="v${FINAL_VERSION}"
@@ -85,7 +86,7 @@ else
         print_status_stderr "No new changes staged for commit by this script. Commit may have already included these changes or files were unchanged."
     else
         print_status_stderr "Committing changes with message: '$COMMIT_MESSAGE'..."
-        git commit -m "$COMMIT_MESSAGE"
+        git commit -m "$COMMIT_MESSAGE" >/dev/null
     fi
 
     print_status_stderr "Checking if tag '$GIT_TAG' already exists..."
@@ -93,11 +94,13 @@ else
         print_warning_stderr "Tag '$GIT_TAG' already exists. Skipping tag creation."
     else
         print_status_stderr "Creating tag '$GIT_TAG'..."
-        git tag "$GIT_TAG"
+        git tag "$GIT_TAG" >/dev/null
     fi
 
     print_status_stderr "Pushing branch '$CURRENT_BRANCH' to origin..."
-    git push origin "$CURRENT_BRANCH"
+    git push origin "$CURRENT_BRANCH" >/dev/null
     print_status_stderr "Pushing tag '$GIT_TAG' to origin..."
-    git push origin "$GIT_TAG"
+    git push origin "$GIT_TAG" >/dev/null
+
+    print_status_stderr "Git commit and tag push complete for v${FINAL_VERSION}."
 fi

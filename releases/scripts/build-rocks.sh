@@ -11,6 +11,8 @@
 #
 # Environment Variables Expected (implicitly, via CWD):
 #   - CWD should be PROJECT_ROOT_ABS, where rockspec files are located and .rock files will be created.
+#   - PKG_NAME          : Package name (from do-release.sh env)
+#   - FINAL_VERSION     : Semantic version (X.Y.Z) (from do-release.sh env)
 #
 # Called by: releases/do-release.sh
 # Assumptions:
@@ -23,47 +25,55 @@ set -e
 
 # Colors (optional, for stderr messages if any)
 BLUE='\033[0;34m'
+RED='\033[0;31m'
 NC='\033[0m'
 print_status_stderr() { echo -e "${BLUE}[INFO]${NC} $1" >&2; }
-
-if [ "$#" -eq 0 ]; then
-    echo "Error: At least one rockspec file argument is required." >&2
+print_error_stderr() {
+    echo -e "${RED}[ERROR]${NC} $1" >&2
     exit 1
+}
+
+if [ -z "$PKG_NAME" ] || [ -z "$FINAL_VERSION" ]; then
+    print_error_stderr "PKG_NAME and FINAL_VERSION environment variables must be set."
 fi
 
-for rockspec_file in "$@"; do
-    if [ ! -f "$rockspec_file" ]; then
-        echo "Error: Rockspec file not found: $rockspec_file (CWD: $(pwd))" >&2
-        exit 1
+ROCKSPEC_REVISION="1" # Assuming rockspec revision is always 1 for packed rocks
+
+PACKED_ROCK_FILENAMES=()
+
+for rockspec_file_arg in "$@"; do
+    if [ -z "$rockspec_file_arg" ]; then
+        print_error_stderr "Empty rockspec file argument provided."
     fi
-    print_status_stderr "Packing ${rockspec_file}..."
+    if [ ! -f "$rockspec_file_arg" ]; then
+        print_error_stderr "Rockspec file not found: $rockspec_file_arg (CWD: $(pwd))"
+    fi
 
-    base_name=$(basename "$rockspec_file" .rockspec)
+    print_status_stderr "Packing ${rockspec_file_arg}..."
 
-    # Attempt to remove any pre-existing rock for this exact version to ensure we identify the newly created one.
-    rm -f "${base_name}.src.rock" "${base_name}.all.rock" "${base_name}"*.rock
+    # Predict the output filename
+    # This assumes the rockspec file itself might have a different name pattern than the final rock,
+    # but the final .src.rock will follow PKG_NAME-FINAL_VERSION-ROCKSPEC_REVISION.src.rock
+    PREDICTED_PACKED_ROCK_NAME="${PKG_NAME}-${FINAL_VERSION}-${ROCKSPEC_REVISION}.src.rock"
 
-    # Suppress stdout from luarocks pack, as we determine the filename ourselves.
-    # Error output from luarocks pack will still go to stderr.
-    luarocks pack "$rockspec_file" >/dev/null
+    # Run luarocks pack, redirecting its stdout to /dev/null
+    # stderr will still be visible. If it fails, set -e will stop the script.
+    luarocks pack "$rockspec_file_arg" >/dev/null
 
-    created_rock_file=""
-    if [ -f "${base_name}.src.rock" ]; then
-        created_rock_file="${base_name}.src.rock"
-    elif [ -f "${base_name}.all.rock" ]; then
-        created_rock_file="${base_name}.all.rock"
+    # Check if the predicted file was created
+    if [ -f "$PREDICTED_PACKED_ROCK_NAME" ]; then
+        print_status_stderr "  Packed rock verified: $PREDICTED_PACKED_ROCK_NAME"
+        PACKED_ROCK_FILENAMES+=("$PREDICTED_PACKED_ROCK_NAME")
     else
-        found_rocks=(${base_name}*.rock)
-        if [ ${#found_rocks[@]} -gt 0 ]; then
-            created_rock_file="${found_rocks[0]}"
-        fi
+        # This might happen if luarocks pack failed silently or conventions changed
+        # Or if the rockspec_file_arg was for an 'extras' package with a different PKG_NAME
+        # For now, we assume PKG_NAME and FINAL_VERSION apply to all rockspecs passed.
+        print_error_stderr "Packed rock file $PREDICTED_PACKED_ROCK_NAME not found after packing $rockspec_file_arg. Build failed or filename convention mismatch."
     fi
-
-    if [ -z "$created_rock_file" ] || [ ! -f "$created_rock_file" ]; then
-        echo "Error: Failed to create or find .rock file for ${rockspec_file} (expected pattern like ${base_name}.src.rock or ${base_name}.all.rock after running luarocks pack)" >&2
-        exit 1
-    fi
-
-    print_status_stderr "  Packed rock identified as: $created_rock_file"
-    echo "$created_rock_file" # Output the exact created rock filename
 done
+
+if [ ${#PACKED_ROCK_FILENAMES[@]} -eq 0 ]; then
+    print_error_stderr "No rock files were successfully packed."
+fi
+
+echo "${PACKED_ROCK_FILENAMES[@]}" # Print the list of packed rock filenames to stdout
