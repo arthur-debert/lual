@@ -10,7 +10,7 @@ No function bodies are implemented at this stage.
 -- Main Logging Module (e.g., 'log')
 local log = {}
 
-local core_levels = require("lua.lual.v2.levels")
+local core_levels = require("lua.lual.levels")
 -- V2 system is now the default
 local v2_api = require("lual.v2")
 local all_dispatchers = require("lual.dispatchers.init")   -- Require the new dispatchers init
