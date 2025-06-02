@@ -7,34 +7,102 @@ took place the code  has, in various places, become hard to understand , inconsi
 
 As a final push, we're doing : 
 
-1. What we are building:
-    This work is not about what the system is doing, but about what the system should do. 
-    Reading the source code is helpful for more information, but should not be read as what needs to happen.
-
-    1.1 The Glossary:  docs/glossary.txt
-        A formal definition of the names and their concepts. This is paramount as currently the same 
-        concepts are represented with multiple names and conflicting definitions.
-    STATUS: WIP
-
-    1.2. The log event flow: 
-        A high level description of the expected behavior  from logger.log up to the final output for that event.
-
-    1.3. Hierarchy and Propagation
-        How multiple loggers interact.
-
-    1.4. Configuration and the Chain
-        How the hierarchy affects each logger's behavior.
+1. Design:  DONE
+    We have a final design to follow. 
+        - Foundational terms: docs/pre-release/glossary.txt
+        - Tree/Names: docs/pre-release/logger-trees.txt
+        - The design:   docs/pre-release/design.txt
 
 
-2. The current system
-    Here we document the code's behavior
+2. Implementation Plan:
 
-    2.1 The log event flow
+    Critical Note: There is no backwards compatibility layer. This library is
+    unreleased. We will perform a full switch to the new design to avoid the
+    costs of deprecation and multiple implementations. Existing tests will need
+    to be updated or replaced to reflect the new, correct behavior.
 
-    2.2 Hierarchy and Propagation
+    2.1. Logger and Configuration Structure Changes:
+        - Ensure `name` is not a configurable property within a logger's settings.
+          It is an identifier.
+        - Time configuration (e.g., UTC/local, format string) should be a property
+          of Presenters, not a top-level logger or dispatcher setting.
+          Refer to `new-design.txt` for details.
 
-    3.3 Configuration and Chain
+    2.2. Introduce `lual.NOTSET` Level:
+        - Add this special level value (e.g., could be `0` or a unique table).
+        - Non-root loggers will default to `level = lual.NOTSET`.
+        - This signifies that the logger should inherit its effective level from
+          its closest configured ancestor.
 
+    2.3. Root Logger (`_root`):
+        - Implement the internal root logger, named `_root`.
+        - Ensure user-defined logger names cannot start with `_`. If an auto-generated
+          name (e.g., from module path) starts with `_`, it must be prefixed or altered.
+        - `_root` is automatically created when `lual` is loaded and initialized with
+          library defaults (e.g., level `lual.WARN`, a console dispatcher, default
+          presenter, `propagate = true`).
 
-All the material should be docs/pre-release to keep it a part from the older work.
-All of it must be in plain text, no markdown. Follow the formatting from this file and glossary.txt for a ref.
+    2.4. Implement `lual.config(config_table)`:
+        - This function is the HAPI for user configuration of the `_root` logger.
+        - When called, it updates `_root`'s existing configuration with the values
+          provided in `config_table`.
+        - If `config_table` contains a `level` key, `_root.level` is updated.
+        - If `config_table` contains a `dispatchers` key, `_root.dispatchers` are
+          replaced with the new list.
+        - Keys not present in `config_table` will leave `_root`'s corresponding
+          settings unchanged from their current state (either library defaults or
+          values from a previous `lual.config()` call).
+
+    2.5. Implement Effective Level Calculation:
+        - Create a method or internal function for loggers, say `logger:_get_effective_level()`.
+        - If `self.level` is not `lual.NOTSET`, return `self.level`.
+        - Else, if `self` is `_root`, return `_root.level` (it must have an explicit level).
+        - Else, recursively call `self.parent:_get_effective_level()`.
+
+    2.6. Implement Non-Root Logger Configuration:
+        - The `lual.logger("name", config_table)` API (and imperative methods like
+          `logger:set_level()`, `logger:add_dispatcher()`) should only store the
+          explicitly provided settings in the logger's internal config table.
+        - Default initial state for a new non-root logger:
+            - `level = lual.NOTSET`
+            - `dispatchers = {}` (empty list)
+            - `propagate = true`
+
+    2.7. Implement the New Dispatch Loop Logic:
+        - This is the core of event processing for each logger `L` in the hierarchy
+          (from source up to `_root`).
+        - For a given log event:
+            1. Calculate `L`'s effective level using `L:_get_effective_level()`.
+            2. If `event_level >= L.effective_level` (level match):
+                a. For each dispatcher in `L`'s *own* `dispatchers` list:
+                   i. (Optional) Process record through `L`'s transformers.
+                   ii. Format record using the dispatcher's presenter.
+                   iii. Send formatted output via the dispatcher.
+                b. If `L` has no dispatchers, it produces no output itself.
+            3. If `L.propagate` is `true` AND `L` is not `_root`:
+                a. Pass the original event to `L.parent` to repeat this process.
+
+        - Transitional Strategy: Consider a temporary flag to switch between old and
+          new dispatch logic during development and testing if needed.
+
+    2.8. Testing Strategy:
+        - Write comprehensive tests for the new dispatch logic, specifically covering:
+            - Correct `lual.NOTSET` level inheritance.
+            - Dispatching only occurs if a logger has its own dispatchers AND the
+              level matches.
+            - Propagation logic (including `propagate = false`).
+            - `lual.config()` behavior for `_root`.
+            - Behavior of various logger configurations and their interactions.
+
+    2.9. Final Switch & Test Suite Update:
+        - Once the new implementation is verified by its dedicated tests:
+            - Remove any old dispatch code paths.
+            - Review the existing test suite:
+                - Tests that validated old, incorrect behaviors should be deleted
+                  (as new tests cover the correct design).
+                - Tests that cover valid use cases but fail due to the new, correct
+                  behavior should be updated to expect the new outcomes.
+
+This plan provides a structured approach to refactoring the logging system
+to the new, robust design.
+
