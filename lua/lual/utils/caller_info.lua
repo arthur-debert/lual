@@ -1,10 +1,58 @@
---- Module for extracting caller information from the debug stack.
--- This provides utilities to get filename and line number information
--- for logging purposes.
+--- Module for extracting caller information (filename, line number, and derived module path)
+-- from the Lua debug stack. This is primarily used by logging libraries to identify
+-- the source of a log message.
 --
--- This implementation follows the recommendations from "Reliable Determination
--- of Calling Module Paths in Lua Logging Libraries" to provide robust
--- module path discovery using Lua's package.path system.
+-- Design Philosophy:
+-- The core challenge is to reliably determine a Lua-style module path (e.g., "my.module")
+-- from a raw file path obtained via `debug.getinfo().source`. Lua itself doesn't
+-- inherently track module names with loaded files in a way that's easily queryable
+-- for this purpose. This module bridges that gap.
+--
+-- Strategy:
+-- 1. Stack Introspection: It walks the debug stack to find the first relevant call
+--    frame outside of the logging library's own internal functions.
+-- 2. Path Normalization: Raw source paths (often starting with '@') are cleaned and
+--    normalized (e.g., converting backslashes to forward slashes, resolving '.', '..')
+--    to ensure consistent processing.
+-- 3. Package Path Matching: The primary method for deriving a module name is to
+--    match the normalized, absolute file path against the templates in Lua's
+--    `package.path`. This mimics Lua's `require()` lookup logic in reverse.
+-- 4. Robust Fallbacks: When `package.path` matching is not possible or doesn't yield a
+--    result (e.g., for scripts run directly, files outside standard paths, or if
+--    `package.path` is misconfigured), several fallback strategies are employed:
+--    - Non-.lua files: For executable scripts without a .lua extension, the full
+--      normalized path is converted into a dot-separated identifier. This ensures
+--      that even non-standard Lua files can have a meaningful, albeit non-module,
+--      identifier in logs.
+--    - `init.lua` files: Automatically uses the parent directory name, adhering to
+--      Lua's convention (e.g., `/path/to/mymodule/init.lua` becomes `mymodule`).
+--    - Common project structures: Heuristics like recognizing `./src/module.lua`
+--      to derive `module` can improve developer experience for common layouts.
+--    - Basename extraction: As a final resort for .lua files, the filename itself
+--      (without the extension) is used.
+-- 5. Caching: Resolved module names are cached (keyed by absolute file path) to
+--    mitigate the performance impact of repeated `debug.getinfo` calls and path
+--    processing, which can be significant in high-frequency logging scenarios.
+--
+-- Why these fallbacks are important for logging:
+-- A logging library should strive to provide the most useful context possible. If a
+-- module path can't be determined via `package.path`, returning `nil` or a raw,
+-- unhelpful file path is less desirable than a reasoned fallback. These fallbacks
+-- ensure that:
+--   - Scripts run directly (e.g., `lua my_script_without_extension`) still get a
+--     stable identifier.
+--   - The logging output remains informative even for less conventionally structured
+--     projects.
+--
+-- Conditions leading to nil or basic fallback for module path:
+-- - `debug.getinfo()` provides no source (e.g., end of stack, C-code boundary).
+-- - Input `file_path` is fundamentally unresolvable (e.g., special debug strings
+--   like "(tail call)", "[C]" which are handled by skipping the frame).
+-- - `package.path` is not set or contains no usable templates.
+-- - The file path does not match any `package.path` template, and specific
+--   heuristics (like `init.lua` or `./src/` patterns) do not apply, leading to
+--   general fallbacks (like basename for .lua files, or full path for non-.lua files).
+-- - Internal path normalization or component extraction unexpectedly fails.
 
 local caller_info = {}
 
@@ -199,7 +247,7 @@ local function _get_module_path(abs_filepath, original_filepath)
     end
 
     -- If no package.path match, use fallback strategy
-    return generate_fallback_name(abs_filepath, original_filepath)
+    return generate_fallback_name(abs_filepath)
 end
 
 --- Processes and normalizes a file path for module discovery
@@ -223,15 +271,10 @@ local function process_path(file_path)
         original_filepath = file_path
     end
 
-    -- Check for empty strings after @ removal
-    if file_path == "" then
-        return nil, nil, nil
-    end
-
     -- Early exit for clearly unresolvable paths
     -- These are common debug.getinfo() results that cannot be module paths
     if file_path == "(tail call)" or file_path == "=(tail call)" or
-       file_path == "[C]" or file_path == ".lua" then
+        file_path == "[C]" then
         return nil, nil, nil
     end
 
@@ -335,6 +378,36 @@ local function is_lual_internal_file(filename)
     return is_internal_path or false
 end
 
+--- Finds the first stack frame that is eligible to be considered the caller.
+-- An eligible frame is one that is not a special debug entry (like "[C]" or
+-- "(tail call)") and not part of the lual logging library itself.
+-- @param start_level (number) The stack level to start searching from.
+-- @return table|nil The debug info table for the eligible frame, or nil if not found.
+local function find_first_eligible_caller_frame(start_level)
+    for level = start_level, 10 do -- Limit search to 10 levels to avoid infinite loops
+        local info = debug.getinfo(level, "Sl")
+        if not info then
+            -- Reached end of stack
+            return nil
+        end
+
+        local source_path = info.source or info.short_src
+
+        -- Check for special debug entries that should be skipped
+        local is_special_entry = source_path == "(tail call)" or
+            source_path == "=(tail call)" or
+            source_path == "[C]"
+
+        -- Skip if special entry or internal to the lual library
+        if not is_special_entry and not is_lual_internal_file(source_path) then
+            -- If we reached here, this frame is eligible
+            return info
+        end
+        -- Otherwise, continue to the next iteration of the loop
+    end
+    return nil -- No eligible frame found within the search depth
+end
+
 --- Extracts caller information from the debug stack.
 -- Automatically finds the first stack level that's not part of the lual logging infrastructure.
 -- Uses the enhanced module path discovery based on package.path analysis.
@@ -345,63 +418,45 @@ function caller_info.get_caller_info(start_level, use_dot_notation)
     start_level = start_level or 2 -- Start at 2 to skip this function itself
     use_dot_notation = use_dot_notation or false
 
-    -- Search up the stack to find the first non-lual file
-    for level = start_level, 10 do -- Limit search to 10 levels to avoid infinite loops
-        -- Use "Sl" to get source and line information
-        -- The article recommends using .source instead of .short_src for better reliability
-        local info = debug.getinfo(level, "Sl")
-        if not info then
-            -- Reached end of stack
-            return nil, nil, nil
-        end
+    local eligible_frame_info = find_first_eligible_caller_frame(start_level)
 
-        -- Try to get source first (preferred), fall back to short_src for compatibility
-        -- The article recommends .source for better path matching reliability
-        local source_path = info.source or info.short_src
-        local filename = source_path
+    if not eligible_frame_info then
+        return nil, nil, nil
+    end
 
-        -- Skip special debug entries like "(tail call)", "=(tail call)", "[C]", etc.
-        local is_special_entry = source_path == "(tail call)" or
-                                source_path == "=(tail call)" or
-                                source_path == "[C]"
+    -- Process the information from the eligible frame
+    local source_path = eligible_frame_info.source or eligible_frame_info.short_src
+    local filename = source_path
+    local current_line = eligible_frame_info.currentline
 
-        if not is_special_entry and not is_lual_internal_file(source_path) then
-            -- Found a non-lual file, this is our caller
-            -- Attempt to get the Lua module path using the enhanced algorithm
-            -- This now uses package.path parsing instead of hardcoded roots
-            local lua_path = get_module_path(source_path)
+    -- Attempt to get the Lua module path using the enhanced algorithm
+    local lua_path = get_module_path(source_path)
 
-            -- Clean the filename for display purposes
-            if filename and string.sub(filename, 1, 1) == "@" then
-                filename = string.sub(filename, 2)
-            end
+    -- Clean the filename for display purposes
+    if filename and string.sub(filename, 1, 1) == "@" then
+        filename = string.sub(filename, 2)
+    end
 
-            -- Handle empty filename case - return as-is for backward compatibility
-            if filename == "" then
-                return filename, info.currentline, lua_path
-            end
+    -- Handle empty filename case - return as-is for backward compatibility
+    if filename == "" then
+        return filename, current_line, lua_path
+    end
 
-            -- Convert to dot notation if requested
-            -- Note: This is separate from lua_path - filename shows the full dot-notation path
-            if use_dot_notation and filename then
-                -- Remove file extension only for .lua files
-                filename = string.gsub(filename, "%.lua$", "")
-                -- Convert path separators to dots
-                filename = string.gsub(filename, "[/\\]", ".")
-                -- Remove leading dots (like ./ or ../) but preserve meaningful path components
-                filename = string.gsub(filename, "^%.+", "")
-                -- If empty after processing, return nil to indicate failure
-                if filename == "" then
-                    filename = nil
-                end
-            end
-
-            return filename, info.currentline, lua_path
+    -- Convert to dot notation if requested
+    if use_dot_notation and filename then
+        -- Remove file extension only for .lua files
+        filename = string.gsub(filename, "%.lua$", "")
+        -- Convert path separators to dots
+        filename = string.gsub(filename, "[/\\]", ".")
+        -- Remove leading dots (like ./ or ../) but preserve meaningful path components
+        filename = string.gsub(filename, "^%.+", "")
+        -- If empty after processing, return nil to indicate failure
+        if filename == "" then
+            filename = nil
         end
     end
 
-    -- If we get here, we couldn't find a non-lual file (shouldn't happen in normal usage)
-    return nil, nil, nil
+    return filename, current_line, lua_path
 end
 
 --- Clears the module name cache
@@ -447,8 +502,7 @@ end
 -- @param original_filepath (string) The original file path before normalization
 -- @return string|nil A fallback module name or nil
 function caller_info.generate_fallback_name(abs_filepath, original_filepath)
-    return generate_fallback_name(abs_filepath, original_filepath)
+    return generate_fallback_name(abs_filepath)
 end
 
 return caller_info
-
