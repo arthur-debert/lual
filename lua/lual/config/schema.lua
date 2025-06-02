@@ -25,7 +25,6 @@ M.VALID_CONVENIENCE_KEYS = {
     dispatcher = true,
     presenter = true,
     propagate = true,
-    timezone = true,
     path = true,
     stream = true
 }
@@ -85,12 +84,7 @@ M.FIELD_VALIDATORS = {
         end
     },
 
-    timezone = {
-        optional = true,
-        validate = function(value)
-            return constants.validate_against_constants(value, constants.VALID_TIMEZONES, true, "string")
-        end
-    },
+
 
     dispatcher = {
         optional = false, -- Required in convenience syntax

@@ -16,8 +16,7 @@ local CONVENIENCE_MAPPINGS = {
     -- Core fields that always map from convenience to full syntax
     core = {
         dispatcher = "type",
-        presenter = "presenter",
-        timezone = "timezone"
+        presenter = "presenter"
     },
 
     -- Type-specific fields based on dispatcher type
@@ -49,7 +48,7 @@ local CONVENIENCE_MAPPINGS = {
     },
 
     -- Fields to remove after transformation (convenience syntax fields)
-    cleanup_fields = { "dispatcher", "presenter", "timezone", "path", "stream" }
+    cleanup_fields = { "dispatcher", "presenter", "path", "stream" }
 }
 
 --- Validates a field according to mapping rules
@@ -220,14 +219,14 @@ function M.normalize_config_format(config)
     return config
 end
 
---- Checks if config uses convenience syntax (for backward compatibility)
+--- Checks if config uses convenience syntax
 -- @param config table The config to check
 -- @return boolean True if convenience syntax
 function M.is_convenience_config(config)
     return schema.is_convenience_syntax(config)
 end
 
---- Transforms convenience syntax to full syntax (for backward compatibility)
+--- Transforms convenience syntax to full syntax
 -- @param config table The convenience syntax config
 -- @return table The config in full syntax
 function M.convenience_to_full_config(config)

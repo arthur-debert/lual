@@ -19,16 +19,15 @@ design is done over functions and tables, look ma, no classes.
         local logger = lual.logger({
             dispatcher = lual.console,
             level = lual.debug,
-            presenter = lual.color,
-            timezone = lual.utc
+            presenter = lual.color
         })
         
         local bigLogging = lual.logger({
             name = "app.database",
             level = lual.debug,
             dispatchers = {
-                {type = lual.console, presenter = lual.color},
-                {type = lual.file, path = "app.log", presenter = lual.text}
+                {type = lual.console, presenter = lual.color, timezone = lual.utc},
+                {type = lual.file, path = "app.log", presenter = lual.text, timezone = lual.local_time}
             }
         })
         

@@ -306,49 +306,4 @@ function M.validate_convenience_requirements(config)
     return true
 end
 
---- Validates type-specific convenience fields (legacy function, now uses mapping system)
--- @param config table The config to validate
--- @return boolean, string True if valid, or false with error message
-function M.validate_convenience_type_fields(config)
-    -- This function is now handled by the mapping system in normalization.lua
-    -- but kept for backward compatibility
-    local normalization = require("lual.config.normalization")
-    local mappings = normalization.get_mappings()
-
-    local dispatcher_type = config.dispatcher
-    local validation_rules = mappings.validation_rules[dispatcher_type]
-
-    if not validation_rules then
-        return true -- No specific validation rules for this type
-    end
-
-    for field_name, rule in pairs(validation_rules) do
-        local value = config[field_name]
-
-        -- Check if field is required
-        if rule.required and value == nil then
-            return false, rule.error_msg or (field_name .. " is required")
-        end
-
-        -- Skip validation if field is optional and not provided
-        if not rule.required and value == nil then
-            -- Do nothing, continue to next field
-        else
-            -- Type-specific validation
-            if rule.type == "string" then
-                if type(value) ~= "string" then
-                    return false, rule.error_msg or (field_name .. " must be a string")
-                end
-            elseif rule.type == "file_handle" then
-                -- File handle validation - check it's not a primitive type
-                if type(value) == "string" or type(value) == "number" or type(value) == "boolean" then
-                    return false, rule.error_msg or (field_name .. " must be a file handle")
-                end
-            end
-        end
-    end
-
-    return true
-end
-
 return M

@@ -2,6 +2,8 @@ package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lu
 local lualog = require("lual.logger")
 local config = require("lual.config")
 local constants = require("lual.config.constants")
+local schema = require("lual.config.schema")
+local normalization = require("lual.config.normalization")
 
 -- Helper function to check if something is callable (function or callable table)
 local function is_callable(obj)
@@ -33,18 +35,18 @@ describe("Unified Config API", function()
             local shortcut_config = { dispatcher = "console", presenter = "text" }
             local full_config = { dispatchers = { { type = "console", presenter = "text" } } }
 
-            assert.is_true(config.is_convenience_config_syntax(shortcut_config))
-            assert.is_false(config.is_convenience_config_syntax(full_config))
+            assert.is_true(schema.is_convenience_syntax(shortcut_config))
+            assert.is_false(schema.is_convenience_syntax(full_config))
         end)
 
         it("should detect convenience syntax with only dispatcher field", function()
             local config_table = { dispatcher = "console" }
-            assert.is_true(config.is_convenience_config_syntax(config_table))
+            assert.is_true(schema.is_convenience_syntax(config_table))
         end)
 
         it("should detect convenience syntax with only presenter field", function()
             local config_table = { presenter = "text" }
-            assert.is_true(config.is_convenience_config_syntax(config_table))
+            assert.is_true(schema.is_convenience_syntax(config_table))
         end)
 
         it("should transform console convenience syntax to full format", function()
@@ -56,7 +58,7 @@ describe("Unified Config API", function()
                 propagate = false
             }
 
-            local result = config.transform_convenience_config_to_full(shortcut)
+            local result = normalization.convenience_to_full_config(shortcut)
 
             assert.are.same("test", result.name)
             assert.are.same("debug", result.level)
@@ -74,7 +76,7 @@ describe("Unified Config API", function()
                 presenter = "color"
             }
 
-            local result = config.transform_convenience_config_to_full(shortcut)
+            local result = normalization.convenience_to_full_config(shortcut)
 
             assert.are.same("test", result.name)
             assert.are.same(1, #result.dispatchers)
@@ -90,27 +92,12 @@ describe("Unified Config API", function()
                 stream = io.stderr
             }
 
-            local result = config.transform_convenience_config_to_full(shortcut)
+            local result = normalization.convenience_to_full_config(shortcut)
 
             assert.are.same(1, #result.dispatchers)
             assert.are.same("console", result.dispatchers[1].type)
             assert.are.same("color", result.dispatchers[1].presenter)
             assert.are.same(io.stderr, result.dispatchers[1].stream)
-        end)
-
-        it("should transform convenience syntax with timezone", function()
-            local shortcut = {
-                dispatcher = "console",
-                presenter = "color",
-                timezone = "utc"
-            }
-
-            local result = config.transform_convenience_config_to_full(shortcut)
-
-            assert.are.same(1, #result.dispatchers)
-            assert.are.same("console", result.dispatchers[1].type)
-            assert.are.same("color", result.dispatchers[1].presenter)
-            assert.are.same("utc", result.dispatchers[1].timezone)
         end)
     end)
 
