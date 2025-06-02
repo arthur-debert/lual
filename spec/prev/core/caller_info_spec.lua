@@ -37,7 +37,7 @@ describe("lual.core.caller_info", function()
             assert.are.equal("number", type(lineno))   -- This will show the actual type if it fails
 
             -- This will show the exact filename value if it fails
-            assert.are.equal("spec/core/caller_info_spec.lua", filename)
+            assert.are.equal("spec/prev/core/caller_info_spec.lua", filename)
 
             -- Line number should be positive
             assert.is_true(lineno > 0)
