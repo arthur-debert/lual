@@ -1,6 +1,7 @@
 local levels = {}
 
 levels.definition = {
+    NOTSET = 0, -- Special level indicating inheritance from parent
     DEBUG = 10,
     INFO = 20,
     WARNING = 30,

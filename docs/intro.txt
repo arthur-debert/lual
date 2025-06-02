@@ -50,13 +50,15 @@ It has a small but useful set of dispatchers and presenters:
         color: terminal colored (lual.color)
         json: as json (lual.json)
     levels:
-        debug, info, warning, error, critical, none (lual.debug, lual.info, etc.)
+        notset, debug, info, warning, error, critical, none (lual.notset, lual.debug, lual.info, etc.)
     timezones:
         local time and UTC (lual.local_time, lual.utc)
 
 But presenters and dispatchers are just functions, pass your own.
 
 Names can be either introspected or set manually. There is hierarchical logging, with propagation, see docs/propagation.txt . 
+
+**LEVEL INHERITANCE**: Non-root loggers default to `lual.notset` level, which means they inherit their effective level from the closest configured ancestor in the hierarchy. If no ancestor has an explicit level, it falls back to `lual.info`. Root loggers always have an explicit level.
 
 **NAMING RESTRICTIONS**: Logger names starting with underscore (_) are reserved for internal use and cannot be used for user loggers. The only exception is "_root" which is the internal root logger.
 

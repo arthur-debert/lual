@@ -106,12 +106,34 @@ function M.logger_prototype:log(level_no, ...)
     ingest_dispatch_log_event(log_record)
 end
 
+--- Gets the effective level for this logger, resolving NOTSET by inheritance
+function M.logger_prototype:get_effective_level()
+    local current_logger = self
+
+    while current_logger do
+        -- If this logger has an explicit level (not NOTSET), use it
+        if current_logger.level ~= core_levels.definition.NOTSET then
+            return current_logger.level
+        end
+
+        -- Move up to parent to continue looking
+        current_logger = current_logger.parent
+    end
+
+    -- If we reach here, no logger in the hierarchy has an explicit level
+    -- This shouldn't happen in practice since root should always have a level
+    -- But fall back to INFO as a safety measure
+    return core_levels.definition.INFO
+end
+
 --- Checks if a logger is enabled for a given level
 function M.logger_prototype:is_enabled_for(message_level_no)
-    if self.level == core_levels.definition.NONE then
+    local effective_level = self:get_effective_level()
+
+    if effective_level == core_levels.definition.NONE then
         return message_level_no == core_levels.definition.NONE
     end
-    return message_level_no >= self.level
+    return message_level_no >= effective_level
 end
 
 --- Gets all effective dispatchers for this logger (including parent dispatchers via propagation)

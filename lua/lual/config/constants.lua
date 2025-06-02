@@ -34,6 +34,7 @@ M.VALID_TIMEZONES = {
 -- Valid level strings (case-insensitive)
 M.VALID_LEVEL_STRINGS = {
     _meta = { name = "level", case_sensitive = false },
+    notset = true,
     debug = true,
     info = true,
     warning = true,

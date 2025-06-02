@@ -67,9 +67,9 @@ describe("get_config functionality", function()
             local config = logger:get_config()
             assert.is_not_nil(config)
             assert.are.equal("simple.logger", config.name)
-            assert.are.equal(lual.info, config.level) -- Default level
-            assert.is_true(config.propagate)          -- Default propagate
-            assert.are.equal(0, #config.dispatchers)  -- No dispatchers by default
+            assert.are.equal(lual.notset, config.level) -- Non-root loggers now default to NOTSET
+            assert.is_true(config.propagate)            -- Default propagate
+            assert.are.equal(0, #config.dispatchers)    -- No dispatchers by default
         end)
     end)
 
@@ -127,7 +127,7 @@ describe("get_config functionality", function()
             -- Check database logger config (default settings)
             local db_config = hierarchy["app.database"]
             assert.are.equal("app.database", db_config.name)
-            assert.are.equal(lual.info, db_config.level) -- Default
+            assert.are.equal(lual.notset, db_config.level) -- Non-root loggers now default to NOTSET
             assert.are.equal("app", db_config.parent_name)
             assert.is_true(db_config.propagate)
 

@@ -171,9 +171,9 @@ describe("Unified Config API", function()
 
             assert.is_not_nil(logger)
             assert.are.same("test.minimal", logger.name)
-            assert.are.same(lualog.levels.INFO, logger.level) -- Default level
-            assert.is_true(logger.propagate)                  -- Default propagate
-            assert.are.same(0, #logger.dispatchers)           -- No dispatchers by default
+            assert.are.same(lualog.levels.NOTSET, logger.level) -- Non-root loggers now default to NOTSET
+            assert.is_true(logger.propagate)                    -- Default propagate
+            assert.are.same(0, #logger.dispatchers)             -- No dispatchers by default
         end)
 
         it("should create a logger with full config", function()
@@ -503,8 +503,8 @@ describe("Unified Config API", function()
             local logger = lualog.logger("test.string.name")
             assert.is_not_nil(logger)
             assert.are.same("test.string.name", logger.name)
-            assert.are.same(lualog.levels.INFO, logger.level) -- Default level
-            assert.is_true(logger.propagate)                  -- Default propagate
+            assert.are.same(lualog.levels.NOTSET, logger.level) -- Non-root loggers now default to NOTSET
+            assert.is_true(logger.propagate)                    -- Default propagate
         end)
 
         it("should reject logger names starting with underscore", function()
@@ -829,6 +829,91 @@ describe("Unified Config API", function()
             assert.are.same("app.database", logger.name)
             assert.are.same(lualog.levels.DEBUG, logger.level)
             assert.are.same(1, #logger.dispatchers)
+        end)
+    end)
+
+    describe("NOTSET level and inheritance", function()
+        it("should accept notset level as string", function()
+            local logger = lualog.logger("test.notset", {
+                level = "notset"
+            })
+
+            assert.are.same(lualog.notset, logger.level)
+        end)
+
+        it("should expose NOTSET in public API", function()
+            assert.is_number(lualog.notset)
+            assert.are.same(0, lualog.notset)
+            assert.is_not_nil(lualog.LEVELS.notset)
+            assert.are.same(lualog.notset, lualog.LEVELS.notset)
+        end)
+
+        it("should default non-root loggers to NOTSET level", function()
+            local logger = lualog.logger("test.default.level")
+
+            assert.are.same(lualog.notset, logger.level)
+        end)
+
+        it("should inherit effective level from parent when using NOTSET", function()
+            -- Configure root logger with WARNING level
+            lualog.config({ level = "warning" })
+
+            -- Create child logger with NOTSET (default)
+            local child_logger = lualog.logger("app.child")
+            assert.are.same(lualog.notset, child_logger.level)                  -- Should have NOTSET as actual level
+            assert.are.same(lualog.warning, child_logger:get_effective_level()) -- Should inherit WARNING
+
+            -- Test level checking with inherited level
+            assert.is_false(child_logger:is_enabled_for(lualog.debug))
+            assert.is_false(child_logger:is_enabled_for(lualog.info))
+            assert.is_true(child_logger:is_enabled_for(lualog.warning))
+            assert.is_true(child_logger:is_enabled_for(lualog.error))
+        end)
+
+        it("should resolve effective level through multiple inheritance levels", function()
+            -- Configure root logger with ERROR level
+            lualog.config({ level = "error" })
+
+            -- Create hierarchy: root -> app -> app.service -> app.service.worker
+            local app_logger = lualog.logger("app")                                  -- NOTSET (inherits ERROR from root)
+            local service_logger = lualog.logger("app.service", { level = "debug" }) -- Explicit DEBUG
+            local worker_logger = lualog.logger("app.service.worker")                -- NOTSET (should inherit DEBUG from service)
+
+            assert.are.same(lualog.notset, app_logger.level)
+            assert.are.same(lualog.error, app_logger:get_effective_level()) -- Inherits from root
+
+            assert.are.same(lualog.debug, service_logger.level)
+            assert.are.same(lualog.debug, service_logger:get_effective_level()) -- Uses its own level
+
+            assert.are.same(lualog.notset, worker_logger.level)
+            assert.are.same(lualog.debug, worker_logger:get_effective_level()) -- Inherits from service
+
+            -- Test that worker can log debug messages (inherited from service)
+            assert.is_true(worker_logger:is_enabled_for(lualog.debug))
+        end)
+
+        it("should fall back to INFO when no parent has explicit level", function()
+            -- Don't configure root logger, create standalone hierarchy
+            local logger = lualog.logger("standalone.logger")
+
+            assert.are.same(lualog.notset, logger.level)
+            assert.are.same(lualog.info, logger:get_effective_level()) -- Fallback to INFO
+
+            assert.is_true(logger:is_enabled_for(lualog.info))
+            assert.is_false(logger:is_enabled_for(lualog.debug))
+        end)
+
+        it("should handle NONE level inheritance correctly", function()
+            -- Configure root logger with NONE level (disable all logging)
+            lualog.config({ level = "none" })
+
+            local child_logger = lualog.logger("disabled.child")
+            assert.are.same(lualog.none, child_logger:get_effective_level())
+
+            -- Should only be enabled for NONE level (which effectively disables logging)
+            assert.is_false(child_logger:is_enabled_for(lualog.critical))
+            assert.is_false(child_logger:is_enabled_for(lualog.error))
+            assert.is_true(child_logger:is_enabled_for(lualog.none))
         end)
     end)
 end)

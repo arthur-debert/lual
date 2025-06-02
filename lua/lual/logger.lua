@@ -27,6 +27,7 @@ log.transformers = all_transformers -- Assign the transformers table
 -- =============================================================================
 
 -- Level constants (flat namespace)
+log.notset = core_levels.definition.NOTSET
 log.debug = core_levels.definition.DEBUG
 log.info = core_levels.definition.INFO
 log.warning = core_levels.definition.WARNING
@@ -75,6 +76,7 @@ end
 
 -- Add LEVELS mapping for external validation and use
 log.LEVELS = {
+  notset = core_levels.definition.NOTSET,
   debug = core_levels.definition.DEBUG,
   info = core_levels.definition.INFO,
   warning = core_levels.definition.WARNING,

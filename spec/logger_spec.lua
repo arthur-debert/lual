@@ -39,7 +39,7 @@ describe("lualog Logger Object", function()
 			assert.are.equal("string", type(auto_logger.name), "auto_logger.name should be a string")
 			assert.are.equal("spec.logger_spec", auto_logger.name, "specauto_logger.name should be 'spec.logger_spec'")
 			assert.is_false(string.find(auto_logger.name, ".lua", 1, true) ~= nil)
-			assert.are.same(fresh_lualog.levels.INFO, auto_logger.level) -- Default level
+			assert.are.same(fresh_lualog.levels.NOTSET, auto_logger.level) -- Non-root loggers now default to NOTSET
 
 			local root_logger_named = fresh_lualog.logger("_root")
 			assert.are.same("_root", root_logger_named.name)
@@ -592,7 +592,7 @@ describe("lual.logger (Facade)", function()
 
 			local logger2 = lualog.logger("testcache.reset")
 			assert.are_not_same(logger1, logger2, "Logger instance should be new after reset.")
-			assert.are.same(lualog.levels.INFO, logger2.level, "Logger level should be default INFO after reset.")
+			assert.are.same(lualog.levels.NOTSET, logger2.level, "Logger level should be default NOTSET after reset.")
 		end)
 	end)
 

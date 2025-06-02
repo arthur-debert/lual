@@ -29,20 +29,20 @@ As a final push, we're doing :
     lual/v2/dispatch_loop -> the dispatch loop
     add a property to v2 to lual root so that lual.v2.logger() hits the new api, so does lual.v2.config()
 
-    2.1. Logger and Configuration Structure Changes:
+    2.1. Logger and Configuration Structure Changes: DONE
         - Ensure `name` is not a configurable property within a logger's settings.
           It is an identifier.
         - Time configuration (e.g., UTC/local, format string) should be a property
           of Presenters, not a top-level logger or dispatcher setting.
           Refer to `new-design.txt` for details. DONE
 
-    2.2. Introduce `lual.NOTSET` Level:
+    2.2. Introduce `lual.NOTSET` Level: DONE
         - Add this special level value (e.g., could be `0` or a unique table).
         - Non-root loggers will default to `level = lual.NOTSET`.
         - This signifies that the logger should inherit its effective level from
           its closest configured ancestor.
 
-    2.3. Root Logger (`_root`):
+    2.3. Root Logger (`_root`): DONE
         - Implement the internal root logger, named `_root`.
         - Ensure user-defined logger names cannot start with `_`. If an auto-generated
           name (e.g., from module path) starts with `_`, it must be prefixed or altered.

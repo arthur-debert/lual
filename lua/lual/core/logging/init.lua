@@ -188,9 +188,9 @@ function M.logger(input_config, config_table)
             error("Logger names starting with '_' are reserved for internal use. Please use a different name.")
         end
 
-        -- Define default config
+        -- Define default config (use NOTSET for non-root loggers to inherit level)
         local default_config = {
-            level = "info",
+            level = logger_name == "_root" and "info" or "notset",
             dispatchers = {},
             propagate = true
         }
@@ -247,9 +247,9 @@ function M.logger(input_config, config_table)
     -- Auto-generate logger name (defaults to "_root")
     local logger_name = "_root"
 
-    -- Define default config
+    -- Define default config (use NOTSET for anonymous loggers to inherit level)
     local default_config = {
-        level = "info",
+        level = logger_name == "_root" and "info" or "notset",
         dispatchers = {},
         propagate = true
     }

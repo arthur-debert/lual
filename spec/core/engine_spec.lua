@@ -34,7 +34,7 @@ describe("lual.core.logging", function()
 			assert.are.equal(current_test_filename, auto_logger.name,
 				"auto_logger.name should match current_test_filename")
 			assert.is_false(string.find(auto_logger.name, ".lua", 1, true) ~= nil)
-			assert.are.same(fresh_core_levels.definition.INFO, auto_logger.level) -- Default level
+			assert.are.same(fresh_core_levels.definition.NOTSET, auto_logger.level) -- Non-root loggers now default to NOTSET
 
 			local root_logger_named = fresh_engine.logger("_root")
 			assert.are.same("_root", root_logger_named.name)
@@ -96,6 +96,38 @@ describe("lual.core.logging", function()
 			local logger = fresh_engine.logger("_root")
 			assert.is_not_nil(logger)
 			assert.are.same("_root", logger.name)
+		end)
+
+		it("should default non-root loggers to NOTSET level", function()
+			package.loaded["lual.core.logging"] = nil
+			local fresh_engine = require("lual.core.logging")
+			local fresh_levels = require("lual.core.levels")
+			fresh_engine.reset_cache()
+
+			local logger = fresh_engine.logger("test.notset.default")
+			assert.are.same(fresh_levels.definition.NOTSET, logger.level)
+		end)
+
+		it("should resolve effective level through inheritance", function()
+			package.loaded["lual.core.logging"] = nil
+			package.loaded["lual.core.levels"] = nil
+			local fresh_engine = require("lual.core.logging")
+			local fresh_levels = require("lual.core.levels")
+			fresh_engine.reset_cache()
+
+			-- Configure root logger with WARNING level
+			fresh_engine.config_root_logger({ level = "warning" })
+
+			-- Create child logger (defaults to NOTSET)
+			local child_logger = fresh_engine.logger("app.child")
+
+			assert.are.same(fresh_levels.definition.NOTSET, child_logger.level)         -- Actual level is NOTSET
+			assert.are.same(fresh_levels.definition.WARNING, child_logger:get_effective_level()) -- Effective level is WARNING
+
+			-- Test level checking with inherited level
+			assert.is_false(child_logger:is_enabled_for(fresh_levels.definition.DEBUG))
+			assert.is_false(child_logger:is_enabled_for(fresh_levels.definition.INFO))
+			assert.is_true(child_logger:is_enabled_for(fresh_levels.definition.WARNING))
 		end)
 	end)
 

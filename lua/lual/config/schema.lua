@@ -29,6 +29,7 @@ M.VALID_CONVENIENCE_KEYS = {
 
 --- Level string to number mapping
 M.LEVEL_MAP = {
+    notset = core_levels.definition.NOTSET,
     debug = core_levels.definition.DEBUG,
     info = core_levels.definition.INFO,
     warning = core_levels.definition.WARNING,

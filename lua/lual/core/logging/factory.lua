@@ -63,7 +63,7 @@ function M.create_simple_logger(name, parent_logger)
 
     -- Create logger using config-based approach
     local config = {
-        level = core_levels.definition.INFO,
+        level = logger_name == "_root" and core_levels.definition.INFO or core_levels.definition.NOTSET,
         dispatchers = {},
         propagate = true,
         parent = parent_logger
