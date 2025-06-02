@@ -246,7 +246,24 @@ ARGS_FOR_PUBLISH+=("${FILES_TO_PUBLISH[@]}")
 if [ ${#FILES_TO_PUBLISH[@]} -eq 0 ] || ([ "${#ARGS_FOR_PUBLISH[@]}" -eq 1 ] && [ -n "$DRY_RUN_FLAG" ]); then
     print_error "No files determined for publishing (array is empty or only contains --dry-run)."
 fi
-"$SCRIPTS_DIR/publish-to-luarocks.sh" "${ARGS_FOR_PUBLISH[@]}"
+
+# Capture the output of publish-to-luarocks.sh, which should be the URL if successful
+PUBLISHED_LUAROCKS_URL=""
+if [ -z "$DRY_RUN_FLAG" ]; then # Only attempt to capture URL if not a dry run
+    # The actual publish script redirects its own info/errors to stderr.
+    # Its stdout should only contain the URL if successful.
+    PUBLISHED_LUAROCKS_URL=$("$SCRIPTS_DIR/publish-to-luarocks.sh" "${ARGS_FOR_PUBLISH[@]}")
+    # Check if publish-to-luarocks.sh itself failed (it exits on error)
+    if [ $? -ne 0 ] && [ -z "$PUBLISHED_LUAROCKS_URL" ]; then # If script failed and no URL was output
+        # Error message already printed by publish-to-luarocks.sh, do-release.sh will exit due to set -e
+        # but we can add a more general one here if needed, or just let set -e handle it.
+        print_error "Publishing script failed. See messages above."
+    fi
+else
+    # In dry run, publish-to-luarocks.sh is called with --dry-run and will only print to stderr.
+    "$SCRIPTS_DIR/publish-to-luarocks.sh" "${ARGS_FOR_PUBLISH[@]}"
+fi
+
 print_success "Publish process completed."
 echo
 
@@ -289,6 +306,9 @@ fi
 
 print_success "--------------------------------------------------"
 print_success "RELEASE PROCESS COMPLETED SUCCESSFULLY for $PKG_NAME v$FINAL_VERSION!"
+if [ -n "$PUBLISHED_LUAROCKS_URL" ]; then
+    print_success "$PUBLISHED_LUAROCKS_URL"
+fi
 print_success "--------------------------------------------------"
 if [ "$DRY_RUN_FLAG" = "--dry-run" ]; then print_warning "Remember, this was a DRY RUN."; fi
 exit 0

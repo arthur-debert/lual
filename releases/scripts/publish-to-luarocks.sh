@@ -87,10 +87,36 @@ for rockspec_file in "${rockspecs_to_publish[@]}"; do
             continue
         fi
         print_status_stderr "Uploading $rockspec_file to LuaRocks..."
-        if luarocks upload "$rockspec_file" --api-key="$CURRENT_LUAROCKS_API_KEY"; then
+
+        # Capture output of luarocks upload
+        UPLOAD_OUTPUT=$(luarocks upload "$rockspec_file" --api-key="$CURRENT_LUAROCKS_API_KEY" 2>&1) # Capture both stdout and stderr from luarocks
+        UPLOAD_EXIT_CODE=$?
+
+        # Echo the captured output to stderr for user to see, can be removed if too verbose
+        echo "$UPLOAD_OUTPUT" >&2
+
+        if [ $UPLOAD_EXIT_CODE -eq 0 ]; then
             print_status_stderr "Successfully published $rockspec_file to LuaRocks!"
+            # Extract and print URL to stdout
+            # Look for lines like "Done: <url>" or "Uploaded: <url>" or "Module available at: <url>"
+            # Common pattern is a line ending with the module URL.
+            # Grep for http/https and output only the matching line, then sed to clean it up.
+            # Prioritize lines starting with "Done: ", "Uploaded: ", "Module available at: "
+            LUAROCKS_URL=$(echo "$UPLOAD_OUTPUT" | grep -Eo '(Done: |Uploaded: |Module available at: |https://luarocks.org/modules/)[^[:space:]]+' | sed -E 's/^(Done: |Uploaded: |Module available at: )//' | head -n 1)
+
+            if [ -n "$LUAROCKS_URL" ]; then
+                echo "$LUAROCKS_URL" # Print only the URL to stdout
+            else
+                # Fallback: if specific prefixes not found, look for any line containing the typical base URL structure. This is less precise.
+                FALLBACK_URL=$(echo "$UPLOAD_OUTPUT" | grep -Eo 'https://luarocks.org/modules/[^/]+/[^/]+[^[:space:]]*' | head -n 1)
+                if [ -n "$FALLBACK_URL" ]; then
+                    echo "$FALLBACK_URL" # Print only the URL to stdout
+                else
+                    print_warning_stderr "Could not extract LuaRocks URL from upload output for $rockspec_file."
+                fi
+            fi
         else
-            print_error_stderr "Failed to publish $rockspec_file to LuaRocks. See errors above."
+            print_error_stderr "Failed to publish $rockspec_file to LuaRocks. See errors above. (Exit code: $UPLOAD_EXIT_CODE)"
         fi
     fi
 done
