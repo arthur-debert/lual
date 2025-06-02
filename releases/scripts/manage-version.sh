@@ -1,92 +1,87 @@
 #!/usr/bin/env bash
 #
 # Script: manage-version.sh
-# Purpose: Reads the current version from a specified VERSION file, then either
-#          uses it directly, or prompts the user to bump (patch, minor, major),
-#          or bumps automatically based on arguments.
-#          Writes the chosen/bumped version back to the VERSION file.
-#          Outputs the final chosen version string to stdout.
+# Purpose: Determines the final semantic version for a release. It can operate in two modes:
+#          1. Interactive Mode (default): Prompts the user to either use the current version or
+#             select a bump type (patch, minor, major) if no action flags are provided.
+#          2. Flag-driven Mode: If action flags (--use-current or --bump-type) are passed,
+#             it calculates the version non-interactively.
+#          It outputs the chosen/calculated final semantic version string (e.g., "1.2.3") to stdout.
+#          This script purely calculates the version string and performs NO file I/O itself.
+#          All user prompts and status messages are printed to stderr.
 #
-# Usage: ./manage-version.sh <version_file_abs_path> <scripts_dir_abs_path> [version_action_flag] [bump_type_if_action_is_bump]
-#   <version_file_abs_path> : Absolute path to the VERSION file (e.g., /path/to/project/releases/VERSION).
-#   <scripts_dir_abs_path>  : Absolute path to the directory containing bump-version script
-#                             (e.g., /path/to/project/releases/scripts).
-#   [version_action_flag]   : Optional. Can be:
-#                               --use-current : Use version in VERSION file without prompting.
-#                               --bump-type   : Bump version by type specified in next arg, no prompt.
-#   [bump_type_if_any]    : Required if version_action_flag is --bump-type.
-#                             Value must be "patch", "minor", or "major".
+# Usage: ./manage-version.sh <current_semantic_version> <scripts_dir_abs_path> [version_action_flag] [bump_type_if_any]
+#   <current_semantic_version> : The current semantic version (X.Y.Z format, e.g., "1.2.3") from the source.
+#   <scripts_dir_abs_path>     : Absolute path to the directory containing the 'bump-version' utility script.
+#   [version_action_flag]      : Optional. Determines non-interactive behavior. Can be:
+#                                  --use-current : Instructs to use <current_semantic_version> without change.
+#                                  --bump-type   : Instructs to bump <current_semantic_version> by the type
+#                                                  specified in the [bump_type_if_any] argument.
+#   [bump_type_if_any]         : Required if [version_action_flag] is --bump-type.
+#                                  Value must be "patch", "minor", or "major".
+#
+# Output:
+#   - To stdout: The final calculated semantic version string (e.g., "1.2.4").
+#   - To stderr: Prompts and status messages during operation.
 #
 # Called by: releases/do-release.sh
-# Calls:     <scripts_dir_abs_path>/bump-version
-#
-# Assumptions:
-#   - The VERSION file at <version_file_abs_path> exists and contains a semantic version string (e.g., "1.2.3").
-#   - The bump-version script exists at <scripts_dir_abs_path>/bump-version and functions correctly.
+# Calls:     <scripts_dir_abs_path>/bump-version (utility to perform version math).
 #
 set -e
 
-# Arguments for explicit pathing, reducing reliance on CWD or relative SCRIPT_DIR for critical files.
-VERSION_FILE_PATH_ARG=$1
+CURRENT_SEMANTIC_VERSION_ARG=$1
 SCRIPTS_DIR_ARG=$2
 VERSION_ACTION=$3
 BUMP_TYPE_ARG=$4
 
-# Colors for output (defined here as this script might be called standalone for testing)
+# Colors
 RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
+NC='\033[0m'
 print_status() { echo -e "${BLUE}[INFO]${NC} $1" >&2; }
 print_error() {
     echo -e "${RED}[ERROR]${NC} $1" >&2
     exit 1
 }
 
-if [ -z "$VERSION_FILE_PATH_ARG" ]; then print_error "Version file path argument not provided."; fi
+if [ -z "$CURRENT_SEMANTIC_VERSION_ARG" ]; then print_error "Current semantic version argument not provided."; fi
+if ! echo "$CURRENT_SEMANTIC_VERSION_ARG" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+    print_error "Provided current semantic version '$CURRENT_SEMANTIC_VERSION_ARG' must be X.Y.Z format."
+fi
 if [ -z "$SCRIPTS_DIR_ARG" ]; then print_error "Scripts directory path argument not provided."; fi
 
-if [ ! -f "$VERSION_FILE_PATH_ARG" ]; then
-    print_error "VERSION file not found at [$VERSION_FILE_PATH_ARG] (PWD is [$(pwd)])"
-fi
-
-CURRENT_VERSION=$(cat "$VERSION_FILE_PATH_ARG" | tr -d '\n' | tr -d '\r')
-if [ -z "$CURRENT_VERSION" ]; then print_error "VERSION file is empty: [$VERSION_FILE_PATH_ARG]"; fi
-
-NEW_VERSION="$CURRENT_VERSION"
+NEW_SEMANTIC_VERSION="$CURRENT_SEMANTIC_VERSION_ARG"
 
 if [ "$VERSION_ACTION" = "--use-current" ]; then
-    print_status "Using current version from VERSION file: $CURRENT_VERSION (as per --use-version-file flag)"
+    print_status "Using current version: $CURRENT_SEMANTIC_VERSION_ARG (as per --use-version-file/current flag)"
+    # NEW_SEMANTIC_VERSION is already set to CURRENT_SEMANTIC_VERSION_ARG
 elif [ "$VERSION_ACTION" = "--bump-type" ]; then
     if [[ ! "$BUMP_TYPE_ARG" =~ ^(patch|minor|major)$ ]]; then print_error "Invalid bump type '$BUMP_TYPE_ARG'."; fi
     print_status "Bumping version by '$BUMP_TYPE_ARG' (as per --bump flag)..."
-    NEW_VERSION=$("$SCRIPTS_DIR_ARG/bump-version" "$BUMP_TYPE_ARG" "$CURRENT_VERSION")
-    print_status "$BUMP_TYPE_ARG version bump: $CURRENT_VERSION → $NEW_VERSION"
+    NEW_SEMANTIC_VERSION=$("$SCRIPTS_DIR_ARG/bump-version" "$BUMP_TYPE_ARG" "$CURRENT_SEMANTIC_VERSION_ARG")
+    print_status "$BUMP_TYPE_ARG version bump: $CURRENT_SEMANTIC_VERSION_ARG → $NEW_SEMANTIC_VERSION"
 else
-    print_status "Current version: $CURRENT_VERSION"
+    print_status "Current semantic version: $CURRENT_SEMANTIC_VERSION_ARG"
     echo >&2
     print_status "Choose action:"
-    echo "1. Use current version ($CURRENT_VERSION)" >&2
+    echo "1. Use current version ($CURRENT_SEMANTIC_VERSION_ARG)" >&2
     echo "2. Bump version" >&2
     echo >&2
-
     while true; do
         read -p "Select action (1-2): " -n 1 -r choice >&2
         echo >&2
         case $choice in
         1)
-            print_status "Using current version: $CURRENT_VERSION"
-            NEW_VERSION="$CURRENT_VERSION"
+            print_status "Using current version: $CURRENT_SEMANTIC_VERSION_ARG"
+            NEW_SEMANTIC_VERSION="$CURRENT_SEMANTIC_VERSION_ARG"
             break
             ;;
         2)
             echo >&2
             print_status "Select bump type:"
-            PATCH_BUMP=$("$SCRIPTS_DIR_ARG/bump-version" patch "$CURRENT_VERSION")
-            MINOR_BUMP=$("$SCRIPTS_DIR_ARG/bump-version" minor "$CURRENT_VERSION")
-            MAJOR_BUMP=$("$SCRIPTS_DIR_ARG/bump-version" major "$CURRENT_VERSION")
+            PATCH_BUMP=$("$SCRIPTS_DIR_ARG/bump-version" patch "$CURRENT_SEMANTIC_VERSION_ARG")
+            MINOR_BUMP=$("$SCRIPTS_DIR_ARG/bump-version" minor "$CURRENT_SEMANTIC_VERSION_ARG")
+            MAJOR_BUMP=$("$SCRIPTS_DIR_ARG/bump-version" major "$CURRENT_SEMANTIC_VERSION_ARG")
             echo "1. Patch ($PATCH_BUMP)" >&2
             echo "2. Minor ($MINOR_BUMP)" >&2
             echo "3. Major ($MAJOR_BUMP)" >&2
@@ -97,23 +92,23 @@ else
                 case $bump_choice in
                 1)
                     BUMP_TYPE="patch"
-                    NEW_VERSION="$PATCH_BUMP"
+                    NEW_SEMANTIC_VERSION="$PATCH_BUMP"
                     break
                     ;;
                 2)
                     BUMP_TYPE="minor"
-                    NEW_VERSION="$MINOR_BUMP"
+                    NEW_SEMANTIC_VERSION="$MINOR_BUMP"
                     break
                     ;;
                 3)
                     BUMP_TYPE="major"
-                    NEW_VERSION="$MAJOR_BUMP"
+                    NEW_SEMANTIC_VERSION="$MAJOR_BUMP"
                     break
                     ;;
                 *) print_error "Invalid choice. Please select 1, 2, or 3." ;;
                 esac
             done
-            print_status "$BUMP_TYPE version bump: $CURRENT_VERSION → $NEW_VERSION"
+            print_status "$BUMP_TYPE version bump: $CURRENT_SEMANTIC_VERSION_ARG → $NEW_SEMANTIC_VERSION"
             break
             ;;
         *) print_error "Invalid choice. Please select 1 or 2." ;;
@@ -121,9 +116,4 @@ else
     done
 fi
 
-if [ "$NEW_VERSION" != "$CURRENT_VERSION" ]; then
-    print_status "Updating VERSION file ($VERSION_FILE_PATH_ARG) to: $NEW_VERSION"
-    echo "$NEW_VERSION" >"$VERSION_FILE_PATH_ARG"
-fi
-
-echo "$NEW_VERSION"
+echo "$NEW_SEMANTIC_VERSION" # Output the chosen/calculated semantic version
