@@ -11,13 +11,14 @@ No function bodies are implemented at this stage.
 local log = {}
 
 local core_levels = require("lual.core.levels")
-local engine = require("lual.core.logging")
+-- V2 system is now the default
+local v2_api = require("lual.v2")
 local all_dispatchers = require("lual.dispatchers.init")   -- Require the new dispatchers init
 local all_presenters = require("lual.presenters.init")     -- Require the new presenters init
 local all_transformers = require("lual.transformers.init") -- Require the new transformers init
 
 log.levels = core_levels.definition
-log.logger = engine.logger          -- Primary API for creating loggers
+log.logger = v2_api.logger          -- V2 API is now the default
 log.dispatchers = all_dispatchers   -- Assign the dispatchers table
 log.presenters = all_presenters     -- Assign the presenters table
 log.transformers = all_transformers -- Assign the transformers table
@@ -55,23 +56,17 @@ log.noop = "noop"
 -- NEW ROOT LOGGER CONFIGURATION API
 -- =============================================================================
 
---- Creates and configures the root logger. This is the only way to enable a root logger.
---- Until this is called, loggers are quiet by default (no automatic root logger exists).
+--- Creates and configures the root logger using the v2 system.
 --- @param config table The root logger configuration
---- @return table The root logger instance
+--- @return table The updated configuration
 function log.config(config)
-  return engine.config_root_logger(config or {})
+  return v2_api.config(config or {})
 end
 
 --- Gets the configuration of the root logger
---- @return table|nil The root logger configuration, or nil if no root logger exists
+--- @return table The root logger configuration
 function log.get_config()
-  local root_logger = engine.get_root_logger()
-  if root_logger then
-    return root_logger:get_config()
-  else
-    return nil
-  end
+  return v2_api.get_config()
 end
 
 -- Add LEVELS mapping for external validation and use
@@ -92,8 +87,8 @@ log.LEVELS = {
 
 --- Resets all logging configuration to defaults.
 function log.reset_config()
-  engine.reset_cache()
-  -- Note: No automatic default config initialization anymore
+  v2_api.reset_config()
+  v2_api.reset_cache()
 end
 
 -- =============================================================================

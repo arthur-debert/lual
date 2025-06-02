@@ -303,6 +303,8 @@ function M.logger(name, config_table)
     -- Use default config if none provided
     config_table = config_table or {}
 
+
+
     -- Validate configuration
     local valid, error_msg = validate_logger_config(config_table)
     if not valid then
