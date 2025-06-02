@@ -312,11 +312,15 @@ describe("lual.v2.config() API", function()
             assert.are.equal(core_levels.definition.INFO, retrieved_config.level)
         end)
 
-        it("should have v2.logger placeholder", function()
+        it("should have v2.logger implemented", function()
             assert.is_function(lual.v2.logger)
-            assert.has_error(function()
-                lual.v2.logger()
-            end, "lual.v2.logger() not yet implemented - coming in future steps")
+
+            -- Should be able to create loggers now
+            assert.has_no_error(function()
+                local logger = lual.v2.logger("test.implemented")
+                assert.is_not_nil(logger)
+                assert.are.equal("test.implemented", logger.name)
+            end)
         end)
     end)
 

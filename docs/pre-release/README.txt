@@ -61,7 +61,7 @@ As a final push, we're doing :
           settings unchanged from their current state (either library defaults or
           values from a previous `lual.config()` call).
 
-    2.5. Implement Effective Level Calculation:
+    2.5. Implement Effective Level Calculation: DONE
         - Create a method or internal function for loggers, say `logger:_get_effective_level()`.
         - If `self.level` is not `lual.NOTSET`, return `self.level`.
         - Else, if `self` is `_root`, return `_root.level` (it must have an explicit level).
@@ -90,10 +90,7 @@ As a final push, we're doing :
             3. If `L.propagate` is `true` AND `L` is not `_root`:
                 a. Pass the original event to `L.parent` to repeat this process.
 
-        - Transitional Strategy: Consider a temporary flag to switch between old and
-          new dispatch logic during development and testing if needed.
-
-    2.8. Testing Strategy:
+        - Transitional Strategy: if the format is the new x, should pass thorugh the new dispartch
         - Write comprehensive tests for the new dispatch logic, specifically covering:
             - Correct `lual.NOTSET` level inheritance.
             - Dispatching only occurs if a logger has its own dispatchers AND the

@@ -11,13 +11,12 @@ M.config = config_module.config
 M.get_config = config_module.get_config
 M.reset_config = config_module.reset_config
 
--- Expose the v2 logger creation functions (for testing step 2.5)
+-- Expose the v2 logger creation functions (for testing)
 M.create_logger = logger_module.create_logger
 M.create_root_logger = logger_module.create_root_logger
 
--- Placeholder for full logger API (to be implemented in future steps)
-function M.logger(...)
-    error("lual.v2.logger() not yet implemented - coming in future steps")
-end
+-- Expose the main logger API (Step 2.6)
+M.logger = logger_module.logger
+M.reset_cache = logger_module.reset_cache
 
 return M
