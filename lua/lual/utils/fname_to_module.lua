@@ -11,75 +11,13 @@
 -- 3. Robust Fallbacks: When `package.path` matching is not possible or doesn't yield a
 --    result, several fallback strategies are employed.
 
+local paths = require("lual.utils.paths")
+
 local fname_to_module = {}
 
 -- Cache for derived module names to avoid expensive recomputation
 -- Key: absolute file path, Value: derived module name
 local module_name_cache = {}
-
---- Normalizes a file path to use forward slashes and removes redundant components
--- @param path (string) The path to normalize
--- @return string The normalized path
-local function normalize_path(path)
-    if not path then
-        return ""
-    end
-
-    -- Convert backslashes to forward slashes for consistent processing
-    path = path:gsub("\\", "/")
-
-    -- Remove redundant slashes
-    path = path:gsub("//+", "/")
-
-    -- Handle . and .. components (simplified version)
-    local parts = {}
-    for part in path:gmatch("[^/]+") do
-        if part == ".." then
-            if #parts > 0 and parts[#parts] ~= ".." then
-                table.remove(parts)
-            else
-                table.insert(parts, part)
-            end
-        elseif part ~= "." then
-            table.insert(parts, part)
-        end
-    end
-
-    local result = table.concat(parts, "/")
-
-    -- Preserve leading slash for absolute paths
-    if path:sub(1, 1) == "/" then
-        result = "/" .. result
-    end
-
-    return result
-end
-
---- Converts a relative path to an absolute path
--- @param path (string) The path to convert
--- @return string The absolute path
-local function to_absolute_path(path)
-    if not path then
-        return ""
-    end
-
-    -- If already absolute (starts with / or drive letter on Windows), return as-is
-    if path:sub(1, 1) == "/" or path:match("^[A-Za-z]:") then
-        return normalize_path(path)
-    end
-
-    -- For relative paths, we'll use a simple approach since we can't use external libs
-    -- In a real implementation, this would use the current working directory
-    -- For now, we'll just normalize and return the path as-is
-    return normalize_path(path)
-end
-
---- Escapes special Lua pattern characters in a string
--- @param str (string) The string to escape
--- @return string The escaped string
-local function escape_lua_pattern(str)
-    return str:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")
-end
 
 --- Attempts to match a file path against a single package.path template
 -- @param abs_filepath (string) The absolute file path to match
@@ -87,7 +25,7 @@ end
 -- @return string|nil The extracted module name if matched, nil otherwise
 local function match_template(abs_filepath, template)
     -- Normalize the template path
-    template = normalize_path(template)
+    template = paths.normalize_path(template)
 
     -- Find the position of ? in the template
     local question_pos = template:find("?", 1, true)
@@ -113,11 +51,11 @@ local function match_template(abs_filepath, template)
     else
         -- Normal module pattern
         -- Convert template prefix to absolute path if it's relative
-        local abs_template_prefix = to_absolute_path(template_prefix)
+        local abs_template_prefix = paths.to_absolute_path(template_prefix)
 
         -- Check if the file path matches this template structure
-        local escaped_prefix = escape_lua_pattern(abs_template_prefix)
-        local escaped_suffix = escape_lua_pattern(template_suffix)
+        local escaped_prefix = paths.escape_lua_pattern(abs_template_prefix)
+        local escaped_suffix = paths.escape_lua_pattern(template_suffix)
 
         -- Create pattern to capture the module part (what ? represents)
         pattern = "^" .. escaped_prefix .. "(.-)" .. escaped_suffix .. "$"
@@ -205,7 +143,7 @@ local function process_path(file_path)
     end
 
     -- Normalize paths for reliable matching
-    local abs_filepath = to_absolute_path(file_path)
+    local abs_filepath = paths.to_absolute_path(file_path)
 
     -- Extract basename for early pattern detection
     local basename = abs_filepath:match("([^/\\]+)$") or abs_filepath
