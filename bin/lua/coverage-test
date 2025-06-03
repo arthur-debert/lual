@@ -1,0 +1,70 @@
+#!/bin/bash
+
+# ANSI color codes
+RED='\033[31m'
+YELLOW='\033[33m'
+GREEN='\033[32m'
+BOLD='\033[1m'
+RESET='\033[0m'
+
+echo "🧪 Testing coverage color logic without running full test suite..."
+
+# Use existing coverage data
+if [ ! -f "coverage/luacov.report.out" ]; then
+    echo "❌ No coverage data found. Run ./bin/lua/coverage first."
+    exit 1
+fi
+
+echo ""
+echo -e "${BOLD}📈 Coverage Summary (sorted by coverage % - highest first):${RESET}"
+echo "================================================================"
+
+# Extract and process coverage data with debug output
+sed -n '/^----------------------------------------------------------------$/,/^----------------------------------------------------------------$/p' coverage/luacov.report.out |
+    grep "\.lua" |
+    sort -k4 -nr |
+    head -5 |
+    while IFS= read -r line; do
+        # Extract the coverage percentage and convert to integer (remove % and decimal)
+        coverage_str=$(echo "$line" | awk '{print $4}' | sed 's/%//')
+        coverage_int=$(echo "$coverage_str" | sed 's/\.//' | sed 's/^0*//')
+
+        # Handle edge case where coverage might be exactly 0 or have leading zeros
+        if [ -z "$coverage_int" ] || [ "$coverage_int" = "" ]; then
+            coverage_int=0
+        fi
+
+        # Show debug info
+        echo "DEBUG: $coverage_str% -> $coverage_int"
+
+        # Color code based on coverage percentage (using integer comparison)
+        if [ "$coverage_int" -ge 8500 ]; then
+            echo -e "${GREEN}$line${RESET} [GREEN >= 85%]"
+        elif [ "$coverage_int" -ge 6500 ]; then
+            echo -e "${YELLOW}$line${RESET} [YELLOW >= 65%]"
+        else
+            echo -e "${RED}$line${RESET} [RED < 65%]"
+        fi
+        echo ""
+    done
+
+echo "================================================================"
+
+# Show the total line with appropriate coloring
+total_line=$(grep "^Total" coverage/luacov.report.out)
+total_coverage_str=$(echo "$total_line" | awk '{print $4}' | sed 's/%//')
+total_coverage_int=$(echo "$total_coverage_str" | sed 's/\.//' | sed 's/^0*//')
+
+if [ -z "$total_coverage_int" ] || [ "$total_coverage_int" = "" ]; then
+    total_coverage_int=0
+fi
+
+echo "DEBUG: Total $total_coverage_str% -> $total_coverage_int"
+
+if [ "$total_coverage_int" -ge 8500 ]; then
+    echo -e "${BOLD}${GREEN}$total_line${RESET} [TOTAL: GREEN]"
+elif [ "$total_coverage_int" -ge 6500 ]; then
+    echo -e "${BOLD}${YELLOW}$total_line${RESET} [TOTAL: YELLOW]"
+else
+    echo -e "${BOLD}${RED}$total_line${RESET} [TOTAL: RED]"
+fi

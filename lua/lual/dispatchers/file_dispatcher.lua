@@ -184,17 +184,34 @@ local function file_dispatcher_factory(config)
         end
 
         local success, err_write = pcall(function()
-            file:write(record.message)
-            file:write("\n")
-            file:flush()
+            -- Handle both string messages and record tables
+            local message
+            if type(record) == "string" then
+                message = record
+            else
+                -- First try the message field for backward compatibility
+                message = record.message or record.presented_message or record.formatted_message or record.message_fmt
+                -- Add timestamp and level if available
+                if record.timestamp and record.level_name then
+                    local timestamp = os.date("%Y-%m-%d %H:%M:%S", record.timestamp)
+                    message = string.format("%s %s [%s] %s",
+                        timestamp,
+                        record.level_name,
+                        record.logger_name,
+                        message)
+                end
+            end
+
+            file:write(message)
+            file:write("\n") -- Add a newline after the message for better readability
+            file:flush()     -- Ensure the message is written immediately
+            file:close()     -- Close the file after writing
         end)
 
         if not success then
             io.stderr:write(string.format("lual: Error writing to log file '%s': %s\n", log_path,
                 tostring(err_write or "unknown error")))
         end
-
-        file:close()
     end
 end
 

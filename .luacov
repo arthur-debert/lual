@@ -1,7 +1,7 @@
 return {
   -- Modules to include in coverage analysis
   include = {
-    "melt",
+    "lual",
   },
   -- Modules to exclude from coverage analysis
   exclude = {
@@ -21,7 +21,7 @@ return {
   -- List of reporters to run at the end
   reporter = "default",
   -- Additional reporters
-  reporters = {"default", "lcov"},
+  reporters = { "default", "lcov" },
   -- LCOV reporter configuration
   lcov = {
     reportfile = "coverage/lcov.info"

@@ -13,7 +13,7 @@ description = {
 	license = "MIT",
 }
 dependencies = {
-	"lua >= 5.1",
+	"lua >= 5.4",
 }
 build = {
 	type = "builtin",
@@ -26,6 +26,9 @@ build = {
 }
 test_dependencies = {
 	"busted >= 2.0.0",
+    "dkjson >= 2.5",
+    "luasocket >= 3.0rc1-2",
+	"luacov >= 0.15.0"
 }
 test = {
 	type = "busted",

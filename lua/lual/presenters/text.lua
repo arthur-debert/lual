@@ -3,14 +3,15 @@
 local time_utils = require("lual.utils.time")
 
 --- Factory that creates a text presenter function
--- @param config (table, optional) Configuration for the text presenter
+-- @param config (table, optional) Configuration for the text presenter (including timezone)
 -- @return function The presenter function with schema attached
 local function text_presenter_factory(config)
     config = config or {}
+    local timezone = config.timezone or "local" -- Default to local timezone
 
     -- Create the actual presenter function
     local function presenter_func(record)
-        local timestamp_str = time_utils.format_timestamp(record.timestamp, record.timezone)
+        local timestamp_str = time_utils.format_timestamp(record.timestamp, timezone)
         local msg_args = record.args or {}
         if type(msg_args) ~= "table" then msg_args = {} end -- Ensure msg_args is a table
 

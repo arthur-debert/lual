@@ -34,34 +34,49 @@ jobs:
           sudo apt-get update
           xargs -a .github/apt-packages.txt sudo apt-get install -y --no-install-recommends
 
+      - name: Configure Lua environment
+        run: |
+          # Create luarocks config directory
+          mkdir -p ~/.luarocks
+          # Ensure luarocks uses lua5.4 by setting environment variables
+          echo "Configuring luarocks to use lua5.4..."
+          export LUA_VERSION=5.4
+          export LUA=/usr/bin/lua5.4
+          # Verify lua5.4 is available
+          echo "Lua version:"
+          lua5.4 -v
+          # Show luarocks configuration
+          echo "LuaRocks version and config:"
+          luarocks --version
+          # Add local luarocks bin to PATH
+          echo "$HOME/.luarocks/bin" >> $GITHUB_PATH
+          echo "LUA_VERSION=$LUA_VERSION" >> $GITHUB_ENV
+          echo "LUA=/usr/bin/lua5.4" >> $GITHUB_ENV
+          echo "LUA_INCDIR=/usr/include/lua5.4" >> $GITHUB_ENV
+
       - name: Cache Lua dependencies
         id: cache-lua-deps
         uses: actions/cache@v3
         with:
           path: ~/.luarocks # Corrected path for where --local installs
-          key: ${{ runner.os }}-luarocks-${{ hashFiles('lualextras-0.7.1-1.rockspec') }}
+          key: ${{ runner.os }}-luarocks-${{ hashFiles('lual-0.8.29-1.rockspec') }}
           restore-keys: |
             ${{ runner.os }}-luarocks-
 
-      - name: print me
+      - name: Install deps
         run: |
-          pwd ; ls -lah
-      - name: Install Lua dependencies
-        if: steps.cache-lua-deps.outputs.cache-hit != 'true'
-        run: |
-          luarocks install --local --only-deps lual-0.7.1-1.rockspec
-          luarocks install --local --only-deps lualextras-0.7.1-1.rockspec
-      # Note: busted is now installed via luarocks from lualextras rockspec
-      # but also available via apt as backup from .github/apt-packages.txt
+          echo "Installing dependencies with lua5.4..."
+          luarocks --local --lua-version=5.4 test
+
       - name: Run tests
-        env:
-          LUAROCKS_LOCAL: true
         run: |
-          echo "Sourcing .envrc..."
-          source .envrc
-          echo "PATH after sourcing .envrc: $PATH"
-          echo "LUA_PATH after sourcing .envrc: $LUA_PATH"
-          echo "LUA_CPATH after sourcing .envrc: $LUA_CPATH"
-          echo "Which busted: $(which busted)"
-          echo "Attempting to run busted..."
-          busted
+          # Ensure we're using lua5.4 with busted
+          echo "Running tests with lua5.4..."
+          lua5.4 -v
+          # Run busted with lua5.4
+          busted -c
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+         token: ${{ secrets.CODECOV_TOKEN }}

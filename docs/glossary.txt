@@ -1,0 +1,123 @@
+The project has its complexities and nuances, and having a common language
+to address its concepts is quite helpful.
+
+(This glossary is updated to align with docs/pre-release/new-design.txt)
+
+1. Foundational Concepts:
+
+    1.1. Module Path:
+        The name for a Lua file as what `require(<module path>)` would use to load it.
+        e.g., `lual.prev.core.logging` or `lual.prev.config.constants`.
+
+    1.2. Logger Name:
+        A string that identifies a logger. Names are dot-separated to define
+        a hierarchy (e.g., "app.module.submodule").
+        - `_root`: The special internal name for the root logger.
+        - User-supplied: Can be an arbitrary string not starting with `_`.
+        - Auto-generated: If no name is supplied to `lual.logger()`, a name might
+          be derived from the calling module's path (implementation detail).
+
+    1.3. Dispatcher (Handler):
+        A component responsible for sending a processed log record to a specific
+        output destination (e.g., console, file, network socket).
+        Analogous to "handlers" in Python logging or "appenders" in Log4j.
+
+    1.4. Transformer (Filter/Processor):
+        A component that can modify a log record's data (e.g., adding, removing,
+        or changing key-value pairs) before it is presented or dispatched.
+
+    1.5. Presenter (Formatter/Layout):
+        A component that formats a log record for output, controlling its visual
+        presentation (e.g., text, JSON, colors, timestamp format).
+        Presenters are typically associated with dispatchers.
+        The `time` property (UTC/local, format) is part of a presenter's config.
+
+2. Basic Logging Events:
+
+    2.1. Log Event:
+        The act of requesting a message to be logged, e.g., `logger.info("message")`.
+        Contains the raw message, level, and any extra data provided at the call site.
+
+    2.2. Log Record:
+        A table created from a log event, typically enriched with additional
+        information like timestamp, logger name, source file/line (if available).
+        This record is passed through transformers, to presenters, and then to dispatchers.
+
+    2.3. Emission / Emit:
+        Refers to a logger initiating the processing of a log event.
+
+3. Filtering and Levels:
+
+    3.1. Log Level:
+        A severity assigned to a log event (e.g., `DEBUG`, `INFO`, `WARN`, `ERROR`).
+        Loggers also have a configured level.
+
+    3.2. Level Matching:
+        An event's level is compared against a logger's *effective level*.
+        An event is considered a "match" if `event_level >= logger_effective_level`.
+
+    3.3. `lual.NOTSET`:
+        A special level value. If a logger's configured level is `lual.NOTSET`,
+        its effective level is inherited from its closest ancestor logger that
+        has an explicit level set (ultimately from `_root`).
+
+4. Configuration:
+
+    4.1. Root Logger (`_root`) Configuration:
+        - Initialized by `lual` with library defaults (e.g., level `lual.WARN`,
+          a console dispatcher, default presenter).
+        - Can be modified by the user via `lual.config(config_table)`.
+          This function applies settings directly to `_root`.
+
+    4.2. Logger Specific Configuration:
+        - Applied when creating a logger `lual.logger("name", {config_table})` or
+          imperatively, e.g., `logger:set_level(lual.DEBUG)`,
+          `logger:add_dispatcher({...})`.
+        - A logger's specific configuration is sparse; it only stores what was
+          explicitly set. Unset properties are not present (e.g., no dispatchers
+          list if none were added), or level is `lual.NOTSET`.
+
+    4.3. Effective Logger Level:
+        The actual level used by a logger `L` to decide if an event matches.
+        - If `L.level` is not `lual.NOTSET`, then `L.effective_level = L.level`.
+        - If `L.level` is `lual.NOTSET`, then `L.effective_level` is determined by
+          recursively checking `L.parent.effective_level`, up to `_root.level`.
+
+5. Logger Hierarchy and Propagation:
+
+    5.1. Hierarchy:
+        Loggers exist in a dot-separated namespace, forming a parent-child tree
+        structure with `_root` at the top.
+
+    5.2. Propagation:
+        The process by which a log event, after being processed by a logger,
+        is passed to its parent logger for potential processing.
+        - Controlled by the `propagate` boolean flag on each logger (defaults to `true`).
+        - If `logger.propagate` is `false`, the event is not passed to the parent.
+
+6. Processing Pipeline & Dispatch Loop:
+
+    When a logger `L` receives a log event:
+
+    6.1. Determine Effective Level for `L` (see 4.3).
+
+    6.2. Level Match:
+        If `event_level >= L.effective_level`, proceed. Otherwise, skip to 6.4 (Propagate).
+
+    6.3. Dispatch (if level matched):
+        - For each dispatcher in `L`'s *own* `dispatchers` list:
+            1. (Optional) The log record may be processed by `L`'s transformers.
+            2. The log record is formatted by the dispatcher's presenter.
+            3. The dispatcher sends the formatted output to its target (console, file, etc.).
+        - If `L` has no dispatchers, it performs no output itself.
+
+    6.4. Propagate:
+        If `L.propagate` is `true` AND `L` is not `_root`:
+        - Pass the original log event to `L.parent`.
+        - The parent logger then repeats this entire sequence (6.1 - 6.4).
+
+7. Output:
+
+    7.1. Dispatch Event:
+        The act of a dispatcher writing the final, formatted log message to its
+        destination (e.g., console, file).
