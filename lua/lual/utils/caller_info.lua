@@ -144,18 +144,4 @@ function caller_info.generate_fallback_name(abs_filepath)
     return fname_to_module._generate_fallback_name(abs_filepath)
 end
 
---- Parses package.path into individual templates (no longer needed, kept for compatibility)
--- @return table Array of path templates from package.path
-function caller_info.parse_package_path()
-    -- Create a compatibility wrapper that returns the same format as before
-    local path_templates = {}
-    local package_path = package.path or ""
-    for template in package_path:gmatch("[^;]+") do
-        if template and template ~= "" and template ~= ";;" then
-            table.insert(path_templates, template)
-        end
-    end
-    return path_templates
-end
-
 return caller_info
