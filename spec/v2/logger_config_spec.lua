@@ -199,14 +199,14 @@ describe("lual Logger Configuration API (Step 2.6)", function()
                         dispatchers = { "not a function" }
                     })
                 end,
-                "Invalid logger configuration: dispatchers[1] must be a function or a table like {dispatcher_func=func, config=tbl}, got string")
+                "Invalid logger configuration: dispatchers[1] must be a function, a table with dispatcher_func, or a table with type, got string")
 
             assert.has_error(function()
                     lual.logger("test_dispitem2", {
                         dispatchers = { function() end, 123, function() end }
                     })
                 end,
-                "Invalid logger configuration: dispatchers[2] must be a function or a table like {dispatcher_func=func, config=tbl}, got number")
+                "Invalid logger configuration: dispatchers[2] must be a function, a table with dispatcher_func, or a table with type, got number")
         end)
 
         it("should accept empty dispatchers array", function()
