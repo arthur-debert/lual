@@ -5,6 +5,7 @@
 # This script watches the latest GitHub workflow run.
 # It first gets the ID of the latest workflow run using gh-workflow-latest-id
 # and then uses gh run watch to watch the progress of that workflow.
+# If the workflow fails, it will automatically display the logs.
 #
 # Usage: gh-watch-latest
 #
@@ -15,14 +16,14 @@
 set -e
 
 # Check if gh command is available
-if ! command -v gh &> /dev/null; then
+if ! command -v gh &>/dev/null; then
     echo "Error: GitHub CLI (gh) is not installed or not in PATH" >&2
     echo "Please install it from https://cli.github.com/" >&2
     exit 1
 fi
 
 # Check if our dependency script is available
-if ! command -v gh-workflow-latest-id &> /dev/null; then
+if ! command -v gh-workflow-latest-id &>/dev/null; then
     if [ -x "$HOME/.config/bin/gh-workflow-latest-id" ]; then
         # Use the script directly if it's not in PATH
         WORKFLOW_ID_SCRIPT="$HOME/.config/bin/gh-workflow-latest-id"
@@ -48,6 +49,20 @@ fi
 echo "Latest workflow ID: $WORKFLOW_ID"
 echo "Watching workflow run..."
 
-# Watch the workflow run
-gh run watch "$WORKFLOW_ID"
+# Watch the workflow run with exit status flag
+# This will exit with non-zero status if the workflow fails
+set +e # Don't exit immediately on non-zero exit code
+gh run watch "$WORKFLOW_ID" --exit-status
+WATCH_EXIT_CODE=$?
+set -e
 
+# If the workflow failed, show the logs
+if [ $WATCH_EXIT_CODE -ne 0 ]; then
+    echo ""
+    echo "Workflow failed! Fetching workflow logs..."
+    echo "----------------------------------------"
+    gh run view "$WORKFLOW_ID" --log
+    exit $WATCH_EXIT_CODE
+fi
+
+echo "Workflow completed successfully!"

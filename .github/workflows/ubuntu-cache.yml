@@ -1,0 +1,77 @@
+name: Build and Test
+
+on:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache apt packages
+        id: cache-apt
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/cache/apt/archives
+            /var/lib/apt/lists
+          key: ${{ runner.os }}-apt-${{ hashFiles('.github/apt-packages.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-
+          save-always: true
+          fail-on-cache-miss: false
+
+      - name: Update apt package lists
+        run: sudo apt-get update
+
+      - name: Install apt dependencies
+        run: |
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            libssl-dev \
+            zlib1g-dev \
+            pkg-config
+
+      - name: Verify installed packages (optional)
+        run: dpkg -l | grep build-essential # Example to check if installed
+
+      - name: Verify cache directories exist
+        run: |
+          echo "Checking cache directories..."
+          if [ ! -d "/var/cache/apt/archives" ]; then
+            echo "Error: /var/cache/apt/archives directory not found!"
+            exit 1
+          fi
+          if [ ! -d "/var/lib/apt/lists" ]; then
+            echo "Error: /var/lib/apt/lists directory not found!"
+            exit 1
+          fi
+          echo "Cache directories verified successfully"
+
+      - name: Run build/test commands
+        run: |
+          # Your actual build and test commands here
+          echo "Building and testing..."
+
+      - name: Verify cache save preparation
+        run: |
+          echo "Preparing for cache save verification..."
+          echo "Cache directories content:"
+          ls -la /var/cache/apt/archives/ | head -10
+          ls -la /var/lib/apt/lists/ | head -10
+          
+          # Check if directories have content to cache
+          APT_ARCHIVES_COUNT=$(find /var/cache/apt/archives -name "*.deb" | wc -l)
+          APT_LISTS_COUNT=$(find /var/lib/apt/lists -type f | wc -l)
+          
+          echo "Found $APT_ARCHIVES_COUNT .deb files in archives"
+          echo "Found $APT_LISTS_COUNT files in lists"
+          
+          if [ "$APT_ARCHIVES_COUNT" -eq 0 ] && [ "$APT_LISTS_COUNT" -eq 0 ]; then
+            echo "Warning: No cache content found to save"
+          else
+            echo "Cache content available for saving"
+          fi
