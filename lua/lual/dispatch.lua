@@ -14,10 +14,27 @@ local M = {}
 -- @param context table|nil Optional context table
 -- @return table The log record
 local function create_log_record(logger, level_no, level_name, message_fmt, args, context)
+    -- Format the message if args are provided
+    local formatted_message = message_fmt
+    if args and args.n and args.n > 0 then
+        local format_args = {}
+        for i = 1, args.n do
+            format_args[i] = args[i]
+        end
+        local ok, result = pcall(string.format, message_fmt, table.unpack(format_args))
+        if ok then
+            formatted_message = result
+        else
+            formatted_message = message_fmt .. " [FORMAT ERROR: " .. result .. "]"
+        end
+    end
+
     return {
         level_no = level_no,
         level_name = level_name,
         message_fmt = message_fmt,
+        message = formatted_message,
+        formatted_message = formatted_message,
         args = args,
         context = context,
         timestamp = os.time(),
@@ -33,12 +50,6 @@ end
 -- @param dispatcher_entry table The dispatcher configuration (with dispatcher_func, config, etc.)
 -- @param logger table The logger that owns this dispatcher
 local function process_dispatcher(log_record, dispatcher_entry, logger)
-    -- For now, we'll implement a simple processing pipeline
-    -- In a full implementation, this would include:
-    -- 1. Optional transformers processing
-    -- 2. Presenter formatting
-    -- 3. Dispatcher output
-
     -- Create a copy of the log record for this dispatcher
     local dispatcher_record = {}
     for k, v in pairs(log_record) do
@@ -50,12 +61,71 @@ local function process_dispatcher(log_record, dispatcher_entry, logger)
     dispatcher_record.owner_logger_level = logger.level
     dispatcher_record.owner_logger_propagate = logger.propagate
 
-    -- Call the dispatcher function
+    -- Apply transformers if configured
+    if dispatcher_entry.config and dispatcher_entry.config.transformers then
+        for _, transformer in ipairs(dispatcher_entry.config.transformers) do
+            local ok, result = pcall(function()
+                if type(transformer) == "function" then
+                    return transformer(dispatcher_record)
+                elseif type(transformer) == "table" and type(transformer.func) == "function" then
+                    return transformer.func(dispatcher_record, transformer.config)
+                end
+                return dispatcher_record
+            end)
+            if ok and result then
+                dispatcher_record = result
+            else
+                dispatcher_record.transformer_error = result
+            end
+        end
+    end
+
+    -- Apply single transformer if configured
+    if dispatcher_entry.config and dispatcher_entry.config.transformer then
+        local transformer = dispatcher_entry.config.transformer
+        local ok, result = pcall(function()
+            if type(transformer) == "function" then
+                return transformer(dispatcher_record)
+            elseif type(transformer) == "table" and type(transformer.func) == "function" then
+                return transformer.func(dispatcher_record, transformer.config)
+            end
+            return dispatcher_record
+        end)
+        if ok and result then
+            dispatcher_record = result
+        else
+            dispatcher_record.transformer_error = result
+        end
+    end
+
+    -- Apply presenter if configured
+    if dispatcher_entry.config and dispatcher_entry.config.presenter then
+        local presenter = dispatcher_entry.config.presenter
+        if type(presenter) == "function" then
+            local ok, result = pcall(presenter, dispatcher_record)
+            if ok and result then
+                dispatcher_record.presented_message = result
+                dispatcher_record.message = result
+            else
+                dispatcher_record.presenter_error = result
+            end
+        end
+    end
+
+    -- Call the dispatcher function with the appropriate message
     -- Handle both raw functions and internal format
-    if type(dispatcher_entry) == "function" then
-        dispatcher_entry(dispatcher_record)
-    else
-        dispatcher_entry.dispatcher_func(dispatcher_record)
+    local ok, err = pcall(function()
+        if type(dispatcher_entry) == "function" then
+            -- For raw function dispatchers, pass the entire record
+            dispatcher_entry(dispatcher_record)
+        else
+            -- For configured dispatchers, pass the record to the dispatcher function
+            dispatcher_entry.dispatcher_func(dispatcher_record)
+        end
+    end)
+
+    if not ok then
+        dispatcher_record.dispatcher_error = err
     end
 end
 

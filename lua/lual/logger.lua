@@ -168,8 +168,19 @@ _get_or_create_logger_internal = function(requested_name_or_nil, config_data)
     for _, item in ipairs(config_data.dispatchers) do
       if type(item) == "function" then
         table.insert(new_logger.dispatchers, { dispatcher_func = item, config = {} })
-      elseif type(item) == "table" and type(item.dispatcher_func) == "function" then
-        table.insert(new_logger.dispatchers, { dispatcher_func = item.dispatcher_func, config = item.config or {} })
+      elseif type(item) == "table" then
+        if type(item.dispatcher_func) == "function" then
+          table.insert(new_logger.dispatchers, item)
+        elseif type(item.type) == "string" then
+          -- Convert type-based dispatcher to internal format
+          local dispatcher = all_dispatchers[item.type]
+          if dispatcher then
+            table.insert(new_logger.dispatchers, {
+              dispatcher_func = dispatcher,
+              config = item.config or {}
+            })
+          end
+        end
       end
     end
   end
@@ -289,10 +300,12 @@ local function validate_logger_config_table(config_table)
     elseif key == "dispatchers" then
       if not (#value >= 0) then return false, "'dispatchers' must be an array (table with numeric indices)" end
       for i, dispatcher_item in ipairs(value) do
-        if not (type(dispatcher_item) == "function" or (type(dispatcher_item) == "table" and type(dispatcher_item.dispatcher_func) == "function")) then
+        if not (type(dispatcher_item) == "function" or
+              (type(dispatcher_item) == "table" and
+                (type(dispatcher_item.dispatcher_func) == "function" or type(dispatcher_item.type) == "string"))) then
           return false,
               string.format(
-                "dispatchers[%d] must be a function or a table like {dispatcher_func=func, config=tbl}, got %s", i,
+                "dispatchers[%d] must be a function, a table with dispatcher_func, or a table with type, got %s", i,
                 type(dispatcher_item))
         end
       end
