@@ -3,15 +3,17 @@
 # gh-watch-latest
 #
 # This script watches the latest GitHub workflow run.
-# It first gets the ID of the latest workflow run using gh-workflow-latest-id
-# and then uses gh run watch to watch the progress of that workflow.
-# If the workflow fails, it will automatically display the logs.
+# If no arguments are provided, it gets the overall latest workflow run ID.
+# If arguments are provided, it finds the specific workflow and gets its latest run ID.
+# It uses gh-workflow-latest-id for both cases and then watches the run.
 #
-# Usage: gh-watch-latest
+# Usage:
+#   gh-watch-latest                    # Watch latest workflow run overall
+#   gh-watch-latest <search terms>     # Watch latest run of specific workflow
 #
 # Dependencies:
 # - GitHub CLI (gh): https://cli.github.com/
-# - gh-workflow-latest-id: Custom script to get the latest workflow ID
+# - gh-workflow-latest-id: Custom script to get workflow run IDs
 
 set -e
 
@@ -22,47 +24,39 @@ if ! command -v gh &>/dev/null; then
     exit 1
 fi
 
-# Check if our dependency script is available
-if ! command -v gh-workflow-latest-id &>/dev/null; then
-    if [ -x "$HOME/.config/bin/gh-workflow-latest-id" ]; then
-        # Use the script directly if it's not in PATH
-        WORKFLOW_ID_SCRIPT="$HOME/.config/bin/gh-workflow-latest-id"
-    else
-        echo "Error: gh-workflow-latest-id script not found or not executable" >&2
-        echo "Make sure ~/.config/bin/gh-workflow-latest-id exists and is executable" >&2
-        exit 1
-    fi
-else
-    # Script is in PATH
+# Check for gh-workflow-latest-id (prefer local version)
+SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+if [ -x "$SCRIPT_DIR/gh-workflow-latest-id" ]; then
+    # Use local version first (most up-to-date)
+    WORKFLOW_ID_SCRIPT="$SCRIPT_DIR/gh-workflow-latest-id"
+elif command -v gh-workflow-latest-id &>/dev/null; then
+    # Fall back to PATH version
     WORKFLOW_ID_SCRIPT="gh-workflow-latest-id"
-fi
-
-# Get the latest workflow run ID
-echo "Getting latest workflow ID..."
-WORKFLOW_ID=$("$WORKFLOW_ID_SCRIPT")
-
-if [ -z "$WORKFLOW_ID" ]; then
-    echo "Error: Failed to get workflow ID" >&2
+elif [ -x "$HOME/.config/bin/gh-workflow-latest-id" ]; then
+    # Last resort: ~/.config/bin version
+    WORKFLOW_ID_SCRIPT="$HOME/.config/bin/gh-workflow-latest-id"
+else
+    echo "Error: gh-workflow-latest-id script not found or not executable" >&2
+    echo "Make sure gh-workflow-latest-id is in PATH, same directory, or ~/.config/bin/" >&2
     exit 1
 fi
 
-echo "Latest workflow ID: $WORKFLOW_ID"
-echo "Watching workflow run..."
-
-# Watch the workflow run with exit status flag
-# This will exit with non-zero status if the workflow fails
-set +e # Don't exit immediately on non-zero exit code
-gh run watch "$WORKFLOW_ID" --exit-status
-WATCH_EXIT_CODE=$?
-set -e
-
-# If the workflow failed, show the logs
-if [ $WATCH_EXIT_CODE -ne 0 ]; then
-    echo ""
-    echo "Workflow failed! Fetching workflow logs..."
-    echo "----------------------------------------"
-    gh run view "$WORKFLOW_ID" --log
-    exit $WATCH_EXIT_CODE
+if [ $# -eq 0 ]; then
+    echo "No workflow specified, getting latest workflow run overall..."
+else
+    echo "Searching for workflow: $*"
 fi
 
-echo "Workflow completed successfully!"
+# Get the workflow run ID (gh-workflow-latest-id handles both cases now)
+WORKFLOW_ID=$("$WORKFLOW_ID_SCRIPT" "$@")
+
+if [ -z "$WORKFLOW_ID" ]; then
+    echo "Error: Failed to get workflow run ID" >&2
+    exit 1
+fi
+
+echo "Workflow run ID: $WORKFLOW_ID"
+echo "Watching workflow run..."
+
+# Watch the workflow run
+gh run watch "$WORKFLOW_ID"
