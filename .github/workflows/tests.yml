@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Create apt cache directory
         run: |
@@ -20,12 +20,13 @@ jobs:
 
       - name: Cache OS dependencies
         id: cache-os-deps
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: /tmp/apt-cache
           key: ${{ runner.os }}-apt-cache-${{ hashFiles('.github/apt-packages.txt') }}
           restore-keys: |
             ${{ runner.os }}-apt-cache-
+          fail-on-cache-miss: false
 
       - name: Install OS dependencies
         run: |
@@ -33,6 +34,20 @@ jobs:
           echo "Dir::Cache::Archives /tmp/apt-cache;" | sudo tee -a /etc/apt/apt.conf.d/01cache
           sudo apt-get update
           xargs -a .github/apt-packages.txt sudo apt-get install -y --no-install-recommends
+
+      - name: Verify apt cache content
+        run: |
+          echo "Verifying apt cache content in /tmp/apt-cache..."
+          CACHE_FILE_COUNT=$(find /tmp/apt-cache -type f | wc -l)
+          CACHE_SIZE=$(du -sh /tmp/apt-cache | cut -f1)
+          echo "Found $CACHE_FILE_COUNT files in apt cache, size: $CACHE_SIZE"
+          
+          if [ "$CACHE_FILE_COUNT" -eq 0 ]; then
+            echo "ERROR: No apt cache content found - cache save will fail!"
+            exit 1
+          else
+            echo "✅ Apt cache content available for saving"
+          fi
 
       - name: Configure Lua environment
         run: |
@@ -56,17 +71,49 @@ jobs:
 
       - name: Cache Lua dependencies
         id: cache-lua-deps
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
-          path: ~/.luarocks # Corrected path for where --local installs
-          key: ${{ runner.os }}-luarocks-${{ hashFiles('lual-0.8.29-1.rockspec') }}
+          path: |
+            ~/.luarocks
+            ./.luarocks
+          key: ${{ runner.os }}-luarocks-${{ hashFiles('lual-*.rockspec') }}
           restore-keys: |
             ${{ runner.os }}-luarocks-
+          fail-on-cache-miss: false
 
       - name: Install deps
         run: |
           echo "Installing dependencies with lua5.4..."
           luarocks --local --lua-version=5.4 test
+
+      - name: Verify luarocks cache content
+        run: |
+          echo "Verifying luarocks cache content..."
+          
+          # Check both possible cache locations
+          LOCAL_COUNT=0
+          TREE_COUNT=0
+          
+          if [ -d "$HOME/.luarocks" ]; then
+            LOCAL_COUNT=$(find "$HOME/.luarocks" -type f | wc -l)
+            LOCAL_SIZE=$(du -sh "$HOME/.luarocks" 2>/dev/null | cut -f1 || echo "0")
+            echo "Found $LOCAL_COUNT files in ~/.luarocks, size: $LOCAL_SIZE"
+          fi
+          
+          if [ -d "./.luarocks" ]; then
+            TREE_COUNT=$(find "./.luarocks" -type f | wc -l)
+            TREE_SIZE=$(du -sh "./.luarocks" 2>/dev/null | cut -f1 || echo "0")
+            echo "Found $TREE_COUNT files in ./.luarocks, size: $TREE_SIZE"
+          fi
+          
+          TOTAL_COUNT=$((LOCAL_COUNT + TREE_COUNT))
+          
+          if [ "$TOTAL_COUNT" -eq 0 ]; then
+            echo "ERROR: No luarocks cache content found - cache save will fail!"
+            exit 1
+          else
+            echo "✅ Luarocks cache content available for saving ($TOTAL_COUNT total files)"
+          fi
 
       - name: Run tests
         run: |
