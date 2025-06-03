@@ -3,6 +3,19 @@ package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lu
 
 local lual = require("lual.logger")
 local core_levels = require("lua.lual.levels")
+local console_dispatcher = require("lual.dispatchers.console_dispatcher")
+local file_dispatcher = require("lual.dispatchers.file_dispatcher")
+local syslog_dispatcher = require("lual.dispatchers.syslog_dispatcher")
+
+-- Helper function to check if a file exists
+local function file_exists(path)
+    local file = io.open(path, "r")
+    if file then
+        file:close()
+        return true
+    end
+    return false
+end
 
 describe("Dispatch Loop Logic (Step 2.7)", function()
     before_each(function()
@@ -478,6 +491,245 @@ describe("Dispatch Loop Logic (Step 2.7)", function()
             logger:log(core_levels.definition.ERROR, "Error via log method")
 
             assert.are.equal(2, #output_captured, "WARNING and ERROR messages should be dispatched")
+        end)
+    end)
+end)
+
+describe("lual Dispatchers", function()
+    -- Sample log record for testing
+    local sample_record = {
+        timestamp = os.time(),
+        level_name = "INFO",
+        logger_name = "test.logger",
+        message_fmt = "User %s logged in from %s",
+        args = { "jane.doe", "10.0.0.1" },
+        context = { user_id = 123, action = "login" },
+        presented_message = "2024-03-15 10:00:00 INFO [test.logger] User jane.doe logged in from 10.0.0.1"
+    }
+
+    describe("Console Dispatcher", function()
+        it("should write to stdout by default", function()
+            -- Capture stdout
+            local old_stdout = io.stdout
+            local output = {}
+            io.stdout = {
+                write = function(_, str) table.insert(output, str) end,
+                flush = function() end
+            }
+
+            console_dispatcher(sample_record)
+
+            -- Restore stdout
+            io.stdout = old_stdout
+
+            -- Verify output
+            assert.is_true(#output >= 2) -- Message + newline
+            assert.matches("User jane.doe logged in from 10.0.0.1", output[1])
+        end)
+
+        it("should write to specified stream", function()
+            local output = {}
+            local mock_stream = {
+                write = function(_, str) table.insert(output, str) end,
+                flush = function() end
+            }
+
+            console_dispatcher(sample_record, { stream = mock_stream })
+
+            assert.is_true(#output >= 2) -- Message + newline
+            assert.matches("User jane.doe logged in from 10.0.0.1", output[1])
+        end)
+
+        it("should handle string messages", function()
+            local output = {}
+            local mock_stream = {
+                write = function(_, str) table.insert(output, str) end,
+                flush = function() end
+            }
+
+            console_dispatcher("Direct string message", { stream = mock_stream })
+
+            assert.are.equal("Direct string message", output[1])
+            assert.are.equal("\n", output[2])
+        end)
+
+        it("should handle errors gracefully", function()
+            local stderr_output = {}
+            local old_stderr = io.stderr
+            io.stderr = {
+                write = function(_, str) table.insert(stderr_output, str) end
+            }
+
+            local failing_stream = {
+                write = function() error("Write failed") end,
+                flush = function() end
+            }
+
+            console_dispatcher(sample_record, { stream = failing_stream })
+
+            io.stderr = old_stderr
+
+            assert.matches("Error writing to stream", stderr_output[1])
+        end)
+    end)
+
+    describe("File Dispatcher", function()
+        local test_log = "test.log"
+
+        after_each(function()
+            os.remove(test_log)
+            for i = 1, 5 do
+                os.remove(test_log .. "." .. i)
+            end
+        end)
+
+        it("should create and write to log file", function()
+            local dispatcher = file_dispatcher({ path = test_log })
+            dispatcher(sample_record)
+
+            -- Read the file content
+            local file = io.open(test_log, "r")
+            local content = file:read("*all")
+            file:close()
+
+            assert.matches("User jane.doe logged in from 10.0.0.1", content)
+        end)
+
+        it("should handle rotation", function()
+            -- Create initial log file
+            local file = io.open(test_log, "w")
+            file:write("initial log content")
+            file:close()
+
+            -- Create some backup files
+            for i = 1, 3 do
+                local file = io.open(test_log .. "." .. i, "w")
+                file:write("old log " .. i)
+                file:close()
+            end
+
+            -- Create the dispatcher (this triggers rotation)
+            local dispatcher = file_dispatcher({ path = test_log })
+
+            -- Write to the main log
+            dispatcher(sample_record)
+
+            -- Give the file system a moment to complete operations
+            os.execute("sleep 0.1")
+
+            -- Verify rotation
+            assert.is_true(file_exists(test_log), "Main log file should exist")
+            assert.is_true(file_exists(test_log .. ".1"), "First backup should exist")
+            assert.is_true(file_exists(test_log .. ".2"), "Second backup should exist")
+            assert.is_true(file_exists(test_log .. ".3"), "Third backup should exist")
+            assert.is_true(file_exists(test_log .. ".4"), "Fourth backup should exist")
+
+            -- Verify content
+            local file = io.open(test_log, "r")
+            local content = file:read("*all")
+            file:close()
+            assert.matches("User jane.doe logged in from 10.0.0.1", content)
+
+            -- Verify backup content
+            local backup = io.open(test_log .. ".1", "r")
+            local backup_content = backup:read("*all")
+            backup:close()
+            assert.matches("initial log content", backup_content)
+        end)
+
+        it("should validate rotation commands", function()
+            local commands = file_dispatcher._generate_rotation_commands(test_log)
+            local valid, err = file_dispatcher._validate_rotation_commands(commands, test_log)
+
+            assert.is_true(valid)
+        end)
+
+        it("should handle invalid paths", function()
+            local dispatcher = file_dispatcher({ path = "/invalid/path/test.log" })
+
+            -- Should not error, but write to stderr
+            local stderr_output = {}
+            local old_stderr = io.stderr
+            io.stderr = {
+                write = function(_, str) table.insert(stderr_output, str) end
+            }
+
+            dispatcher(sample_record)
+
+            io.stderr = old_stderr
+
+            assert.matches("Error opening log", stderr_output[1])
+        end)
+    end)
+
+    describe("Syslog Dispatcher", function()
+        it("should validate configuration", function()
+            -- Valid configurations
+            assert.is_true(syslog_dispatcher._validate_config({
+                facility = "LOCAL0",
+                host = "localhost",
+                port = 514
+            }))
+
+            assert.is_true(syslog_dispatcher._validate_config({
+                facility = "USER",
+                tag = "myapp"
+            }))
+
+            -- Invalid configurations
+            local valid, err = syslog_dispatcher._validate_config({
+                facility = "INVALID"
+            })
+            assert.is_false(valid)
+            assert.matches("Unknown syslog facility", err)
+
+            valid, err = syslog_dispatcher._validate_config({
+                port = "not_a_number"
+            })
+            assert.is_false(valid)
+            assert.matches("port must be a number", err)
+        end)
+
+        it("should map log levels to syslog severities", function()
+            local map = syslog_dispatcher._map_level_to_severity
+            local sev = syslog_dispatcher._SEVERITIES
+
+            assert.are.equal(sev.DEBUG, map(10))    -- DEBUG
+            assert.are.equal(sev.INFO, map(20))     -- INFO
+            assert.are.equal(sev.WARNING, map(30))  -- WARNING
+            assert.are.equal(sev.ERROR, map(40))    -- ERROR
+            assert.are.equal(sev.CRITICAL, map(50)) -- CRITICAL
+        end)
+
+        it("should format syslog messages correctly", function()
+            local format = syslog_dispatcher._format_syslog_message
+            local facility = syslog_dispatcher._FACILITIES.USER
+
+            local message = format(sample_record, facility, "testhost", "myapp")
+
+            -- Check RFC 3164 format: <priority>timestamp hostname tag: message
+            assert.matches("^<%d+>%w+ %d+ %d+:%d+:%d+ testhost myapp: .*$", message)
+        end)
+
+        it("should handle network errors gracefully", function()
+            local dispatcher = syslog_dispatcher({
+                facility = "USER",
+                host = "nonexistent.host",
+                port = 55555 -- Unlikely to be open
+            })
+
+            -- Should not error, but write to stderr
+            local stderr_output = {}
+            local old_stderr = io.stderr
+            io.stderr = {
+                write = function(_, str) table.insert(stderr_output, str) end
+            }
+
+            dispatcher(sample_record)
+
+            io.stderr = old_stderr
+
+            assert.is_true(#stderr_output > 0)
         end)
     end)
 end)
