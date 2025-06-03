@@ -34,23 +34,38 @@ jobs:
           sudo apt-get update
           xargs -a .github/apt-packages.txt sudo apt-get install -y --no-install-recommends
 
+      - name: Configure Lua environment
+        run: |
+          # Ensure luarocks uses lua5.4
+          echo "Configuring luarocks to use lua5.4..."
+          luarocks config lua_interpreter lua5.4
+          luarocks config variables.LUA /usr/bin/lua5.4
+          luarocks config variables.LUA_DIR /usr
+          luarocks config variables.LUA_INCDIR /usr/include/lua5.4
+          # Verify configuration
+          echo "LuaRocks configuration:"
+          luarocks config
+          echo "Lua version:"
+          lua5.4 -v
+
       - name: Cache Lua dependencies
         id: cache-lua-deps
         uses: actions/cache@v3
         with:
           path: ~/.luarocks # Corrected path for where --local installs
-          key: ${{ runner.os }}-luarocks-${{ hashFiles('lualextras-0.7.1-1.rockspec') }}
+          key: ${{ runner.os }}-luarocks-${{ hashFiles('lual-0.8.29-1.rockspec') }}
           restore-keys: |
             ${{ runner.os }}-luarocks-
 
-      - name: print me
-        run: |
-          pwd ; ls -lah
       - name: Install deps
         run: luarocks --local test
 
       - name: Run tests
-        run: busted -c 
+        run: |
+          # Ensure we're using lua5.4 with busted
+          echo "Running tests with lua5.4..."
+          lua5.4 -v
+          busted -c
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
