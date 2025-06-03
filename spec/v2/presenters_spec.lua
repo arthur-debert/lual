@@ -141,8 +141,9 @@ describe("lual Presenters", function()
             local utc_presenter = text_presenter({ timezone = "utc" })
             local local_presenter = text_presenter({ timezone = "local" })
 
+            -- Use a known timestamp: 2021-01-01 00:00:00 UTC
             local test_record = {
-                timestamp = os.time(),
+                timestamp = 1609459200,
                 level_name = "INFO",
                 logger_name = "test",
                 message_fmt = "Test"
@@ -151,11 +152,11 @@ describe("lual Presenters", function()
             local utc_output = utc_presenter(test_record)
             local local_output = local_presenter(test_record)
 
-            -- UTC and local time should be formatted differently
-            assert.are_not.equal(
-                utc_output:match("^%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d"),
-                local_output:match("^%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d")
-            )
+            -- UTC output should contain the known UTC timestamp
+            assert.truthy(utc_output:find("2021%-01%-01 00:00:00", 1, false), "Should contain UTC timestamp")
+
+            -- Local output should contain a valid timestamp format (can't predict exact local time)
+            assert.matches("^%d%d%d%d%-%d%d%-%d%d %d%d:%d%d:%d%d", local_output)
         end)
     end)
 end)
