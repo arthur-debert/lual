@@ -62,11 +62,9 @@ end
 -- Automatically finds the first stack level that's not part of the lual logging infrastructure.
 -- Uses the fname_to_module utility for module path discovery.
 -- @param start_level (number) The stack level to start searching from (default: 2)
--- @param use_dot_notation (boolean) If true, convert filename to dot notation (default: false)
 -- @return string, number, string|nil The filename, line number, and lua_path, or nil if unavailable
-function caller_info.get_caller_info(start_level, use_dot_notation)
+function caller_info.get_caller_info(start_level)
     start_level = start_level or 2 -- Start at 2 to skip this function itself
-    use_dot_notation = use_dot_notation or false
 
     local eligible_frame_info = find_first_eligible_caller_frame(start_level)
 
@@ -92,19 +90,7 @@ function caller_info.get_caller_info(start_level, use_dot_notation)
         return filename, current_line, lua_path
     end
 
-    -- Convert to dot notation if requested
-    if use_dot_notation and filename then
-        -- Remove file extension only for .lua files
-        filename = string.gsub(filename, "%.lua$", "")
-        -- Convert path separators to dots
-        filename = string.gsub(filename, "[/\\]", ".")
-        -- Remove leading dots (like ./ or ../) but preserve meaningful path components
-        filename = string.gsub(filename, "^%.+", "")
-        -- If empty after processing, return nil to indicate failure
-        if filename == "" then
-            filename = nil
-        end
-    end
+
 
     return filename, current_line, lua_path
 end
@@ -118,30 +104,6 @@ end
 -- @return number The number of cached entries
 function caller_info.get_cache_size()
     return fname_to_module.get_cache_size()
-end
-
---- Converts a file path to a Lua-style module identifier (wrapper for fname_to_module)
--- @param file_path (string) The file path to convert
--- @return string|nil The module name if found, nil otherwise
-function caller_info.get_module_path(file_path)
-    return fname_to_module.get_module_path(file_path)
-end
-
---- Parse package.path templates (delegated to fname_to_module)
--- @param file_path (string) The file path to convert
--- @param template (string) The package.path template
--- @return string|nil The module name if matched, nil otherwise
-function caller_info.match_template(file_path, template)
-    -- This is now just a compatibility wrapper around fname_to_module
-    return fname_to_module._match_template(file_path, template)
-end
-
---- Generates a fallback module name (delegated to fname_to_module)
--- @param abs_filepath (string) The absolute file path
--- @return string|nil A fallback module name or nil
-function caller_info.generate_fallback_name(abs_filepath)
-    -- This is now just a compatibility wrapper around fname_to_module
-    return fname_to_module._generate_fallback_name(abs_filepath)
 end
 
 return caller_info
