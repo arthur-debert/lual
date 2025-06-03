@@ -98,9 +98,6 @@ end
 local function generate_fallback_name(abs_filepath)
     -- Extract basename from the file path
     local basename = paths.basename(abs_filepath)
-    if not basename then
-        return nil
-    end
 
     -- At this point, we should only have .lua files that weren't caught by early patterns
     -- Remove .lua extension and return the basename as the module name
