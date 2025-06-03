@@ -26,6 +26,17 @@ jobs:
             ${{ runner.os }}-apt-cache-
           fail-on-cache-miss: false
 
+      - name: Fix apt cache directory permissions
+        run: |
+          echo "Fixing apt cache directory permissions after restore..."
+          
+          # Ensure directory exists and has proper permissions
+          sudo mkdir -p /tmp/apt-cache
+          sudo chown -R runner:runner /tmp/apt-cache
+          sudo chmod -R 755 /tmp/apt-cache
+          
+          echo "✅ Apt cache directory permissions fixed"
+
       - name: Configure apt to use cache directory
         run: |
           echo "Dir::Cache::Archives /tmp/apt-cache;" | sudo tee -a /etc/apt/apt.conf.d/01cache
