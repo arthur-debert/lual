@@ -11,67 +11,56 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Create apt cache directory
+        run: |
+          sudo mkdir -p /tmp/apt-cache
+          sudo chmod 777 /tmp/apt-cache
+
       - name: Cache apt packages
         id: cache-apt
         uses: actions/cache@v4
         with:
-          path: |
-            /var/cache/apt/archives
-            /var/lib/apt/lists
-          key: ${{ runner.os }}-apt-${{ hashFiles('.github/apt-packages.txt') }}
+          path: /tmp/apt-cache
+          key: ${{ runner.os }}-apt-cache-${{ hashFiles('.github/apt-packages.txt') }}
           restore-keys: |
-            ${{ runner.os }}-apt-
+            ${{ runner.os }}-apt-cache-
           fail-on-cache-miss: false
+
+      - name: Configure apt to use cache directory
+        run: |
+          echo "Dir::Cache::Archives /tmp/apt-cache;" | sudo tee -a /etc/apt/apt.conf.d/01cache
 
       - name: Update apt package lists
         run: sudo apt-get update
 
       - name: Install apt dependencies
         run: |
-          sudo apt-get install -y --no-install-recommends \
-            build-essential \
-            libssl-dev \
-            zlib1g-dev \
-            pkg-config
+          xargs -a .github/apt-packages.txt sudo apt-get install -y --no-install-recommends
 
-      - name: Verify installed packages (optional)
+      - name: Verify installed packages
         run: dpkg -l | grep build-essential # Example to check if installed
-
-      - name: Verify cache directories exist
-        run: |
-          echo "Checking cache directories..."
-          if [ ! -d "/var/cache/apt/archives" ]; then
-            echo "Error: /var/cache/apt/archives directory not found!"
-            exit 1
-          fi
-          if [ ! -d "/var/lib/apt/lists" ]; then
-            echo "Error: /var/lib/apt/lists directory not found!"
-            exit 1
-          fi
-          echo "Cache directories verified successfully"
 
       - name: Run build/test commands
         run: |
           # Your actual build and test commands here
           echo "Building and testing..."
 
-      - name: Verify cache save preparation and fail if insufficient
+      - name: Verify cache content for saving
         run: |
-          echo "Preparing for cache save verification..."
-          echo "Cache directories content:"
-          ls -la /var/cache/apt/archives/ | head -10
-          ls -la /var/lib/apt/lists/ | head -10
+          echo "Verifying cache content in /tmp/apt-cache..."
+          echo "Cache directory contents:"
+          ls -la /tmp/apt-cache/ | head -10
           
-          # Check if directories have content to cache
-          APT_ARCHIVES_COUNT=$(find /var/cache/apt/archives -name "*.deb" | wc -l)
-          APT_LISTS_COUNT=$(find /var/lib/apt/lists -type f | wc -l)
+          # Check if cache has content to save
+          CACHE_FILE_COUNT=$(find /tmp/apt-cache -type f | wc -l)
+          CACHE_SIZE=$(du -sh /tmp/apt-cache | cut -f1)
           
-          echo "Found $APT_ARCHIVES_COUNT .deb files in archives"
-          echo "Found $APT_LISTS_COUNT files in lists"
+          echo "Found $CACHE_FILE_COUNT files in cache"
+          echo "Cache directory size: $CACHE_SIZE"
           
-          if [ "$APT_ARCHIVES_COUNT" -eq 0 ] && [ "$APT_LISTS_COUNT" -eq 0 ]; then
-            echo "ERROR: No cache content found to save - cache save will fail!"
+          if [ "$CACHE_FILE_COUNT" -eq 0 ]; then
+            echo "ERROR: No cache content found - cache save will fail!"
             exit 1
           else
-            echo "Cache content available for saving"
+            echo "✅ Cache content available for saving ($CACHE_FILE_COUNT files, $CACHE_SIZE)"
           fi
