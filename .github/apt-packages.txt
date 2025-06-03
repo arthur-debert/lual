@@ -3,3 +3,7 @@ lua5.4-dev
 luarocks
 direnv
 lua-busted
+build-essential
+libssl-dev
+zlib1g-dev
+pkg-config
