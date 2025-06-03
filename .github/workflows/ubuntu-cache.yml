@@ -14,7 +14,8 @@ jobs:
       - name: Create apt cache directory
         run: |
           sudo mkdir -p /tmp/apt-cache
-          sudo chmod 777 /tmp/apt-cache
+          sudo chown runner:runner /tmp/apt-cache
+          chmod 755 /tmp/apt-cache
 
       - name: Cache apt packages
         id: cache-apt
