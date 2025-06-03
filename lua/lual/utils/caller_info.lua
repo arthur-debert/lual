@@ -90,20 +90,7 @@ function caller_info.get_caller_info(start_level)
         return filename, current_line, lua_path
     end
 
-
-
     return filename, current_line, lua_path
-end
-
---- Clears the module name cache in fname_to_module
-function caller_info.clear_cache()
-    fname_to_module.clear_cache()
-end
-
---- Gets the current cache size from fname_to_module
--- @return number The number of cached entries
-function caller_info.get_cache_size()
-    return fname_to_module.get_cache_size()
 end
 
 return caller_info
