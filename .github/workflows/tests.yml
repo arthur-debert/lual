@@ -139,7 +139,7 @@ jobs:
 
       - name: Run tests
         run: |
-          # Ensure we're using lua5.4 with busted
+          # Ensure we're using lua5.4 with busted, else deps break
           echo "Running tests with lua5.4..."
           lua5.4 -v
           # Run busted with lua5.4
