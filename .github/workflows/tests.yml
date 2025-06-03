@@ -52,6 +52,7 @@ jobs:
           echo "$HOME/.luarocks/bin" >> $GITHUB_PATH
           echo "LUA_VERSION=$LUA_VERSION" >> $GITHUB_ENV
           echo "LUA=/usr/bin/lua5.4" >> $GITHUB_ENV
+          echo "LUA_INCDIR=/usr/include/lua5.4" >> $GITHUB_ENV
 
       - name: Cache Lua dependencies
         id: cache-lua-deps
