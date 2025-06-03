@@ -56,12 +56,9 @@ jobs:
       - name: Run tests
         env:
           LUAROCKS_LOCAL: true
-        run: |
-          echo "Sourcing .envrc..."
-          source .envrc
-          echo "PATH after sourcing .envrc: $PATH"
-          echo "LUA_PATH after sourcing .envrc: $LUA_PATH"
-          echo "LUA_CPATH after sourcing .envrc: $LUA_CPATH"
-          echo "Which busted: $(which busted)"
-          echo "Attempting to run busted..."
-          busted
+        run: busted
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+         token: ${{ secrets.CODECOV_TOKEN }}
