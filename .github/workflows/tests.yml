@@ -46,17 +46,11 @@ jobs:
       - name: print me
         run: |
           pwd ; ls -lah
-      - name: Install Lua dependencies
-        if: steps.cache-lua-deps.outputs.cache-hit != 'true'
-        run: |
-          luarocks install --local --only-deps lual-0.7.1-1.rockspec
-          luarocks install --local --only-deps lualextras-0.7.1-1.rockspec
-      # Note: busted is now installed via luarocks from lualextras rockspec
-      # but also available via apt as backup from .github/apt-packages.txt
+      - name: Install deps
+        run: luarocks --tree ./.luarocks test 
+
       - name: Run tests
-        env:
-          LUAROCKS_LOCAL: true
-        run: luarocks --tree ./.luarocks test
+        run: busted -c 
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
