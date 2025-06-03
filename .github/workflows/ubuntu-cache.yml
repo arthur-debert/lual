@@ -1,0 +1,41 @@
+name: Build and Test
+
+on:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            /var/cache/apt/archives
+            /var/lib/apt/lists
+          key: ${{ runner.os }}-apt-${{ hashFiles('.github/apt-packages.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-apt-
+
+      - name: Update apt package lists
+        run: sudo apt-get update
+
+      - name: Install apt dependencies
+        run: |
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            libssl-dev \
+            zlib1g-dev \
+            pkg-config
+
+      - name: Verify installed packages (optional)
+        run: dpkg -l | grep build-essential # Example to check if installed
+
+      - name: Run build/test commands
+        run: |
+          # Your actual build and test commands here
+          echo "Building and testing..."
