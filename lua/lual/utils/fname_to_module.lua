@@ -97,7 +97,7 @@ end
 -- @return string|nil A fallback module name or nil
 local function generate_fallback_name(abs_filepath)
     -- Extract basename from the file path
-    local basename = abs_filepath:match("([^/\\]+)$") or abs_filepath
+    local basename = paths.basename(abs_filepath)
     if not basename then
         return nil
     end
@@ -146,7 +146,7 @@ local function process_path(file_path)
     local abs_filepath = paths.to_absolute_path(file_path)
 
     -- Extract basename for early pattern detection
-    local basename = abs_filepath:match("([^/\\]+)$") or abs_filepath
+    local basename = paths.basename(abs_filepath)
     if not basename then
         return nil, nil, nil
     end

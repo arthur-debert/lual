@@ -68,4 +68,17 @@ function paths.escape_lua_pattern(str)
     return str:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")
 end
 
+--- Extracts the basename (filename) from a path
+-- @param path (string) The path to extract the basename from
+-- @return string|nil The basename if found, or nil if path is invalid
+function paths.basename(path)
+    if not path or path == "" then
+        return nil
+    end
+
+    -- Extract basename from the file path
+    local basename = path:match("([^/\\]+)$") or path
+    return basename
+end
+
 return paths
