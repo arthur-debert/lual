@@ -21,16 +21,20 @@ to address its concepts is quite helpful.
         A component responsible for sending a processed log record to a specific
         output destination (e.g., console, file, network socket).
         Analogous to "handlers" in Python logging or "appenders" in Log4j.
+        Configured using constants like `lual.console`, `lual.file`, etc.
 
     1.4. Transformer (Filter/Processor):
         A component that can modify a log record's data (e.g., adding, removing,
         or changing key-value pairs) before it is presented or dispatched.
+        Configured using constants like `lual.noop`, `lual.audit`, etc.
 
     1.5. Presenter (Formatter/Layout):
         A component that formats a log record for output, controlling its visual
         presentation (e.g., text, JSON, colors, timestamp format).
         Presenters are typically associated with dispatchers.
-        The `time` property (UTC/local, format) is part of a presenter's config.
+        Configured using constants like `lual.text`, `lual.json`, `lual.color`, etc.
+        The `time` property (UTC/local, format) is part of a presenter's config
+        and uses constants like `lual.utc` and `lual.local_time`.
 
 2. Basic Logging Events:
 

@@ -68,7 +68,7 @@ lual Logging Components: Transformers, Presenters & Dispatchers
                     presenter = lual.text,
                     transformers = {
                         { type = lual.noop },
-                        { type = "custom", prefix = "[APP] " }
+                        { type = lual.custom, prefix = "[APP] " }
                     }
                 }
             }
@@ -93,7 +93,7 @@ lual Logging Components: Transformers, Presenters & Dispatchers
         3.2.1 Text Presenter
                 
                 -- Creates: "2023-03-15 10:00:00 INFO [app.module] User john logged in"
-                    local text_presenter = lual.presenters.text({ timezone = "utc" })
+                    local text_presenter = lual.presenters.text({ timezone = lual.utc })
                 -- lua
 
 
@@ -102,7 +102,7 @@ lual Logging Components: Transformers, Presenters & Dispatchers
             -- Creates structured JSON output: 
                 local json_presenter = lual.presenters.json({ 
                     pretty = true,
-                    timezone = "local" 
+                    timezone = lual.local_time 
                 })
             --- lua
 
@@ -239,9 +239,9 @@ lual Logging Components: Transformers, Presenters & Dispatchers
             local logger = lual.logger({
                 name = "app",
                 level = lual.info,
-                dispatcher = lual.console,    -- Simple dispatcher reference
-                presenter = lual.text,        -- Simple presenter reference
-                timezone = lual.utc          -- Presenter config
+                dispatcher = lual.console,    -- Dispatcher constant
+                presenter = lual.text,        -- Presenter constant
+                timezone = lual.utc          -- Time constant
             })
         
         --- lua
@@ -266,7 +266,7 @@ lual Logging Components: Transformers, Presenters & Dispatchers
                         presenter = lual.json,
                         timezone = lual.utc,
                         transformers = {
-                            { type = "audit", include_source = true }
+                            { type = lual.audit, include_source = true }
                         }
                     }
                 }
@@ -279,7 +279,7 @@ lual Logging Components: Transformers, Presenters & Dispatchers
             local logger = lual.logger("app")
             logger:add_dispatcher(
                 lual.dispatchers.console_dispatcher(),
-                lual.presenters.text({ timezone = "utc" })
+                lual.presenters.text({ timezone = lual.utc })
             )
         
         --- lua
