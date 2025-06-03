@@ -47,7 +47,7 @@ jobs:
         run: |
           pwd ; ls -lah
       - name: Install deps
-        run: luarocks --tree ./.luarocks install lual-*.rockspec ; luarocks --tree .luarocks install luasocket ; luarocks --tree .luarocks install dkjson ; luarocks --tree .luarocks install LuaCov
+        run: luarocks --tree ./.luarocks install lual-*.rockspec ; luarocks --tree .luarocks install busted ;luarocks --tree .luarocks install luasocket ; luarocks --tree .luarocks install dkjson ; luarocks --tree .luarocks install LuaCov
 
       - name: Run tests
         run: busted -c 
