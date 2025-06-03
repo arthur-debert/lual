@@ -56,7 +56,7 @@ jobs:
       - name: Run tests
         env:
           LUAROCKS_LOCAL: true
-        run: luarocks test
+        run: luarocks --tree ./.luarocks test
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
