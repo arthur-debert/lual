@@ -49,6 +49,28 @@ jobs:
             echo "✅ Apt cache content available for saving"
           fi
 
+      - name: Fix apt cache permissions for saving
+        run: |
+          echo "Fixing permissions on apt cache files..."
+          
+          # Remove lock file if it exists (apt creates this with restrictive permissions)
+          if [ -f "/tmp/apt-cache/lock" ]; then
+            sudo rm -f "/tmp/apt-cache/lock"
+            echo "Removed apt lock file"
+          fi
+          
+          # Fix permissions on partial directory if it exists
+          if [ -d "/tmp/apt-cache/partial" ]; then
+            sudo chmod 755 "/tmp/apt-cache/partial"
+            echo "Fixed permissions on partial directory"
+          fi
+          
+          # Ensure all files in cache are readable
+          sudo find /tmp/apt-cache -type f -exec chmod 644 {} \; 2>/dev/null || true
+          sudo find /tmp/apt-cache -type d -exec chmod 755 {} \; 2>/dev/null || true
+          
+          echo "✅ Apt cache permissions fixed for saving"
+
       - name: Configure Lua environment
         run: |
           # Create luarocks config directory
