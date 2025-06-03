@@ -295,4 +295,10 @@ function M.create_logging_methods()
     return methods
 end
 
+-- Expose internal functions for testing
+M._create_log_record = create_log_record
+M._process_dispatcher = process_dispatcher
+M._format_message = format_message
+M._parse_log_args = parse_log_args
+
 return M
