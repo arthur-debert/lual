@@ -221,6 +221,14 @@ create_root_logger_instance = function()       -- Renamed from create_root_logge
     dispatchers = main_conf.dispatchers or {}, -- Use dispatchers directly from config
     propagate = main_conf.propagate
   }
+
+  -- If no dispatchers are configured, add a default console dispatcher
+  if main_conf.dispatchers == nil or #main_conf.dispatchers == 0 then
+    root_config_for_logger.dispatchers = {
+      { dispatcher_func = all_dispatchers.console, config = { presenter = all_presenters.text() } }
+    }
+  end
+
   -- Convert raw function dispatchers to internal format
   if root_config_for_logger.dispatchers then
     local converted_dispatchers = {}

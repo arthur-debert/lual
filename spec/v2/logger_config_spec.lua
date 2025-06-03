@@ -395,8 +395,29 @@ describe("lual Logger Configuration API (Step 2.6)", function()
 
             assert.are.equal(core_levels.definition.WARNING, root_logger.level)
             assert.is_table(root_logger.dispatchers)
-            assert.are.equal(0, #root_logger.dispatchers)
+            -- assert.are.equal(0, #root_logger.dispatchers) -- This will be changed by the new default
             assert.are.equal(true, root_logger.propagate)
+        end)
+
+        it("should have a default console dispatcher for _root logger if none configured", function()
+            lual.reset_config() -- Ensure no prior global config
+            lual.reset_cache()
+            local root_logger = lual.logger("_root")
+            local root_config = root_logger:get_config()
+
+            assert.are.equal(1, #root_config.dispatchers, "Root logger should have one default dispatcher")
+            local default_dispatcher_entry = root_config.dispatchers[1]
+            assert.is_not_nil(default_dispatcher_entry, "Default dispatcher entry should exist")
+            assert.are.same(lual.dispatchers.console, default_dispatcher_entry.dispatcher_func, "Default dispatcher should be console")
+            assert.is_table(default_dispatcher_entry.config, "Dispatcher config should be a table")
+            assert.is_function(default_dispatcher_entry.config.presenter, "Default presenter should be a function")
+
+            -- Verify it's the text presenter (indirectly, by checking a known property or behavior if possible,
+            -- but direct comparison of function instances from different require() contexts can be tricky.
+            -- For now, checking it's a function is the primary goal from the logger's perspective.)
+            -- As an example of a deeper check if lual.presenters.text was directly accessible and comparable:
+            -- local text_presenter_factory = require("lual.presenters.text") -- Assuming direct access for test
+            -- assert.are.same(text_presenter_factory(), default_dispatcher_entry.config.presenter) -- This is illustrative
         end)
     end)
 end)
