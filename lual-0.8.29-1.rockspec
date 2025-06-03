@@ -28,7 +28,7 @@ test_dependencies = {
 	"busted >= 2.0.0",
     "dkjson >= 2.5",
     "luasocket >= 3.0rc1-2",
-	"LuaCov  >=  0.16.0"  ,
+	"luacov >= 0.15.0"
 }
 test = {
 	type = "busted",
