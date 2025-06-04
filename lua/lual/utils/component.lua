@@ -63,73 +63,16 @@ local function try_extract_function(item)
     return nil
 end
 
--- Special handling for presenters - allows string identifiers and type tables
-local function handle_presenter_special_cases(item, defaults, component_context)
-    -- Only handle special cases if the component_context is presenter
-    if component_context ~= "presenter" then
-        return nil
-    end
-
-    -- Handle presenter as string identifier (e.g., "text", "json")
-    if type(item) == "string" then
-        -- Return a placeholder function that will be processed later
-        -- This allows validation to pass even though it's not a real function
-        -- The actual resolution will happen in the dispatch module
-        return {
-            func = function(record)
-                -- This function is a placeholder and should never be called directly
-                -- The real presenter will be resolved at runtime in the dispatch module
-                return "[Unresolved presenter: " .. item .. "]"
-            end,
-            config = table_utils.deepcopy(defaults),
-            _presenter_type = item -- Special flag to indicate this is a presenter type
-        }
-    end
-
-    -- Handle presenter as table with type property (e.g., { type = "text", pretty = true })
-    if type(item) == "table" and item.type and not is_callable(item.type) then
-        local presenter_type = item.type
-
-        -- Copy all other properties as config
-        local config = table_utils.deepcopy(defaults)
-        for k, v in pairs(item) do
-            if k ~= "type" then
-                config[k] = v
-            end
-        end
-
-        -- Return with placeholder function
-        return {
-            func = function(record)
-                -- This function is a placeholder and should never be called directly
-                return "[Unresolved presenter type: " .. tostring(presenter_type) .. "]"
-            end,
-            config = config,
-            _presenter_type = presenter_type
-        }
-    end
-
-    -- Not a special case
-    return nil
-end
-
 --- Normalizes a component from any format to standardized table form
 -- @param item function|table The component to normalize
 -- @param defaults table Default configuration for this component type
--- @param component_context string|nil Optional context ("presenter", "dispatcher", "transformer")
 -- @return table Normalized component
-function M.normalize_component(item, defaults, component_context)
+function M.normalize_component(item, defaults)
     defaults = defaults or {}
 
     -- Handle nil case
     if item == nil then
         error("Component must be a function or a table with function as first element")
-    end
-
-    -- Special handling for presenters
-    local presenter_result = handle_presenter_special_cases(item, defaults, component_context)
-    if presenter_result then
-        return presenter_result
     end
 
     -- Handle function

@@ -116,37 +116,9 @@ end
 -- @return string|nil The presented message, or nil and error message
 local function process_presenter(record, presenter)
     -- Normalize presenter to standard format
-    local normalized = component_utils.normalize_component(presenter, component_utils.PRESENTER_DEFAULTS, "presenter")
+    local normalized = component_utils.normalize_component(presenter, component_utils.PRESENTER_DEFAULTS)
     local presenter_func = normalized.func
     local presenter_config = normalized.config
-
-    -- Handle special case for presenter types
-    if normalized._presenter_type then
-        local presenter_type = normalized._presenter_type
-
-        -- Try to resolve the presenter type to an actual presenter function
-        if type(presenter_type) == "string" then
-            -- Look up the presenter in the registry
-            local presenter_module = all_presenters[presenter_type]
-            if not presenter_module then
-                local error_msg = "Presenter type not found: " .. presenter_type
-                io.stderr:write(string.format("LUAL: Presenter type '%s' not found.\n", presenter_type))
-                return nil, error_msg
-            end
-
-            -- Call the presenter factory if it's a function
-            if type(presenter_module) == "function" then
-                presenter_func = presenter_module(presenter_config)
-            else
-                presenter_func = presenter_module
-            end
-        else
-            -- Unknown presenter type
-            local error_msg = "Presenter type not found: " .. tostring(presenter_type)
-            io.stderr:write(string.format("LUAL: Presenter type '%s' not found.\n", tostring(presenter_type)))
-            return nil, error_msg
-        end
-    end
 
     -- Apply the presenter
     local ok, result = pcall(presenter_func, record, presenter_config)
