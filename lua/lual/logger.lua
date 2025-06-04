@@ -332,7 +332,10 @@ local function validate_logger_config_table(config_table)
       for i, dispatcher in ipairs(value) do
         -- Accept function or table
         if type(dispatcher) ~= "function" and type(dispatcher) ~= "table" then
-          return false, string.format("dispatchers[%d] must be a function or a table, got %s", i, type(dispatcher))
+          return false,
+              string.format(
+                "dispatchers[%d] must be a function, a table with dispatcher_func, or a table with type (string or function), got %s",
+                i, type(dispatcher))
         end
 
         -- For table format, validate it properly
