@@ -85,12 +85,11 @@ describe("Component Utils", function()
 
         it("should error for table with non-function first element", function()
             assert.has_error(function()
-                component_utils.normalize_component({ "not_a_function", key = "value" }, {})
-            end, "First element of component table must be a function or callable table")
-
-            assert.has_error(function()
-                component_utils.normalize_component({ 123, key = "value" }, {})
-            end, "First element of component table must be a function or callable table")
+                component_utils.normalize_component({
+                    "not a function",
+                    level = 30
+                })
+            end, "First element of component table must be a function, got string")
         end)
     end)
 

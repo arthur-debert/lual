@@ -96,42 +96,10 @@ local function process_transformer(record, transformer)
         transformed_record[k] = v
     end
 
-    -- Normalize transformer if it's a function (for backward compatibility)
-    local transformer_func = nil
-    local transformer_config = {}
-
-    if type(transformer) == "function" then
-        transformer_func = transformer
-    elseif type(transformer) == "table" then
-        -- Try standard component format
-        if transformer.func then
-            transformer_func = transformer.func
-            transformer_config = transformer.config or {}
-            -- Check if it's a callable object (with __call metamethod)
-        elseif component_utils.is_callable(transformer) then
-            transformer_func = transformer
-            -- Check if it has a type field (string or function)
-        elseif transformer.type then
-            if type(transformer.type) == "string" then
-                -- String type like "noop_transformer"
-                if all_transformers and all_transformers[transformer.type] then
-                    transformer_func = all_transformers[transformer.type](transformer.config)
-                else
-                    return nil, "Transformer type not found: " .. transformer.type
-                end
-            elseif type(transformer.type) == "function" then
-                -- Function reference type like lual.noop_transformer
-                transformer_func = transformer.type(transformer.config)
-            else
-                return nil, "Invalid transformer type: " .. type(transformer.type)
-            end
-        end
-    end
-
-    -- If we couldn't resolve a transformer function, return an error
-    if not transformer_func then
-        return nil, "Invalid transformer configuration"
-    end
+    -- Normalize transformer to standard format
+    local normalized = component_utils.normalize_component(transformer, component_utils.TRANSFORMER_DEFAULTS)
+    local transformer_func = normalized.func
+    local transformer_config = normalized.config
 
     -- Apply the transformer
     local ok, result = pcall(transformer_func, transformed_record, transformer_config)
@@ -147,55 +115,13 @@ end
 -- @param presenter function|table The presenter function or config
 -- @return string|nil The presented message, or nil and error message
 local function process_presenter(record, presenter)
-    -- Normalize presenter if it's a function (for backward compatibility)
-    local presenter_func = nil
-    local presenter_config = {}
-
-    if type(presenter) == "function" then
-        presenter_func = presenter
-    elseif type(presenter) == "string" then
-        -- Legacy: Handle string presenter types like "text", "json"
-        if all_presenters and all_presenters[presenter] then
-            presenter_func = all_presenters[presenter]() -- Call factory
-        else
-            io.stderr:write(string.format("LUAL: Presenter type '%s' not found.\n", presenter))
-            return nil, "Presenter type not found: " .. presenter
-        end
-    elseif type(presenter) == "table" then
-        -- Try standard component format
-        if presenter.func then
-            presenter_func = presenter.func
-            presenter_config = presenter.config or {}
-            -- Check if it's a callable object (with __call metamethod)
-        elseif component_utils.is_callable(presenter) then
-            presenter_func = presenter
-            -- Check if it has a type field (string or function)
-        elseif presenter.type then
-            if type(presenter.type) == "string" then
-                -- String type like "text"
-                if all_presenters and all_presenters[presenter.type] then
-                    presenter_func = all_presenters[presenter.type](presenter.config)
-                else
-                    io.stderr:write(string.format("LUAL: Presenter type '%s' not found.\n", presenter.type))
-                    return nil, "Presenter type not found: " .. presenter.type
-                end
-            elseif type(presenter.type) == "function" then
-                -- Function reference type like lual.text
-                presenter_func = presenter.type(presenter.config)
-            else
-                return nil, "Invalid presenter type: " .. type(presenter.type)
-            end
-        end
-    end
-
-    -- If we couldn't resolve a presenter function, return an error
-    if not presenter_func then
-        io.stderr:write(string.format("LUAL: Invalid presenter configuration: %s\n", type(presenter)))
-        return nil, "Invalid presenter configuration"
-    end
+    -- Normalize presenter to standard format
+    local normalized = component_utils.normalize_component(presenter, component_utils.PRESENTER_DEFAULTS)
+    local presenter_func = normalized.func
+    local presenter_config = normalized.config
 
     -- Apply the presenter
-    local ok, result = pcall(presenter_func, record)
+    local ok, result = pcall(presenter_func, record, presenter_config)
     if not ok then
         io.stderr:write(string.format("LUAL: Error in presenter function: %s\n", tostring(result)))
         return nil, result
@@ -215,28 +141,20 @@ local function process_dispatcher(log_record, dispatcher_entry, logger)
         dispatcher_record[k] = v
     end
 
-    -- Normalize dispatcher_entry if it's a function (for backward compatibility)
-    -- The component normalization system standardizes all formats to:
-    -- { func = function_reference, config = { ... } }
-    if type(dispatcher_entry) == "function" then
-        dispatcher_entry = {
-            func = dispatcher_entry,
-            config = {}
-        }
+    -- Normalize dispatcher to standard format
+    local normalized = component_utils.normalize_component(dispatcher_entry, component_utils.DISPATCHER_DEFAULTS)
+    local dispatcher_func = normalized.func
+    local dispatcher_config = normalized.config
+
+    -- If the original dispatcher_entry had a level, make sure it's in the config
+    if type(dispatcher_entry) == "table" and dispatcher_entry.config and dispatcher_entry.config.level then
+        dispatcher_config.level = dispatcher_entry.config.level
     end
 
-    -- Get function and config from normalized entry
-    local dispatcher_func = dispatcher_entry.func
-    local dispatcher_config = dispatcher_entry.config or {}
-
-    -- Handle backward compatibility with old format
-    if not dispatcher_func and dispatcher_entry.dispatcher_func then
-        dispatcher_func = dispatcher_entry.dispatcher_func
-    end
-
-    if not dispatcher_func then
-        io.stderr:write("LUAL: Invalid dispatcher: missing function\n")
-        return
+    -- Print the normalized dispatcher for debugging
+    print("DEBUG: Normalized dispatcher config:")
+    for k, v in pairs(dispatcher_config) do
+        print("  " .. k .. " = " .. tostring(v))
     end
 
     -- Add logger context to the record
@@ -244,21 +162,16 @@ local function process_dispatcher(log_record, dispatcher_entry, logger)
     dispatcher_record.owner_logger_level = logger.level
     dispatcher_record.owner_logger_propagate = logger.propagate
 
-    -- Handle dispatcher level filtering (with special case for test spies)
-    local dispatcher_level = nil
-
-    -- 1. Try config.level first (normalized format)
-    if dispatcher_config.level then
-        dispatcher_level = dispatcher_config.level
-        -- 2. Try direct level property (old format)
-    elseif dispatcher_entry.level then
-        dispatcher_level = dispatcher_entry.level
-    end
+    -- Handle dispatcher level filtering
+    local dispatcher_level = dispatcher_config.level
 
     -- Apply level filtering if a level is set
-    if dispatcher_level and dispatcher_level > 0 then -- Skip NOTSET (0)
+    if dispatcher_level and type(dispatcher_level) == "number" and dispatcher_level > 0 then -- Skip NOTSET (0)
+        print("DEBUG: Level check - log level: " .. log_record.level_no .. ", dispatcher level: " .. dispatcher_level)
         if log_record.level_no < dispatcher_level then
-            return                                    -- Skip this dispatcher as its level is higher than the log record
+            print("DEBUG: Filtering - level too low")
+            -- Skip this dispatcher as its level is higher than the log record
+            return
         end
     end
 
@@ -282,7 +195,7 @@ local function process_dispatcher(log_record, dispatcher_entry, logger)
         end
     end
 
-    -- Apply single transformer if configured (legacy format)
+    -- Apply single transformer if configured
     if dispatcher_config.transformer and not dispatcher_record.transformer_error then
         local transformed_record, error_msg = process_transformer(dispatcher_record, dispatcher_config.transformer)
         if transformed_record then
@@ -303,13 +216,32 @@ local function process_dispatcher(log_record, dispatcher_entry, logger)
         end
     end
 
-    -- If we get here, the dispatcher level check passed (or there was no level configured)
+    -- Dispatch the record
     local ok, err = pcall(function()
+        -- This is the key fix - make sure we don't lose the level in the config
         dispatcher_func(dispatcher_record, dispatcher_config)
     end)
     if not ok then
-        -- Add retry logic if required, or at least log the error
         io.stderr:write(string.format("Error dispatching log record: %s\n", err))
+    end
+end
+
+--- Core process dispatcher logic
+-- @param log_record table The log record to process
+-- @param dispatchers table|function Array or single dispatcher
+-- @param context_logger table The logger being used for this dispatch
+local function process_dispatchers(log_record, dispatchers, context_logger)
+    if not dispatchers or #dispatchers == 0 then
+        return -- Nothing to do
+    end
+
+    for _, dispatcher in ipairs(dispatchers) do
+        -- Add debug output
+        if type(dispatcher) == "table" and dispatcher.config then
+            print("DEBUG: Processing dispatcher with config level:", dispatcher.config.level)
+        end
+
+        process_dispatcher(log_record, dispatcher, context_logger)
     end
 end
 

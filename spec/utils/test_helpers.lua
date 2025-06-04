@@ -3,123 +3,64 @@
 
 local test_helpers = {}
 
---- Creates a spy dispatcher that records log events
--- @return table A spy object with calls and helper methods
+--- Creates a spy dispatcher that records calls
+-- @return table Spy object with func and calls
 function test_helpers.create_spy_dispatcher()
-    local spy = {
-        calls = {},
-        config = {}
-    }
+    local calls = {}
 
-    -- The dispatcher function that records calls
-    local dispatcher_func = function(log_record)
-        table.insert(spy.calls, {
-            level_no = log_record.level_no,
-            level_name = log_record.level_name,
-            message = log_record.message,
-            logger_name = log_record.logger_name,
-            timestamp = log_record.timestamp,
-            formatted_message = log_record.formatted_message,
-            presented_message = log_record.presented_message
+    local function spy_func(record, config)
+        -- Implement level filtering like a real dispatcher
+        if config and config.level and record.level_no < config.level then
+            -- Skip if level is below the configured level
+            return
+        end
+
+        -- Record the call
+        table.insert(calls, {
+            level_no = record.level_no,
+            level_name = record.level_name,
+            message = record.message,
+            message_fmt = record.message_fmt,
+            timestamp = record.timestamp,
+            logger_name = record.logger_name
         })
     end
 
-    -- Set the function in both formats for compatibility
-    spy.func = dispatcher_func
-    spy.dispatcher_func = dispatcher_func
-
-    -- Helper to get call count
-    function spy:count()
-        return #self.calls
-    end
-
-    -- Helper to clear calls
-    function spy:clear()
-        self.calls = {}
-    end
-
-    -- Helper to get messages only
-    function spy:messages()
-        local result = {}
-        for i, call in ipairs(self.calls) do
-            result[i] = call.message
-        end
-        return result
-    end
-
-    -- Helper to filter by level
-    function spy:get_by_level(level_name)
-        local result = {}
-        for _, call in ipairs(self.calls) do
-            if call.level_name == level_name then
-                table.insert(result, call)
-            end
-        end
-        return result
-    end
-
-    return spy
+    return {
+        func = spy_func,
+        config = { timezone = "local" },
+        calls = calls,
+        count = function() return #calls end,
+        clear = function() calls = {} end
+    }
 end
 
---- Creates a test logger with spies at different levels
--- @param lual The lual module
+--- Creates a test logger with debug and warning level spies
+-- @param lual table The lual module
 -- @param name string Logger name
--- @param options table Optional settings
--- @return table A logger with preconfigured spies
-function test_helpers.create_test_logger(lual, name, options)
-    options = options or {}
-
-    -- Create spies for each level
+-- @return table Logger instance with spies
+function test_helpers.create_test_logger(lual, name)
+    -- Create spies for different log levels
     local debug_spy = test_helpers.create_spy_dispatcher()
-    local info_spy = test_helpers.create_spy_dispatcher()
     local warning_spy = test_helpers.create_spy_dispatcher()
-    local error_spy = test_helpers.create_spy_dispatcher()
 
-    -- Configure level-specific filtering
-    debug_spy.config = { level = lual.debug }
-    info_spy.config = { level = lual.info }
-    warning_spy.config = { level = lual.warning }
-    error_spy.config = { level = lual.error }
+    -- Set their levels in the config
+    debug_spy.config.level = lual.debug
+    warning_spy.config.level = lual.warning
 
-    -- Create logger with all spies
-    local logger_config = {
-        level = options.level or lual.debug,
+    -- Create the logger with these spies
+    local logger = lual.logger(name, {
+        level = lual.debug,  -- Logger at debug level
         dispatchers = {
-            debug_spy,
-            info_spy,
-            warning_spy,
-            error_spy
-        },
-        propagate = options.propagate
-    }
+            debug_spy.func,  -- This spy gets everything
+            warning_spy.func -- This spy only gets warning+
+        }
+    })
 
-    -- Create the logger
-    local logger = lual.logger(name, logger_config)
-
-    -- Attach spies to the logger for testing
+    -- Add spies to the logger for easy access in tests
     logger.spies = {
         debug = debug_spy,
-        info = info_spy,
-        warning = warning_spy,
-        error = error_spy,
-
-        -- Helper to get all calls
-        all_calls = function()
-            local all = {}
-            for i, call in ipairs(debug_spy.calls) do all[#all + 1] = call end
-            for i, call in ipairs(info_spy.calls) do all[#all + 1] = call end
-            for i, call in ipairs(warning_spy.calls) do all[#all + 1] = call end
-            for i, call in ipairs(error_spy.calls) do all[#all + 1] = call end
-            return all
-        end,
-
-        -- Helper to clear all spies
-        clear_all = function()
-            debug_spy:clear()
-            info_spy:clear()
-            warning_spy:clear()
-            error_spy:clear()
-        end
+        warning = warning_spy
     }
 
     return logger

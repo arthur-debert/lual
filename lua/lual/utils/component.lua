@@ -4,11 +4,9 @@
 -- The component system standardizes how dispatchers, transformers, and presenters are handled
 -- by normalizing them to a standard format early in the processing pipeline.
 --
--- Components can be provided in several formats:
+-- Components can be provided in only two formats:
 -- 1. Simple function: function(record, config) ... end
 -- 2. Table with function as first element: { my_func, level = lual.debug, some_config = value }
--- 3. Legacy format with dispatcher_func: { dispatcher_func = my_func, level = lual.debug }
--- 4. Legacy format with type field: { type = "console", level = lual.debug }
 --
 -- All formats are normalized to a standard structure:
 -- {
@@ -36,12 +34,34 @@ M.PRESENTER_DEFAULTS = {
 
 -- Helper function to check if an object is callable (function or table with __call metafunction)
 local function is_callable(obj)
-    return type(obj) == "function" or
-        (type(obj) == "table" and getmetatable(obj) and type(getmetatable(obj).__call) == "function")
+    if type(obj) == "function" then
+        return true
+    end
+
+    if type(obj) == "table" and getmetatable(obj) and type(getmetatable(obj).__call) == "function" then
+        return true
+    end
+
+    return false
 end
 
 -- Expose the is_callable function
 M.is_callable = is_callable
+
+-- Special case handling for dispatcher_func and non-standard formats
+local function try_extract_function(item)
+    -- If we have a dispatcher_func property (legacy compatibility)
+    if type(item) == "table" and type(item.dispatcher_func) == "function" then
+        return item.dispatcher_func
+    end
+
+    -- If we have a func property directly
+    if type(item) == "table" and type(item.func) == "function" then
+        return item.func
+    end
+
+    return nil
+end
 
 --- Normalizes a component from any format to standardized table form
 -- @param item function|table The component to normalize
@@ -65,94 +85,61 @@ function M.normalize_component(item, defaults)
 
     -- Handle table
     if type(item) == "table" then
-        -- Handle new table form: { func, key=val, key=val, ... }
-        if #item > 0 then
-            if is_callable(item[1]) then
-                local func = item[1]
-
-                -- Create a shallow copy without the first element
-                local user_config = {}
-                for k, v in pairs(item) do
-                    if k ~= 1 then
-                        user_config[k] = v
-                    end
-                end
-
-                -- Merge user config into defaults
-                local merged_config = table_utils.deepcopy(defaults)
-                for k, v in pairs(user_config) do
-                    merged_config[k] = v
-                end
-
-                return {
-                    func = func,
-                    config = merged_config
-                }
-            else
-                error("First element of component table must be a function or callable table")
-            end
-        end
-
-        -- Special handling for factory-created objects with schema
-        if item.schema ~= nil and is_callable(item) then
-            -- For presenter/transformer objects with schema, they are already normalized
+        -- Handle callable table (with __call metatable)
+        if is_callable(item) then
             return {
                 func = item,
                 config = table_utils.deepcopy(defaults)
             }
         end
 
-        -- Special handling for spy objects or tables with level/dispatcher_func
-        if item.dispatcher_func then
-            -- If it has a level, move it to config
-            if item.level and not (item.config and item.config.level) then
-                if not item.config then
-                    item.config = {}
-                end
-                item.config.level = item.level
-            end
-
-            -- Make sure func is set properly
-            if not item.func then
-                item.func = item.dispatcher_func
-            end
+        -- Check for special dispatcher_func or func properties
+        local extracted_func = try_extract_function(item)
+        if extracted_func then
+            return {
+                func = extracted_func,
+                config = table_utils.deepcopy(defaults)
+            }
         end
 
-        -- Handle table with { type = "presenter_name" } format
-        if item.type and not item.func then
-            -- This will be handled separately by the dispatcher
-            return item
-        end
+        -- Handle new table form: { func, key=val, key=val, ... }
+        if #item > 0 then
+            if item[1] == nil then
+                error("First element of component table cannot be nil")
+            end
 
-        -- For regular tables with { config = {...}, func = ... } format
-        if item.config or item.func then
-            -- Already in correct format, ensure config exists
-            if not item.config then
-                item.config = table_utils.deepcopy(defaults)
-            else
-                -- Merge default values for keys not in config
-                for k, v in pairs(defaults) do
-                    if item.config[k] == nil then
-                        item.config[k] = v
-                    end
+            if not is_callable(item[1]) then
+                error("First element of component table must be a function, got " .. type(item[1]))
+            end
+
+            local func = item[1]
+
+            -- Create a shallow copy without the first element
+            local user_config = {}
+            for k, v in pairs(item) do
+                if k ~= 1 then
+                    user_config[k] = v
+                    print("DEBUG: Adding config key:", k, "=", v)
                 end
             end
-            return item
+
+            -- Merge user config into defaults
+            local merged_config = table_utils.deepcopy(defaults)
+            for k, v in pairs(user_config) do
+                merged_config[k] = v
+            end
+
+            return {
+                func = func,
+                config = merged_config
+            }
         end
 
-        -- Empty table or invalid format
-        if next(item) == nil then
-            error("Component must be a function or a table with function as first element")
-        end
-    end
-
-    -- Unknown type
-    if type(item) ~= "function" and type(item) ~= "table" then
         error("Component must be a function or a table with function as first element")
     end
 
-    -- If we get here, it's an unrecognized format but still a table
-    return item
+    -- Unknown type
+    error("Component must be a function or a table with function as first element")
 end
 
 --- Normalizes a list of components

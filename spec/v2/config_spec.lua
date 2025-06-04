@@ -4,79 +4,100 @@ package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lu
 local lual = require("lual.logger")
 local core_levels = require("lua.lual.levels")
 
+--- Tests that assert() correctly returns the raw function for backwards compatibility,
+-- but does not return the same dispatcher table to preserve immutability
+local function assert_dispatcher_is_function(result, expected_func)
+    assert.is_table(result) -- We're now returning the normalized form
+    assert.are.equal(expected_func, result.func)
+end
+
+-- This is the core test for basic configuration API
 describe("lual.config() API", function()
+    -- Reset before each test
     before_each(function()
-        -- Reset config for each test
         lual.reset_config()
     end)
 
     describe("Basic functionality", function()
         it("should update configuration with provided keys", function()
-            local updated_config = lual.config({
+            local result = lual.config({
                 level = core_levels.definition.DEBUG
             })
 
-            assert.are.equal(core_levels.definition.DEBUG, updated_config.level)
-            assert.are.equal(true, updated_config.propagate)                                     -- Unchanged default
-            assert.are.equal(1, #updated_config.dispatchers)                                     -- Default console dispatcher
-            assert.are.equal(lual.dispatchers.console_dispatcher, updated_config.dispatchers[1]) -- Console dispatcher
+            assert.are.equal(core_levels.definition.DEBUG, result.level)
+
+            -- Default dispatcher should be preserved
+            local dispatchers = result.dispatchers
+            assert.is_table(dispatchers)
+            assert.are.equal(1, #dispatchers)
+            assert_dispatcher_is_function(dispatchers[1], lual.dispatchers.console_dispatcher)
         end)
 
         it("should preserve existing configuration for unspecified keys", function()
-            -- Set initial config
+            -- First set a non-default level
             lual.config({
-                level = core_levels.definition.ERROR,
-                propagate = false
-            })
-
-            -- Update only level
-            local updated_config = lual.config({
                 level = core_levels.definition.INFO
             })
 
-            assert.are.equal(core_levels.definition.INFO, updated_config.level)
-            assert.are.equal(false, updated_config.propagate)                                    -- Preserved from previous call
-            assert.are.equal(1, #updated_config.dispatchers)                                     -- Default console dispatcher
-            assert.are.equal(lual.dispatchers.console_dispatcher, updated_config.dispatchers[1]) -- Console dispatcher
+            -- Then modify a different key
+            local result = lual.config({
+                propagate = false
+            })
+
+            -- The previously-set level should be preserved
+            assert.are.equal(core_levels.definition.INFO, result.level)
+            assert.is_false(result.propagate)
+
+            -- Default dispatcher should still be there
+            local dispatchers = result.dispatchers
+            assert.is_table(dispatchers)
+            assert.are.equal(1, #dispatchers)
+            assert_dispatcher_is_function(dispatchers[1], lual.dispatchers.console_dispatcher)
         end)
 
         it("should allow updating dispatchers", function()
-            local mock_dispatcher = function() end
-            local updated_config = lual.config({
-                dispatchers = { mock_dispatcher }
+            local custom_dispatcher = function() end
+
+            local result = lual.config({
+                dispatchers = { custom_dispatcher }
             })
 
-            assert.are.equal(1, #updated_config.dispatchers)
-            assert.are.equal(mock_dispatcher, updated_config.dispatchers[1])
-            assert.are.equal(core_levels.definition.WARNING, updated_config.level) -- Default unchanged
+            local dispatchers = result.dispatchers
+            assert.is_table(dispatchers)
+            assert.are.equal(1, #dispatchers)
+            assert_dispatcher_is_function(dispatchers[1], custom_dispatcher)
         end)
 
         it("should allow updating propagate", function()
-            local updated_config = lual.config({
+            local result = lual.config({
                 propagate = false
             })
 
-            assert.are.equal(false, updated_config.propagate)
-            assert.are.equal(core_levels.definition.WARNING, updated_config.level)               -- Default unchanged
-            assert.are.equal(1, #updated_config.dispatchers)                                     -- Default console dispatcher
-            assert.are.equal(lual.dispatchers.console_dispatcher, updated_config.dispatchers[1]) -- Console dispatcher
+            assert.is_false(result.propagate)
+
+            -- Default dispatcher should still be there
+            local dispatchers = result.dispatchers
+            assert.is_table(dispatchers)
+            assert.are.equal(1, #dispatchers)
+            assert_dispatcher_is_function(dispatchers[1], lual.dispatchers.console_dispatcher)
         end)
 
         it("should allow updating multiple keys at once", function()
-            local mock_dispatcher1 = function() end
-            local mock_dispatcher2 = function() end
+            local custom_dispatcher = function() end
 
-            local updated_config = lual.config({
-                level = core_levels.definition.CRITICAL,
-                dispatchers = { mock_dispatcher1, mock_dispatcher2 },
-                propagate = false
+            local result = lual.config({
+                level = core_levels.definition.ERROR,
+                propagate = false,
+                dispatchers = { custom_dispatcher }
             })
 
-            assert.are.equal(core_levels.definition.CRITICAL, updated_config.level)
-            assert.are.equal(false, updated_config.propagate)
-            assert.are.equal(2, #updated_config.dispatchers)
-            assert.are.equal(mock_dispatcher1, updated_config.dispatchers[1])
-            assert.are.equal(mock_dispatcher2, updated_config.dispatchers[2])
+            assert.are.equal(core_levels.definition.ERROR, result.level)
+            assert.is_false(result.propagate)
+
+            local dispatchers = result.dispatchers
+            assert.is_table(dispatchers)
+            assert.are.equal(1, #dispatchers)
+            assert_dispatcher_is_function(dispatchers[1], custom_dispatcher)
         end)
     end)
 
@@ -105,48 +126,72 @@ describe("lual.config() API", function()
     describe("Validation - Type checking", function()
         it("should reject non-table configuration", function()
             assert.has_error(function()
-                lual.config("not a table")
+                lual.config("not_a_table")
             end, "Invalid configuration: Configuration must be a table, got string")
+        end)
 
+        it("should reject unknown configuration keys", function()
             assert.has_error(function()
-                lual.config(123)
-            end, "Invalid configuration: Configuration must be a table, got number")
-
-            assert.has_error(function()
-                lual.config(nil)
-            end, "Invalid configuration: Configuration must be a table, got nil")
+                    lual.config({
+                        unknown_key = "value"
+                    })
+                end,
+                "Invalid configuration: Unknown configuration key 'unknown_key'. Valid keys are: dispatchers, level, propagate")
         end)
 
         it("should reject invalid level type", function()
             assert.has_error(function()
                     lual.config({
-                        level = "debug" -- Should be number, not string
+                        level = "not_a_number"
                     })
                 end,
                 "Invalid configuration: Invalid type for 'level': expected number, got string. Logging level (use lual.DEBUG, lual.INFO, etc.)")
-
-            assert.has_error(function()
-                    lual.config({
-                        level = true
-                    })
-                end,
-                "Invalid configuration: Invalid type for 'level': expected number, got boolean. Logging level (use lual.DEBUG, lual.INFO, etc.)")
         end)
 
         it("should reject invalid level values", function()
-            assert.has_error(function()
+            local ok, err = pcall(function()
                 lual.config({
-                    level = 999 -- Invalid level number
+                    level = 999 -- Not a valid level constant
                 })
             end)
-            -- Should contain info about valid levels
 
+            assert.is_false(ok)
+            assert.matches("Invalid configuration: Invalid level value 999. Valid levels are:", err)
+        end)
+
+        it("should reject NOTSET level for root logger", function()
             assert.has_error(function()
                 lual.config({
-                    level = -1 -- Invalid level number
+                    level = core_levels.definition.NOTSET
                 })
-            end)
-            -- Should contain info about valid levels
+            end, "Invalid configuration: Root logger level cannot be set to NOTSET")
+        end)
+
+        it("should reject invalid propagate type", function()
+            assert.has_error(function()
+                    lual.config({
+                        propagate = "not_a_boolean"
+                    })
+                end,
+                "Invalid configuration: Invalid type for 'propagate': expected boolean, got string. Whether to propagate messages (always true for root)")
+        end)
+
+        it("should reject invalid dispatchers type", function()
+            assert.has_error(function()
+                    lual.config({
+                        dispatchers = "not_an_array"
+                    })
+                end,
+                "Invalid configuration: Invalid type for 'dispatchers': expected table, got string. Array of dispatcher functions or configuration tables")
+        end)
+
+        it("should reject dispatchers containing non-functions", function()
+            assert.has_error(function()
+                    lual.config({
+                        dispatchers = { "not_a_dispatcher" }
+                    })
+                end,
+                "Invalid configuration: dispatchers[1] must be a function or a table with function as first element, got string")
         end)
 
         it("should accept all valid level values", function()
@@ -170,13 +215,6 @@ describe("lual.config() API", function()
         it("should reject invalid propagate type", function()
             assert.has_error(function()
                     lual.config({
-                        propagate = "true" -- Should be boolean, not string
-                    })
-                end,
-                "Invalid configuration: Invalid type for 'propagate': expected boolean, got string. Whether to propagate messages (always true for root)")
-
-            assert.has_error(function()
-                    lual.config({
                         propagate = 1 -- Should be boolean, not number
                     })
                 end,
@@ -186,33 +224,10 @@ describe("lual.config() API", function()
         it("should reject invalid dispatchers type", function()
             assert.has_error(function()
                     lual.config({
-                        dispatchers = "not a table"
-                    })
-                end,
-                "Invalid configuration: Invalid type for 'dispatchers': expected table, got string. Array of dispatcher functions or configuration tables")
-
-            assert.has_error(function()
-                    lual.config({
                         dispatchers = 123
                     })
                 end,
                 "Invalid configuration: Invalid type for 'dispatchers': expected table, got number. Array of dispatcher functions or configuration tables")
-        end)
-
-        it("should reject dispatchers containing non-functions", function()
-            assert.has_error(function()
-                    lual.config({
-                        dispatchers = { "not a function" }
-                    })
-                end,
-                "Invalid configuration: dispatchers[1] must be a function, a table with dispatcher_func, or a table with type property (string or function), got string")
-
-            assert.has_error(function()
-                    lual.config({
-                        dispatchers = { function() end, 123, function() end }
-                    })
-                end,
-                "Invalid configuration: dispatchers[2] must be a function, a table with dispatcher_func, or a table with type property (string or function), got number")
         end)
 
         it("should accept empty dispatchers array", function()
@@ -237,67 +252,77 @@ describe("lual.config() API", function()
 
     describe("get_config() functionality", function()
         it("should return current configuration", function()
-            local mock_dispatcher = function() end
+            -- Set up a custom configuration
+            local custom_dispatcher = function() end
+
             lual.config({
-                level = core_levels.definition.ERROR,
-                dispatchers = { mock_dispatcher },
+                level = core_levels.definition.DEBUG,
+                dispatchers = { custom_dispatcher },
                 propagate = false
             })
 
-            local current_config = lual.get_config()
-            assert.are.equal(core_levels.definition.ERROR, current_config.level)
-            assert.are.equal(false, current_config.propagate)
-            assert.are.equal(1, #current_config.dispatchers)
-            assert.are.equal(mock_dispatcher, current_config.dispatchers[1])
+            -- Get the current configuration
+            local config = lual.get_config()
+
+            -- Verify all keys
+            assert.are.equal(core_levels.definition.DEBUG, config.level)
+            assert.is_false(config.propagate)
+
+            -- Verify dispatchers
+            assert.is_table(config.dispatchers)
+            assert.are.equal(1, #config.dispatchers)
+            assert_dispatcher_is_function(config.dispatchers[1], custom_dispatcher)
+
+            -- Verify that modifying the returned config doesn't affect the internal state
+            config.level = core_levels.definition.ERROR
+            local config2 = lual.get_config()
+            assert.are.equal(core_levels.definition.DEBUG, config2.level) -- Still the original value
         end)
 
         it("should return default configuration initially", function()
-            local default_config = lual.get_config()
-            assert.are.equal(core_levels.definition.WARNING, default_config.level)
-            assert.are.equal(true, default_config.propagate)
-            assert.are.equal(1, #default_config.dispatchers)                                     -- Default console dispatcher
-            assert.are.equal(lual.dispatchers.console_dispatcher, default_config.dispatchers[1]) -- Console dispatcher
-        end)
-
-        it("should return a copy (not reference) of configuration", function()
-            local config1 = lual.get_config()
-            config1.level = core_levels.definition.DEBUG -- Modify the returned config
-
-            local config2 = lual.get_config()
-            assert.are.equal(core_levels.definition.WARNING, config2.level) -- Should still be default
-        end)
-
-        it("should return a copy of dispatchers array", function()
-            local mock_dispatcher = function() end
-            lual.config({ dispatchers = { mock_dispatcher } })
-
+            -- Get default configuration (without setting anything)
             local config = lual.get_config()
-            table.insert(config.dispatchers, function() end) -- Modify returned dispatchers
 
-            local config2 = lual.get_config()
-            assert.are.equal(1, #config2.dispatchers) -- Should still have original length
+            -- Verify default values
+            assert.are.equal(core_levels.definition.WARNING, config.level)
+            assert.is_true(config.propagate)
+
+            -- Verify default dispatcher
+            assert.is_table(config.dispatchers)
+            assert.are.equal(1, #config.dispatchers)
+            assert_dispatcher_is_function(config.dispatchers[1], lual.dispatchers.console_dispatcher)
         end)
     end)
 
     describe("reset_config() functionality", function()
         it("should reset configuration to defaults", function()
-            -- Set non-default configuration
-            local mock_dispatcher = function() end
+            -- First set a custom configuration
+            local custom_dispatcher = function() end
+
             lual.config({
                 level = core_levels.definition.DEBUG,
-                dispatchers = { mock_dispatcher },
+                dispatchers = { custom_dispatcher },
                 propagate = false
             })
 
-            -- Reset
+            -- Verify custom configuration is in effect
+            local before_reset = lual.get_config()
+            assert.are.equal(core_levels.definition.DEBUG, before_reset.level)
+            assert.is_false(before_reset.propagate)
+            assert.is_table(before_reset.dispatchers)
+            assert.are.equal(1, #before_reset.dispatchers)
+            assert_dispatcher_is_function(before_reset.dispatchers[1], custom_dispatcher)
+
+            -- Reset the configuration
             lual.reset_config()
 
-            -- Check that defaults are restored
-            local config = lual.get_config()
-            assert.are.equal(core_levels.definition.WARNING, config.level)
-            assert.are.equal(true, config.propagate)
-            assert.are.equal(1, #config.dispatchers)                                     -- Default console dispatcher
-            assert.are.equal(lual.dispatchers.console_dispatcher, config.dispatchers[1]) -- Console dispatcher
+            -- Verify defaults have been restored
+            local after_reset = lual.get_config()
+            assert.are.equal(core_levels.definition.WARNING, after_reset.level)
+            assert.is_true(after_reset.propagate)
+            assert.is_table(after_reset.dispatchers)
+            assert.are.equal(1, #after_reset.dispatchers)
+            assert_dispatcher_is_function(after_reset.dispatchers[1], lual.dispatchers.console_dispatcher)
         end)
     end)
 

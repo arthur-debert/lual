@@ -5,6 +5,18 @@ local lual = require("lual.logger")
 local core_levels = require("lua.lual.levels")
 local table_utils = require("lual.utils.table")
 
+--- Helper function to verify that a dispatcher matches the expected function
+-- @param actual table The normalized dispatcher
+-- @param expected_func function The expected function
+-- @return boolean Whether the dispatcher matches
+local function verify_dispatcher(actual, expected_func)
+    assert.is_table(actual, "Dispatcher should be a normalized table")
+    assert.is_table(actual.config, "Dispatcher should have a config table")
+    assert.is_function(actual.func, "Dispatcher should have a func property")
+    assert.are.equal(expected_func, actual.func, "Dispatcher function should match expected")
+    return true
+end
+
 describe("lual Logger Configuration API (Step 2.6)", function()
     before_each(function()
         -- Reset config and logger cache for each test
@@ -104,18 +116,19 @@ describe("lual Logger Configuration API (Step 2.6)", function()
         end)
 
         it("should handle multiple dispatchers", function()
-            local dispatcher1 = function() end
-            local dispatcher2 = function() end
-            local dispatcher3 = function() end
+            local mock_dispatcher1 = function() end
+            local mock_dispatcher2 = function() end
 
-            local logger = lual.logger("multi.dispatcher", {
-                dispatchers = { dispatcher1, dispatcher2, dispatcher3 }
+            local logger = lual.logger("test.dispatchers", {
+                dispatchers = { mock_dispatcher1, mock_dispatcher2 }
             })
 
-            assert.are.equal(3, #logger.dispatchers)
-            assert.are.equal(dispatcher1, logger.dispatchers[1].dispatcher_func)
-            assert.are.equal(dispatcher2, logger.dispatchers[2].dispatcher_func)
-            assert.are.equal(dispatcher3, logger.dispatchers[3].dispatcher_func)
+            assert.are.equal("test.dispatchers", logger.name)
+            assert.are.equal(2, #logger.dispatchers)
+
+            -- Verify both dispatchers
+            verify_dispatcher(logger.dispatchers[1], mock_dispatcher1)
+            verify_dispatcher(logger.dispatchers[2], mock_dispatcher2)
         end)
     end)
 
@@ -269,34 +282,37 @@ describe("lual Logger Configuration API (Step 2.6)", function()
         describe("add_dispatcher()", function()
             it("should add dispatcher to logger", function()
                 local mock_dispatcher = function() end
-                test_logger:add_dispatcher(mock_dispatcher)
+                local logger = lual.logger("test.add_dispatcher")
 
-                assert.are.equal(1, #test_logger.dispatchers)
-                assert.are.equal(mock_dispatcher, test_logger.dispatchers[1].dispatcher_func)
-                assert.is_table(test_logger.dispatchers[1].config)
-                assert.is_nil(next(test_logger.dispatchers[1].config))
+                logger:add_dispatcher(mock_dispatcher)
+
+                assert.are.equal(1, #logger.dispatchers)
+                verify_dispatcher(logger.dispatchers[1], mock_dispatcher)
             end)
 
             it("should add dispatcher with config", function()
                 local mock_dispatcher = function() end
-                local config = { setting = "value" }
-                test_logger:add_dispatcher(mock_dispatcher, config)
+                local logger = lual.logger("test.add_dispatcher_config")
 
-                assert.are.equal(1, #test_logger.dispatchers)
-                assert.are.equal(mock_dispatcher, test_logger.dispatchers[1].dispatcher_func)
-                assert.are.same(config, test_logger.dispatchers[1].config)
+                logger:add_dispatcher(mock_dispatcher, { level = 30, stream = "test" })
+
+                assert.are.equal(1, #logger.dispatchers)
+                verify_dispatcher(logger.dispatchers[1], mock_dispatcher)
+                assert.are.equal(30, logger.dispatchers[1].config.level)
+                assert.are.equal("test", logger.dispatchers[1].config.stream)
             end)
 
             it("should add multiple dispatchers", function()
-                local dispatcher1 = function() end
-                local dispatcher2 = function() end
+                local mock_dispatcher1 = function() end
+                local mock_dispatcher2 = function() end
+                local logger = lual.logger("test.add_multiple_dispatchers")
 
-                test_logger:add_dispatcher(dispatcher1)
-                test_logger:add_dispatcher(dispatcher2)
+                logger:add_dispatcher(mock_dispatcher1)
+                logger:add_dispatcher(mock_dispatcher2)
 
-                assert.are.equal(2, #test_logger.dispatchers)
-                assert.are.equal(dispatcher1, test_logger.dispatchers[1].dispatcher_func)
-                assert.are.equal(dispatcher2, test_logger.dispatchers[2].dispatcher_func)
+                assert.are.equal(2, #logger.dispatchers)
+                verify_dispatcher(logger.dispatchers[1], mock_dispatcher1)
+                verify_dispatcher(logger.dispatchers[2], mock_dispatcher2)
             end)
 
             it("should reject non-function dispatchers", function()
@@ -328,19 +344,23 @@ describe("lual Logger Configuration API (Step 2.6)", function()
 
         describe("get_config()", function()
             it("should return logger configuration", function()
-                test_logger:set_level(core_levels.definition.WARNING)
-                test_logger:set_propagate(false)
-
                 local mock_dispatcher = function() end
-                test_logger:add_dispatcher(mock_dispatcher)
+                local logger = lual.logger("test", {
+                    level = core_levels.definition.INFO,
+                    dispatchers = { mock_dispatcher },
+                    propagate = false
+                })
 
-                local config = test_logger:get_config()
+                local config = logger:get_config()
 
-                assert.are.equal("imperative.test", config.name)
-                assert.are.equal(core_levels.definition.WARNING, config.level)
+                assert.are.equal("test", config.name)
+                assert.are.equal(core_levels.definition.INFO, config.level)
                 assert.are.equal(false, config.propagate)
+                assert.are.equal("_root", config.parent_name)
+
+                -- Verify dispatchers array contains normalized dispatchers
                 assert.are.equal(1, #config.dispatchers)
-                assert.is_not_nil(config.parent_name)
+                verify_dispatcher(config.dispatchers[1], mock_dispatcher)
             end)
 
             it("should return nil parent_name for orphaned logger", function()
@@ -400,23 +420,16 @@ describe("lual Logger Configuration API (Step 2.6)", function()
         end)
 
         it("should have a default console dispatcher for _root logger if none configured", function()
-            lual.reset_config() -- Ensure no prior global config
-            lual.reset_cache()
+            -- Create a new root logger with default dispatchers
+            local root_logger = lual.create_root_logger()
 
-            -- Create a root logger with the default console dispatcher as specified in the design doc
-            local root_logger = lual.logger("_root", {
-                level = core_levels.definition.WARNING,
-                dispatchers = { lual.dispatchers.console_dispatcher },
-                propagate = true
-            })
+            -- Debug output
+            print("Root logger:", require("inspect")(root_logger))
 
-            local root_config = root_logger:get_config()
-
-            assert.are.equal(1, #root_config.dispatchers, "Root logger should have one default dispatcher")
-            local default_dispatcher_entry = root_config.dispatchers[1]
-            assert.is_not_nil(default_dispatcher_entry, "Default dispatcher entry should exist")
-            assert.are.same(lual.dispatchers.console_dispatcher, default_dispatcher_entry,
-                "Default dispatcher should be console")
+            -- Check that we have a default console dispatcher
+            assert.are.equal(1, #root_logger.dispatchers, "Root logger should have one default dispatcher")
+            assert.are.equal(lual.dispatchers.console_dispatcher, root_logger.dispatchers[1].func,
+            "Default dispatcher should be console")
         end)
     end)
 end)
