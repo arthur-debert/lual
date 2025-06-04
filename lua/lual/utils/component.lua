@@ -50,6 +50,11 @@ M.is_callable = is_callable
 function M.normalize_component(item, defaults)
     defaults = defaults or {}
 
+    -- Handle nil case
+    if item == nil then
+        error("Component must be a function or a table with function as first element")
+    end
+
     -- Handle function
     if type(item) == "function" then
         return {
@@ -61,26 +66,39 @@ function M.normalize_component(item, defaults)
     -- Handle table
     if type(item) == "table" then
         -- Handle new table form: { func, key=val, key=val, ... }
-        if #item > 0 and is_callable(item[1]) then
-            local func = item[1]
+        if #item > 0 then
+            if is_callable(item[1]) then
+                local func = item[1]
 
-            -- Create a shallow copy without the first element
-            local user_config = {}
-            for k, v in pairs(item) do
-                if k ~= 1 then
-                    user_config[k] = v
+                -- Create a shallow copy without the first element
+                local user_config = {}
+                for k, v in pairs(item) do
+                    if k ~= 1 then
+                        user_config[k] = v
+                    end
                 end
-            end
 
-            -- Merge user config into defaults
-            local merged_config = table_utils.deepcopy(defaults)
-            for k, v in pairs(user_config) do
-                merged_config[k] = v
-            end
+                -- Merge user config into defaults
+                local merged_config = table_utils.deepcopy(defaults)
+                for k, v in pairs(user_config) do
+                    merged_config[k] = v
+                end
 
+                return {
+                    func = func,
+                    config = merged_config
+                }
+            else
+                error("First element of component table must be a function or callable table")
+            end
+        end
+
+        -- Special handling for factory-created objects with schema
+        if item.schema ~= nil and is_callable(item) then
+            -- For presenter/transformer objects with schema, they are already normalized
             return {
-                func = func,
-                config = merged_config
+                func = item,
+                config = table_utils.deepcopy(defaults)
             }
         end
 
@@ -93,13 +111,47 @@ function M.normalize_component(item, defaults)
                 end
                 item.config.level = item.level
             end
+
+            -- Make sure func is set properly
+            if not item.func then
+                item.func = item.dispatcher_func
+            end
         end
 
-        -- For backward compatibility, just return the item as-is
-        return item
+        -- Handle table with { type = "presenter_name" } format
+        if item.type and not item.func then
+            -- This will be handled separately by the dispatcher
+            return item
+        end
+
+        -- For regular tables with { config = {...}, func = ... } format
+        if item.config or item.func then
+            -- Already in correct format, ensure config exists
+            if not item.config then
+                item.config = table_utils.deepcopy(defaults)
+            else
+                -- Merge default values for keys not in config
+                for k, v in pairs(defaults) do
+                    if item.config[k] == nil then
+                        item.config[k] = v
+                    end
+                end
+            end
+            return item
+        end
+
+        -- Empty table or invalid format
+        if next(item) == nil then
+            error("Component must be a function or a table with function as first element")
+        end
     end
 
-    -- Unknown format - return as-is (will be caught later)
+    -- Unknown type
+    if type(item) ~= "function" and type(item) ~= "table" then
+        error("Component must be a function or a table with function as first element")
+    end
+
+    -- If we get here, it's an unrecognized format but still a table
     return item
 end
 
@@ -109,7 +161,7 @@ end
 -- @return table Array of normalized components
 function M.normalize_components(items, defaults)
     if type(items) ~= "table" then
-        return {} -- Return empty array for non-table input
+        error("Components must be provided as a table/array")
     end
 
     local normalized = {}

@@ -39,7 +39,9 @@
 --   })
 
 local core_levels = require("lua.lual.levels")
-local all_presenters = require("lual.presenters.init") -- Added for presenter handling
+local all_presenters = require("lual.presenters.init")
+local all_transformers = require("lual.transformers.init")
+local component_utils = require("lual.utils.component")
 
 local M = {}
 
@@ -81,6 +83,125 @@ local function create_log_record(logger, level_no, level_name, message_fmt, args
         filename = debug.getinfo(4, "S").source:match("([^/\\]+)$") or "unknown",
         lineno = debug.getinfo(4, "l").currentline or 0
     }
+end
+
+--- Processes a single transformer
+-- @param record table The log record to process
+-- @param transformer function|table The transformer function or config
+-- @return table The transformed record, or nil and error message
+local function process_transformer(record, transformer)
+    -- Create a copy of the record for the transformer
+    local transformed_record = {}
+    for k, v in pairs(record) do
+        transformed_record[k] = v
+    end
+
+    -- Normalize transformer if it's a function (for backward compatibility)
+    local transformer_func = nil
+    local transformer_config = {}
+
+    if type(transformer) == "function" then
+        transformer_func = transformer
+    elseif type(transformer) == "table" then
+        -- Try standard component format
+        if transformer.func then
+            transformer_func = transformer.func
+            transformer_config = transformer.config or {}
+            -- Check if it's a callable object (with __call metamethod)
+        elseif component_utils.is_callable(transformer) then
+            transformer_func = transformer
+            -- Check if it has a type field (string or function)
+        elseif transformer.type then
+            if type(transformer.type) == "string" then
+                -- String type like "noop_transformer"
+                if all_transformers and all_transformers[transformer.type] then
+                    transformer_func = all_transformers[transformer.type](transformer.config)
+                else
+                    return nil, "Transformer type not found: " .. transformer.type
+                end
+            elseif type(transformer.type) == "function" then
+                -- Function reference type like lual.noop_transformer
+                transformer_func = transformer.type(transformer.config)
+            else
+                return nil, "Invalid transformer type: " .. type(transformer.type)
+            end
+        end
+    end
+
+    -- If we couldn't resolve a transformer function, return an error
+    if not transformer_func then
+        return nil, "Invalid transformer configuration"
+    end
+
+    -- Apply the transformer
+    local ok, result = pcall(transformer_func, transformed_record, transformer_config)
+    if not ok then
+        return nil, "Transformer error: " .. tostring(result)
+    end
+
+    return result or transformed_record
+end
+
+--- Processes a single presenter
+-- @param record table The log record to process
+-- @param presenter function|table The presenter function or config
+-- @return string|nil The presented message, or nil and error message
+local function process_presenter(record, presenter)
+    -- Normalize presenter if it's a function (for backward compatibility)
+    local presenter_func = nil
+    local presenter_config = {}
+
+    if type(presenter) == "function" then
+        presenter_func = presenter
+    elseif type(presenter) == "string" then
+        -- Legacy: Handle string presenter types like "text", "json"
+        if all_presenters and all_presenters[presenter] then
+            presenter_func = all_presenters[presenter]() -- Call factory
+        else
+            io.stderr:write(string.format("LUAL: Presenter type '%s' not found.\n", presenter))
+            return nil, "Presenter type not found: " .. presenter
+        end
+    elseif type(presenter) == "table" then
+        -- Try standard component format
+        if presenter.func then
+            presenter_func = presenter.func
+            presenter_config = presenter.config or {}
+            -- Check if it's a callable object (with __call metamethod)
+        elseif component_utils.is_callable(presenter) then
+            presenter_func = presenter
+            -- Check if it has a type field (string or function)
+        elseif presenter.type then
+            if type(presenter.type) == "string" then
+                -- String type like "text"
+                if all_presenters and all_presenters[presenter.type] then
+                    presenter_func = all_presenters[presenter.type](presenter.config)
+                else
+                    io.stderr:write(string.format("LUAL: Presenter type '%s' not found.\n", presenter.type))
+                    return nil, "Presenter type not found: " .. presenter.type
+                end
+            elseif type(presenter.type) == "function" then
+                -- Function reference type like lual.text
+                presenter_func = presenter.type(presenter.config)
+            else
+                return nil, "Invalid presenter type: " .. type(presenter.type)
+            end
+        end
+    end
+
+    -- If we couldn't resolve a presenter function, return an error
+    if not presenter_func then
+        io.stderr:write(string.format("LUAL: Invalid presenter configuration: %s\n", type(presenter)))
+        return nil, "Invalid presenter configuration"
+    end
+
+    -- Apply the presenter
+    local ok, result = pcall(presenter_func, record)
+    if not ok then
+        io.stderr:write(string.format("LUAL: Error in presenter function: %s\n", tostring(result)))
+        return nil, result
+    end
+
+    return result
 end
 
 --- Processes a log record through a single dispatcher
@@ -148,100 +269,37 @@ local function process_dispatcher(log_record, dispatcher_entry, logger)
         dispatcher_record.dispatcher_level = core_levels.definition.NOTSET
     end
 
-    -- Apply transformers if configured
+    -- Apply transformers array if configured
     if dispatcher_config.transformers then
         for _, transformer in ipairs(dispatcher_config.transformers) do
-            local ok, result = pcall(function()
-                if type(transformer) == "function" then
-                    return transformer(dispatcher_record)
-                elseif type(transformer) == "table" and type(transformer.func) == "function" then
-                    return transformer.func(dispatcher_record, transformer.config)
-                end
-                return dispatcher_record
-            end)
-            if ok and result then
-                dispatcher_record = result
+            local transformed_record, error_msg = process_transformer(dispatcher_record, transformer)
+            if transformed_record then
+                dispatcher_record = transformed_record
             else
-                dispatcher_record.transformer_error = result
+                dispatcher_record.transformer_error = error_msg
+                break -- Stop processing transformers if one fails
             end
         end
     end
 
-    -- Apply single transformer if configured
-    if dispatcher_config.transformer then
-        local transformer = dispatcher_config.transformer
-        local ok, result = pcall(function()
-            if type(transformer) == "function" then
-                return transformer(dispatcher_record)
-            elseif type(transformer) == "table" and type(transformer.func) == "function" then
-                return transformer.func(dispatcher_record, transformer.config)
-            end
-            return dispatcher_record
-        end)
-        if ok and result then
-            dispatcher_record = result
+    -- Apply single transformer if configured (legacy format)
+    if dispatcher_config.transformer and not dispatcher_record.transformer_error then
+        local transformed_record, error_msg = process_transformer(dispatcher_record, dispatcher_config.transformer)
+        if transformed_record then
+            dispatcher_record = transformed_record
         else
-            dispatcher_record.transformer_error = result
+            dispatcher_record.transformer_error = error_msg
         end
     end
 
     -- Apply presenter if configured
-    if dispatcher_config.presenter then
-        local presenter_config = dispatcher_config.presenter
-        local presenter_func = nil
-
-        if type(presenter_config) == "string" then
-            -- Legacy: Handle string presenter types like "text", "json"
-            if all_presenters and all_presenters[presenter_config] then
-                presenter_func = all_presenters[presenter_config]() -- Call factory
-            else
-                io.stderr:write(string.format("LUAL: Presenter type '%s' not found.\n", presenter_config))
-                dispatcher_record.presenter_error = "Presenter type not found: " .. presenter_config
-            end
-        elseif type(presenter_config) == "table" then
-            if presenter_config.type then
-                if type(presenter_config.type) == "string" then
-                    -- Legacy: Handle table with string type { type = "text" }
-                    if all_presenters and all_presenters[presenter_config.type] then
-                        presenter_func = all_presenters[presenter_config.type](presenter_config.config) -- Call factory with config
-                    else
-                        io.stderr:write(string.format("LUAL: Presenter type '%s' not found.\n", presenter_config.type))
-                        dispatcher_record.presenter_error = "Presenter type not found: " .. presenter_config.type
-                    end
-                elseif type(presenter_config.type) == "function" then
-                    -- New approach: Handle table with function reference type { type = lual.text }
-                    presenter_func = presenter_config.type(presenter_config.config) -- Call factory with config
-                end
-            else
-                -- Assume it's already a presenter function or object
-                presenter_func = presenter_config
-            end
-        elseif type(presenter_config) == "function" then
-            -- Direct function - either a presenter or a factory
-            -- Try to call it as a factory first
-            local ok, result = pcall(presenter_config)
-            if ok and type(result) == "function" then
-                -- It was a factory that returned a presenter function
-                presenter_func = result
-            else
-                -- It's already a presenter function, not a factory
-                presenter_func = presenter_config
-            end
-        end
-
-        if presenter_func and type(presenter_func) == "function" then
-            local ok, result = pcall(presenter_func, dispatcher_record)
-            if ok and result then
-                dispatcher_record.presented_message = result
-                dispatcher_record.message = result -- Overwrite message with presented message
-            else
-                dispatcher_record.presenter_error = result
-                io.stderr:write(string.format("LUAL: Error in presenter function: %s\n", tostring(result)))
-            end
-        elseif not dispatcher_record.presenter_error then -- Don't overwrite if error already set
-            -- This case means presenter_config was a table but not a valid config or function
-            io.stderr:write(string.format("LUAL: Invalid presenter configuration: %s\n", type(presenter_config)))
-            dispatcher_record.presenter_error = "Invalid presenter configuration"
+    if dispatcher_config.presenter and not dispatcher_record.transformer_error then
+        local presented_message, error_msg = process_presenter(dispatcher_record, dispatcher_config.presenter)
+        if presented_message then
+            dispatcher_record.presented_message = presented_message
+            dispatcher_record.message = presented_message -- Overwrite message with presented message
+        else
+            dispatcher_record.presenter_error = error_msg
         end
     end
 
