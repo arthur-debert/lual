@@ -158,7 +158,7 @@ EXAMPLES
     lual.config({
         level = lual.INFO, -- Root level is INFO
         dispatchers = {
-            { type = lual.file, path = "app.log", presenter = {type = lual.text} }
+            { type = lual.file, path = "app.log", presenter = { type = lual.text } }
         }
     })
 
@@ -166,7 +166,7 @@ EXAMPLES
     local feature_logger = lual.logger("app.featureX", {
         level = lual.DEBUG, -- This logger is more verbose
         dispatchers = {
-            { type = lual.console, presenter = {type = lual.color} }
+            { type = lual.console, presenter = { type = lual.color } }
         },
         propagate = true -- Explicitly true, could be false
     })
