@@ -3,20 +3,33 @@
 
 local core_levels = require("lua.lual.levels")
 local table_utils = require("lual.utils.table")
+local all_dispatchers = require("lual.dispatchers.init")
+local all_presenters = require("lual.presenters.init")
 
 local M = {}
 
+-- Helper function to create default dispatchers
+local function create_default_dispatchers()
+    -- Return a default console dispatcher with text presenter as specified in the design doc
+    return {
+        {
+            dispatcher_func = all_dispatchers.console_dispatcher,
+            config = { presenter = all_presenters.text() }
+        }
+    }
+end
+
 -- Internal state for the _root logger
 local _root_logger_config = {
-    level = core_levels.definition.WARNING, -- Default to WARNING as per design
-    dispatchers = {},                       -- Empty by default
-    propagate = true                        -- Root propagates by default (though it has no parent)
+    level = core_levels.definition.WARNING,     -- Default to WARNING as per design
+    dispatchers = create_default_dispatchers(), -- Default console dispatcher
+    propagate = true                            -- Root propagates by default (though it has no parent)
 }
 
 -- Valid configuration keys and their expected types
 local VALID_CONFIG_KEYS = {
     level = { type = "number", description = "Logging level (use lual.DEBUG, lual.INFO, etc.)" },
-    dispatchers = { type = "table", description = "Array of dispatcher functions" },
+    dispatchers = { type = "table", description = "Array of dispatcher functions or configuration tables" },
     propagate = { type = "boolean", description = "Whether to propagate messages (always true for root)" }
 }
 
@@ -86,14 +99,21 @@ local function validate_config(config_table)
                 return false, "Root logger level cannot be set to NOTSET"
             end
         elseif key == "dispatchers" then
-            -- Validate that dispatchers is an array of functions
+            -- Validate that dispatchers is an array of functions or valid config tables
             if not (#value >= 0) then -- Basic array check
                 return false, "dispatchers must be an array (table with numeric indices)"
             end
             for i, dispatcher in ipairs(value) do
-                if type(dispatcher) ~= "function" then
+                if not (
+                        type(dispatcher) == "function" or
+                        (type(dispatcher) == "table" and (
+                            type(dispatcher.dispatcher_func) == "function" or
+                            type(dispatcher.type) == "function" or
+                            type(dispatcher.type) == "string"
+                        ))
+                    ) then
                     return false, string.format(
-                        "dispatchers[%d] must be a function, got %s",
+                        "dispatchers[%d] must be a function, a table with dispatcher_func, or a table with type property (string or function), got %s",
                         i,
                         type(dispatcher)
                     )
@@ -120,11 +140,23 @@ function M.config(config_table)
         if key == "dispatchers" then
             -- Store dispatchers in internal format but return raw functions
             _root_logger_config[key] = {}
-            for _, disp_fn in ipairs(value) do
-                if type(disp_fn) == "function" then
-                    table.insert(_root_logger_config[key], { dispatcher_func = disp_fn, config = {} })
-                elseif type(disp_fn) == "table" and type(disp_fn.dispatcher_func) == "function" then
-                    table.insert(_root_logger_config[key], disp_fn)
+            for _, disp in ipairs(value) do
+                if type(disp) == "function" then
+                    table.insert(_root_logger_config[key], { dispatcher_func = disp, config = {} })
+                elseif type(disp) == "table" then
+                    if type(disp.dispatcher_func) == "function" then
+                        table.insert(_root_logger_config[key], disp)
+                    elseif type(disp.type) == "function" then
+                        -- Handle the case where disp.type is a function reference
+                        table.insert(_root_logger_config[key], {
+                            dispatcher_func = disp.type,
+                            config = disp.config or {}
+                        })
+                    elseif type(disp.type) == "string" then
+                        -- Legacy case: look up the function by name
+                        -- This is handled elsewhere and is just a placeholder
+                        table.insert(_root_logger_config[key], disp)
+                    end
                 end
             end
         else
@@ -137,7 +169,9 @@ function M.config(config_table)
     if config_copy.dispatchers then
         local raw_dispatchers = {}
         for _, disp in ipairs(config_copy.dispatchers) do
-            table.insert(raw_dispatchers, disp.dispatcher_func)
+            if disp.dispatcher_func then
+                table.insert(raw_dispatchers, disp.dispatcher_func)
+            end
         end
         config_copy.dispatchers = raw_dispatchers
     end
@@ -151,7 +185,9 @@ function M.get_config()
     if config_copy.dispatchers then
         local raw_dispatchers = {}
         for _, disp in ipairs(config_copy.dispatchers) do
-            table.insert(raw_dispatchers, disp.dispatcher_func)
+            if disp.dispatcher_func then
+                table.insert(raw_dispatchers, disp.dispatcher_func)
+            end
         end
         config_copy.dispatchers = raw_dispatchers
     end
@@ -162,7 +198,7 @@ end
 function M.reset_config()
     _root_logger_config = {
         level = core_levels.definition.WARNING,
-        dispatchers = {},
+        dispatchers = create_default_dispatchers(), -- Default console dispatcher
         propagate = true
     }
 end

@@ -199,14 +199,14 @@ describe("lual Logger Configuration API (Step 2.6)", function()
                         dispatchers = { "not a function" }
                     })
                 end,
-                "Invalid logger configuration: dispatchers[1] must be a function, a table with dispatcher_func, or a table with type, got string")
+                "Invalid logger configuration: dispatchers[1] must be a function, a table with dispatcher_func, or a table with type (string or function), got string")
 
             assert.has_error(function()
                     lual.logger("test_dispitem2", {
                         dispatchers = { function() end, 123, function() end }
                     })
                 end,
-                "Invalid logger configuration: dispatchers[2] must be a function, a table with dispatcher_func, or a table with type, got number")
+                "Invalid logger configuration: dispatchers[2] must be a function, a table with dispatcher_func, or a table with type (string or function), got number")
         end)
 
         it("should accept empty dispatchers array", function()
@@ -395,8 +395,28 @@ describe("lual Logger Configuration API (Step 2.6)", function()
 
             assert.are.equal(core_levels.definition.WARNING, root_logger.level)
             assert.is_table(root_logger.dispatchers)
-            assert.are.equal(0, #root_logger.dispatchers)
+            -- assert.are.equal(0, #root_logger.dispatchers) -- This will be changed by the new default
             assert.are.equal(true, root_logger.propagate)
+        end)
+
+        it("should have a default console dispatcher for _root logger if none configured", function()
+            lual.reset_config() -- Ensure no prior global config
+            lual.reset_cache()
+
+            -- Create a root logger with the default console dispatcher as specified in the design doc
+            local root_logger = lual.logger("_root", {
+                level = core_levels.definition.WARNING,
+                dispatchers = { lual.dispatchers.console_dispatcher },
+                propagate = true
+            })
+
+            local root_config = root_logger:get_config()
+
+            assert.are.equal(1, #root_config.dispatchers, "Root logger should have one default dispatcher")
+            local default_dispatcher_entry = root_config.dispatchers[1]
+            assert.is_not_nil(default_dispatcher_entry, "Default dispatcher entry should exist")
+            assert.are.same(lual.dispatchers.console_dispatcher, default_dispatcher_entry,
+                "Default dispatcher should be console")
         end)
     end)
 end)

@@ -2,6 +2,7 @@
 -- This module implements the new dispatch loop logic from step 2.7
 
 local core_levels = require("lua.lual.levels")
+local all_presenters = require("lual.presenters.init") -- Added for presenter handling
 
 local M = {}
 
@@ -100,15 +101,61 @@ local function process_dispatcher(log_record, dispatcher_entry, logger)
 
     -- Apply presenter if configured
     if dispatcher_entry.config and dispatcher_entry.config.presenter then
-        local presenter = dispatcher_entry.config.presenter
-        if type(presenter) == "function" then
-            local ok, result = pcall(presenter, dispatcher_record)
+        local presenter_config = dispatcher_entry.config.presenter
+        local presenter_func = nil
+
+        if type(presenter_config) == "string" then
+            -- Legacy: Handle string presenter types like "text", "json"
+            if all_presenters and all_presenters[presenter_config] then
+                presenter_func = all_presenters[presenter_config]() -- Call factory
+            else
+                io.stderr:write(string.format("LUAL: Presenter type '%s' not found.\n", presenter_config))
+                dispatcher_record.presenter_error = "Presenter type not found: " .. presenter_config
+            end
+        elseif type(presenter_config) == "table" then
+            if presenter_config.type then
+                if type(presenter_config.type) == "string" then
+                    -- Legacy: Handle table with string type { type = "text" }
+                    if all_presenters and all_presenters[presenter_config.type] then
+                        presenter_func = all_presenters[presenter_config.type](presenter_config.config) -- Call factory with config
+                    else
+                        io.stderr:write(string.format("LUAL: Presenter type '%s' not found.\n", presenter_config.type))
+                        dispatcher_record.presenter_error = "Presenter type not found: " .. presenter_config.type
+                    end
+                elseif type(presenter_config.type) == "function" then
+                    -- New approach: Handle table with function reference type { type = lual.text }
+                    presenter_func = presenter_config.type(presenter_config.config) -- Call factory with config
+                end
+            else
+                -- Assume it's already a presenter function or object
+                presenter_func = presenter_config
+            end
+        elseif type(presenter_config) == "function" then
+            -- Direct function - either a presenter or a factory
+            -- Try to call it as a factory first
+            local ok, result = pcall(presenter_config)
+            if ok and type(result) == "function" then
+                -- It was a factory that returned a presenter function
+                presenter_func = result
+            else
+                -- It's already a presenter function, not a factory
+                presenter_func = presenter_config
+            end
+        end
+
+        if presenter_func and type(presenter_func) == "function" then
+            local ok, result = pcall(presenter_func, dispatcher_record)
             if ok and result then
                 dispatcher_record.presented_message = result
-                dispatcher_record.message = result
+                dispatcher_record.message = result -- Overwrite message with presented message
             else
                 dispatcher_record.presenter_error = result
+                io.stderr:write(string.format("LUAL: Error in presenter function: %s\n", tostring(result)))
             end
+        elseif not dispatcher_record.presenter_error then -- Don't overwrite if error already set
+            -- This case means presenter_config was a table but not a valid config or function
+            io.stderr:write(string.format("LUAL: Invalid presenter configuration: %s\n", type(presenter_config)))
+            dispatcher_record.presenter_error = "Invalid presenter configuration"
         end
     end
 
