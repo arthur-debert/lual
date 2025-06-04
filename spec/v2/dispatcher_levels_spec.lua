@@ -20,49 +20,48 @@ describe("Dispatcher-specific levels", function()
 
         -- Create simple dispatch functions with level filtering
         local function debug_dispatcher(record, config)
-            print("DEBUG DISPATCHER - record level: " .. record.level_no ..
-                ", config type: " .. type(config) ..
-                ", config.level: " .. tostring(config.level))
+            -- Debug output: print("DEBUG DISPATCHER - record level: " .. record.level_no ..
+            --     ", config type: " .. type(config) ..
+            --     ", config.level: " .. tostring(config.level))
 
             if config.level and record.level_no < config.level then
-                print("  FILTERING OUT - level too low")
+                -- Debug output: print("  FILTERING OUT - level too low")
                 return -- Skip if below level threshold
             end
-            print("  ACCEPTING RECORD")
+            -- Debug output: print("  ACCEPTING RECORD")
             table.insert(calls_debug, record.message)
         end
 
         local function warning_dispatcher(record, config)
-            print("WARNING DISPATCHER - record level: " .. record.level_no ..
-                ", config type: " .. type(config) ..
-                ", config.level: " .. tostring(config.level))
+            -- Debug output: print("WARNING DISPATCHER - record level: " .. record.level_no ..
+            --     ", config type: " .. type(config) ..
+            --     ", config.level: " .. tostring(config.level))
 
             if config.level and record.level_no < config.level then
-                print("  FILTERING OUT - level too low")
+                -- Debug output: print("  FILTERING OUT - level too low")
                 return -- Skip if below level threshold
             end
-            print("  ACCEPTING RECORD")
+            -- Debug output: print("  ACCEPTING RECORD")
             table.insert(calls_warning, record.message)
         end
 
         -- Create logger with these dispatchers
         local logger = lual.logger("simple.test")
 
-        -- Explicitly dump the dispatchers before adding ours
-        print("Logger dispatchers before:", #logger.dispatchers)
+        -- Debug output: print("Logger dispatchers before:", #logger.dispatchers)
 
         -- Add our dispatchers
         logger:add_dispatcher(debug_dispatcher, { level = lual.debug })
         logger:add_dispatcher(warning_dispatcher, { level = lual.warning })
 
-        -- Dump the logger's dispatchers after adding ours
-        print("Logger dispatchers after:", #logger.dispatchers)
-        for i, disp in ipairs(logger.dispatchers) do
-            print("  Dispatcher " .. i .. ":")
-            print("    func: " .. tostring(disp.func))
-            print("    config: " .. tostring(disp.config))
-            print("    config.level: " .. tostring(disp.config.level))
-        end
+        -- Debug dispatcher dump:
+        -- print("Logger dispatchers after:", #logger.dispatchers)
+        -- for i, disp in ipairs(logger.dispatchers) do
+        --     print("  Dispatcher " .. i .. ":")
+        --     print("    func: " .. tostring(disp.func))
+        --     print("    config: " .. tostring(disp.config))
+        --     print("    config.level: " .. tostring(disp.config.level))
+        -- end
 
         -- Set logger level to debug to allow all messages
         logger:set_level(lual.debug)
@@ -88,15 +87,15 @@ describe("Dispatcher-specific levels", function()
 
         -- Create simple dispatch functions with level filtering
         local function capture_logs(record, config)
-            print("CAPTURE LOGS - record level: " .. record.level_no ..
-                ", config type: " .. type(config) ..
-                ", config.level: " .. tostring(config.level))
+            -- Debug output: print("CAPTURE LOGS - record level: " .. record.level_no ..
+            --     ", config type: " .. type(config) ..
+            --     ", config.level: " .. tostring(config.level))
 
             if config.level and record.level_no < config.level then
-                print("  FILTERING OUT - level too low")
+                -- Debug output: print("  FILTERING OUT - level too low")
                 return -- Skip if below level threshold
             end
-            print("  ACCEPTING RECORD")
+            -- Debug output: print("  ACCEPTING RECORD")
             table.insert(calls_captured, record.message)
         end
 
@@ -129,28 +128,28 @@ describe("Dispatcher-specific levels", function()
 
         -- Create simple dispatch functions with level filtering
         local function root_dispatcher(record, config)
-            print("ROOT DISPATCHER - record level: " .. record.level_no ..
-                ", config type: " .. type(config) ..
-                ", config.level: " .. tostring(config.level))
+            -- Debug output: print("ROOT DISPATCHER - record level: " .. record.level_no ..
+            --     ", config type: " .. type(config) ..
+            --     ", config.level: " .. tostring(config.level))
 
             if config.level and record.level_no < config.level then
-                print("  FILTERING OUT - level too low")
+                -- Debug output: print("  FILTERING OUT - level too low")
                 return -- Skip if below level threshold
             end
-            print("  ACCEPTING RECORD")
+            -- Debug output: print("  ACCEPTING RECORD")
             table.insert(root_calls, record.message)
         end
 
         local function app_dispatcher(record, config)
-            print("APP DISPATCHER - record level: " .. record.level_no ..
-                ", config type: " .. type(config) ..
-                ", config.level: " .. tostring(config.level))
+            -- Debug output: print("APP DISPATCHER - record level: " .. record.level_no ..
+            --     ", config type: " .. type(config) ..
+            --     ", config.level: " .. tostring(config.level))
 
             if config.level and record.level_no < config.level then
-                print("  FILTERING OUT - level too low")
+                -- Debug output: print("  FILTERING OUT - level too low")
                 return -- Skip if below level threshold
             end
-            print("  ACCEPTING RECORD")
+            -- Debug output: print("  ACCEPTING RECORD")
             table.insert(app_calls, record.message)
         end
 
@@ -193,15 +192,15 @@ describe("Dispatcher-specific levels", function()
 
         -- Create simple dispatch functions with level filtering
         local function capture_logs(record, config)
-            print("NOTSET DISPATCHER - record level: " .. record.level_no ..
-                ", config type: " .. type(config) ..
-                ", config.level: " .. tostring(config.level))
+            -- Debug output: print("NOTSET DISPATCHER - record level: " .. record.level_no ..
+            --     ", config type: " .. type(config) ..
+            --     ", config.level: " .. tostring(config.level))
 
             if config.level and config.level > 0 and record.level_no < config.level then
-                print("  FILTERING OUT - level too low")
+                -- Debug output: print("  FILTERING OUT - level too low")
                 return -- Skip if below level threshold
             end
-            print("  ACCEPTING RECORD")
+            -- Debug output: print("  ACCEPTING RECORD")
             table.insert(calls_captured, record.message)
         end
 

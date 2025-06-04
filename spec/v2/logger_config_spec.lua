@@ -423,13 +423,12 @@ describe("lual Logger Configuration API (Step 2.6)", function()
             -- Create a new root logger with default dispatchers
             local root_logger = lual.create_root_logger()
 
-            -- Debug output
-            print("Root logger:", require("inspect")(root_logger))
+            -- Debug output: print("Root logger:", require("inspect")(root_logger))
 
             -- Check that we have a default console dispatcher
             assert.are.equal(1, #root_logger.dispatchers, "Root logger should have one default dispatcher")
             assert.are.equal(lual.dispatchers.console_dispatcher, root_logger.dispatchers[1].func,
-            "Default dispatcher should be console")
+                "Default dispatcher should be console")
         end)
     end)
 end)
