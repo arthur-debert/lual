@@ -17,6 +17,7 @@ local caller_info = require("lual.utils.caller_info")
 local all_dispatchers = require("lual.dispatchers.init")   -- Require the new dispatchers init
 local all_presenters = require("lual.presenters.init")     -- Require the new presenters init
 local all_transformers = require("lual.transformers.init") -- Require the new transformers init
+local component_utils = require("lual.utils.component")
 
 -- Logger cache
 local _logger_cache = {}
@@ -82,10 +83,24 @@ function logger_prototype:add_dispatcher(dispatcher_func, config)
     error("Dispatcher must be a function, got " .. type(dispatcher_func))
   end
 
-  table.insert(self.dispatchers, {
-    dispatcher_func = dispatcher_func,
-    config = config or {}
-  })
+  -- Create a component-style dispatcher with the function and config
+  local dispatcher = nil
+
+  if config then
+    -- If we have config, create a table with the function and config
+    dispatcher = {
+      func = dispatcher_func,
+      config = table_utils.deepcopy(config) -- Clone to avoid mutation
+    }
+  else
+    -- Simple function
+    dispatcher = dispatcher_func
+  end
+
+  -- Normalize it using the component system
+  local normalized = component_utils.normalize_component(dispatcher, component_utils.DISPATCHER_DEFAULTS)
+
+  table.insert(self.dispatchers, normalized)
 end
 
 --- Imperative API: Set propagate flag for this logger
@@ -101,17 +116,11 @@ end
 --- Get configuration of this logger
 -- @return table The logger configuration
 function logger_prototype:get_config()
-  local dispatchers_list = {}
-  for _, disp in ipairs(self.dispatchers) do
-    if disp.dispatcher_func then
-      table.insert(dispatchers_list, disp.dispatcher_func)
-    end
-  end
-
+  -- Return a deep copy of the current configuration
   return {
     name = self.name,
     level = self.level,
-    dispatchers = dispatchers_list,
+    dispatchers = table_utils.deepcopy(self.dispatchers),
     propagate = self.propagate,
     parent_name = self.parent and self.parent.name or nil
   }
@@ -134,6 +143,15 @@ get_parent_name_from_hierarchical = function(logger_name)
   if logger_name == "_root" then return nil end
   local match = logger_name:match("(.+)%.[^%.]+$")
   return match or "_root" -- Always return "_root" for top-level loggers
+end
+
+-- Create a helper function to convert flat dispatcher config to internal format
+-- This is shared with config.lua to ensure consistent behavior
+-- @param disp table The dispatcher configuration with flat properties
+-- @return table The internal dispatcher entry with config nested properly
+local function convert_flat_dispatcher_config(disp)
+  -- Use the component_utils.normalize_component to handle conversion consistently
+  return component_utils.normalize_component(disp, component_utils.DISPATCHER_DEFAULTS)
 end
 
 -- Define _get_or_create_logger_internal
@@ -173,28 +191,9 @@ _get_or_create_logger_internal = function(requested_name_or_nil, config_data)
   new_logger.dispatchers = {}
   if config_data.dispatchers then
     for _, item in ipairs(config_data.dispatchers) do
-      if type(item) == "function" then
-        table.insert(new_logger.dispatchers, { dispatcher_func = item, config = {} })
-      elseif type(item) == "table" then
-        if type(item.dispatcher_func) == "function" then
-          table.insert(new_logger.dispatchers, item)
-        elseif type(item.type) == "function" then
-          -- Handle the case where item.type is a function reference (new approach)
-          table.insert(new_logger.dispatchers, {
-            dispatcher_func = item.type,
-            config = item.config or {}
-          })
-        elseif type(item.type) == "string" then
-          -- Handle the case where item.type is a string (legacy approach)
-          local dispatcher = all_dispatchers[item.type]
-          if dispatcher then
-            table.insert(new_logger.dispatchers, {
-              dispatcher_func = dispatcher,
-              config = item.config or {}
-            })
-          end
-        end
-      end
+      -- Always convert to normalized dispatcher format
+      local dispatcher_entry = component_utils.normalize_component(item, component_utils.DISPATCHER_DEFAULTS)
+      table.insert(new_logger.dispatchers, dispatcher_entry)
     end
   end
 
@@ -237,18 +236,20 @@ create_root_logger_instance = function()       -- Renamed from create_root_logge
 
   -- If we have dispatchers in the config, use them
   if main_conf.dispatchers and #main_conf.dispatchers > 0 then
-    for _, disp_fn in ipairs(main_conf.dispatchers) do
-      if type(disp_fn) == "function" then
-        table.insert(root_config_for_logger.dispatchers, { dispatcher_func = disp_fn, config = {} })
-      elseif type(disp_fn) == "table" and type(disp_fn.dispatcher_func) == "function" then
-        table.insert(root_config_for_logger.dispatchers, disp_fn)
-      end
-    end
+    -- Copy the dispatchers as is - they're already normalized by config.config()
+    root_config_for_logger.dispatchers = table_utils.deepcopy(main_conf.dispatchers)
   else
     -- If no dispatchers are configured, add a default console dispatcher
-    root_config_for_logger.dispatchers = {
-      { dispatcher_func = all_dispatchers.console_dispatcher, config = { presenter = all_presenters.text() } }
-    }
+    local default_console = all_dispatchers.console_dispatcher
+    local normalized_dispatcher = component_utils.normalize_component(default_console,
+      component_utils.DISPATCHER_DEFAULTS)
+
+    -- Add a default text presenter if none is set
+    if not normalized_dispatcher.config.presenter then
+      normalized_dispatcher.config.presenter = all_presenters.text()
+    end
+
+    root_config_for_logger.dispatchers = { normalized_dispatcher }
   end
 
   -- Use the new internal factory to get or create _root
@@ -316,18 +317,31 @@ local function validate_logger_config_table(config_table)
             string.format("Invalid level value %d. Valid levels are: %s", value, table.concat(valid_levels_list, ", "))
       end
     elseif key == "dispatchers" then
-      if not (#value >= 0) then return false, "'dispatchers' must be an array (table with numeric indices)" end
-      for i, dispatcher_item in ipairs(value) do
-        if not (type(dispatcher_item) == "function" or
-              (type(dispatcher_item) == "table" and
-                (type(dispatcher_item.dispatcher_func) == "function" or
-                  type(dispatcher_item.type) == "string" or
-                  type(dispatcher_item.type) == "function"))) then
+      -- Validate that dispatchers is an array
+      if not (#value >= 0) then -- Basic array check
+        return false, "dispatchers must be an array (table with numeric indices)"
+      end
+
+      -- Check each dispatcher
+      for i, dispatcher in ipairs(value) do
+        -- Accept function or table
+        if type(dispatcher) ~= "function" and type(dispatcher) ~= "table" then
           return false,
               string.format(
                 "dispatchers[%d] must be a function, a table with dispatcher_func, or a table with type (string or function), got %s",
-                i,
-                type(dispatcher_item))
+                i, type(dispatcher))
+        end
+
+        -- For table format, validate it properly
+        if type(dispatcher) == "table" then
+          -- Check if it's the { func, ... } format
+          if #dispatcher > 0 then
+            if type(dispatcher[1]) ~= "function" then
+              return false, string.format("dispatchers[%d][1] must be a function, got %s", i, type(dispatcher[1]))
+            end
+          elseif not (dispatcher.func or dispatcher.dispatcher_func) then
+            return false, string.format("dispatchers[%d] must have a 'func' property if not an array", i)
+          end
         end
       end
     end

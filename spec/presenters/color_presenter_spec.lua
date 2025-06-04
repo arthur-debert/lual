@@ -28,9 +28,9 @@ describe("lual.presenters.color", function()
 		local expected_message = string.format(record.message_fmt, unpack(record.args))
 		local formatted = color(record)
 
-		-- Print debug info
-		print("Expected message:", expected_message)
-		print("Formatted dispatcher:", formatted)
+		-- Debug output for test development:
+		-- print("Expected message:", expected_message)
+		-- print("Formatted dispatcher:", formatted)
 
 		assert.truthy(
 			formatted:find(colors.dim .. timestamp_str .. colors.reset, 1, true),

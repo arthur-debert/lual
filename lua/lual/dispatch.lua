@@ -1,8 +1,47 @@
 --- Dispatch Module
 -- This module implements the new dispatch loop logic from step 2.7
+--
+-- Dispatcher-Specific Levels:
+--
+-- Dispatchers can optionally be configured with their own levels. During
+-- the dispatch loop, once a logger has determined a log event meets its level
+-- requirement, it iterates over its dispatchers and performs a second level check
+-- against each dispatcher's level.
+--
+-- This occurs after the logger's own level check, hence a dispatcher's level
+-- set to lower (more verbose) than the logger's level will never receive events
+-- because the logger will filter them first.
+--
+-- By default, dispatchers have level NOTSET (0), meaning they will use the
+-- logger's effective level.
+--
+-- This allows for more granular control over which events are sent to each
+-- output. For example, you can configure a file dispatcher to receive all DEBUG
+-- and above messages, while a console dispatcher only shows WARNING and above.
+--
+-- Usage example:
+--
+--   lual.config({
+--     level = lual.DEBUG,  -- Root level is DEBUG
+--     dispatchers = {
+--       {
+--         type = lual.file,
+--         level = lual.DEBUG,  -- File receives all logs
+--         path = "app.log",
+--         presenter = { type = lual.json }
+--       },
+--       {
+--         type = lual.console,
+--         level = lual.WARNING,  -- Console only shows warnings and above
+--         presenter = { type = lual.text }
+--       }
+--     }
+--   })
 
 local core_levels = require("lua.lual.levels")
-local all_presenters = require("lual.presenters.init") -- Added for presenter handling
+local all_presenters = require("lual.presenters.init")
+local all_transformers = require("lual.transformers.init")
+local component_utils = require("lual.utils.component")
 
 local M = {}
 
@@ -46,9 +85,54 @@ local function create_log_record(logger, level_no, level_name, message_fmt, args
     }
 end
 
+--- Processes a single transformer
+-- @param record table The log record to process
+-- @param transformer function|table The transformer function or config
+-- @return table The transformed record, or nil and error message
+local function process_transformer(record, transformer)
+    -- Create a copy of the record for the transformer
+    local transformed_record = {}
+    for k, v in pairs(record) do
+        transformed_record[k] = v
+    end
+
+    -- Normalize transformer to standard format
+    local normalized = component_utils.normalize_component(transformer, component_utils.TRANSFORMER_DEFAULTS)
+    local transformer_func = normalized.func
+    local transformer_config = normalized.config
+
+    -- Apply the transformer
+    local ok, result = pcall(transformer_func, transformed_record, transformer_config)
+    if not ok then
+        return nil, "Transformer error: " .. tostring(result)
+    end
+
+    return result or transformed_record
+end
+
+--- Processes a single presenter
+-- @param record table The log record to process
+-- @param presenter function|table The presenter function or config
+-- @return string|nil The presented message, or nil and error message
+local function process_presenter(record, presenter)
+    -- Normalize presenter to standard format
+    local normalized = component_utils.normalize_component(presenter, component_utils.PRESENTER_DEFAULTS)
+    local presenter_func = normalized.func
+    local presenter_config = normalized.config
+
+    -- Apply the presenter
+    local ok, result = pcall(presenter_func, record, presenter_config)
+    if not ok then
+        io.stderr:write(string.format("LUAL: Error in presenter function: %s\n", tostring(result)))
+        return nil, result
+    end
+
+    return result
+end
+
 --- Processes a log record through a single dispatcher
 -- @param log_record table The log record to process
--- @param dispatcher_entry table The dispatcher configuration (with dispatcher_func, config, etc.)
+-- @param dispatcher_entry table|function The dispatcher configuration or function
 -- @param logger table The logger that owns this dispatcher
 local function process_dispatcher(log_record, dispatcher_entry, logger)
     -- Create a copy of the log record for this dispatcher
@@ -57,122 +141,89 @@ local function process_dispatcher(log_record, dispatcher_entry, logger)
         dispatcher_record[k] = v
     end
 
+    -- Normalize dispatcher to standard format
+    local normalized = component_utils.normalize_component(dispatcher_entry, component_utils.DISPATCHER_DEFAULTS)
+    local dispatcher_func = normalized.func
+    local dispatcher_config = normalized.config
+
     -- Add logger context to the record
     dispatcher_record.owner_logger_name = logger.name
     dispatcher_record.owner_logger_level = logger.level
     dispatcher_record.owner_logger_propagate = logger.propagate
 
-    -- Apply transformers if configured
-    if dispatcher_entry.config and dispatcher_entry.config.transformers then
-        for _, transformer in ipairs(dispatcher_entry.config.transformers) do
-            local ok, result = pcall(function()
-                if type(transformer) == "function" then
-                    return transformer(dispatcher_record)
-                elseif type(transformer) == "table" and type(transformer.func) == "function" then
-                    return transformer.func(dispatcher_record, transformer.config)
-                end
-                return dispatcher_record
-            end)
-            if ok and result then
-                dispatcher_record = result
+    -- Handle dispatcher level filtering
+    local dispatcher_level = dispatcher_config.level
+
+    -- Apply level filtering if a level is set
+    if dispatcher_level and type(dispatcher_level) == "number" and dispatcher_level > 0 then -- Skip NOTSET (0)
+        if log_record.level_no < dispatcher_level then
+            -- Skip this dispatcher as its level is higher than the log record
+            return
+        end
+    end
+
+    -- Add dispatcher level to the record for informational purposes
+    if dispatcher_level then
+        dispatcher_record.dispatcher_level = dispatcher_level
+    else
+        dispatcher_record.dispatcher_level = core_levels.definition.NOTSET
+    end
+
+    -- Apply transformers array if configured
+    if dispatcher_config.transformers then
+        for _, transformer in ipairs(dispatcher_config.transformers) do
+            local transformed_record, error_msg = process_transformer(dispatcher_record, transformer)
+            if transformed_record then
+                dispatcher_record = transformed_record
             else
-                dispatcher_record.transformer_error = result
+                dispatcher_record.transformer_error = error_msg
+                break -- Stop processing transformers if one fails
             end
         end
     end
 
     -- Apply single transformer if configured
-    if dispatcher_entry.config and dispatcher_entry.config.transformer then
-        local transformer = dispatcher_entry.config.transformer
-        local ok, result = pcall(function()
-            if type(transformer) == "function" then
-                return transformer(dispatcher_record)
-            elseif type(transformer) == "table" and type(transformer.func) == "function" then
-                return transformer.func(dispatcher_record, transformer.config)
-            end
-            return dispatcher_record
-        end)
-        if ok and result then
-            dispatcher_record = result
+    if dispatcher_config.transformer and not dispatcher_record.transformer_error then
+        local transformed_record, error_msg = process_transformer(dispatcher_record, dispatcher_config.transformer)
+        if transformed_record then
+            dispatcher_record = transformed_record
         else
-            dispatcher_record.transformer_error = result
+            dispatcher_record.transformer_error = error_msg
         end
     end
 
     -- Apply presenter if configured
-    if dispatcher_entry.config and dispatcher_entry.config.presenter then
-        local presenter_config = dispatcher_entry.config.presenter
-        local presenter_func = nil
-
-        if type(presenter_config) == "string" then
-            -- Legacy: Handle string presenter types like "text", "json"
-            if all_presenters and all_presenters[presenter_config] then
-                presenter_func = all_presenters[presenter_config]() -- Call factory
-            else
-                io.stderr:write(string.format("LUAL: Presenter type '%s' not found.\n", presenter_config))
-                dispatcher_record.presenter_error = "Presenter type not found: " .. presenter_config
-            end
-        elseif type(presenter_config) == "table" then
-            if presenter_config.type then
-                if type(presenter_config.type) == "string" then
-                    -- Legacy: Handle table with string type { type = "text" }
-                    if all_presenters and all_presenters[presenter_config.type] then
-                        presenter_func = all_presenters[presenter_config.type](presenter_config.config) -- Call factory with config
-                    else
-                        io.stderr:write(string.format("LUAL: Presenter type '%s' not found.\n", presenter_config.type))
-                        dispatcher_record.presenter_error = "Presenter type not found: " .. presenter_config.type
-                    end
-                elseif type(presenter_config.type) == "function" then
-                    -- New approach: Handle table with function reference type { type = lual.text }
-                    presenter_func = presenter_config.type(presenter_config.config) -- Call factory with config
-                end
-            else
-                -- Assume it's already a presenter function or object
-                presenter_func = presenter_config
-            end
-        elseif type(presenter_config) == "function" then
-            -- Direct function - either a presenter or a factory
-            -- Try to call it as a factory first
-            local ok, result = pcall(presenter_config)
-            if ok and type(result) == "function" then
-                -- It was a factory that returned a presenter function
-                presenter_func = result
-            else
-                -- It's already a presenter function, not a factory
-                presenter_func = presenter_config
-            end
-        end
-
-        if presenter_func and type(presenter_func) == "function" then
-            local ok, result = pcall(presenter_func, dispatcher_record)
-            if ok and result then
-                dispatcher_record.presented_message = result
-                dispatcher_record.message = result -- Overwrite message with presented message
-            else
-                dispatcher_record.presenter_error = result
-                io.stderr:write(string.format("LUAL: Error in presenter function: %s\n", tostring(result)))
-            end
-        elseif not dispatcher_record.presenter_error then -- Don't overwrite if error already set
-            -- This case means presenter_config was a table but not a valid config or function
-            io.stderr:write(string.format("LUAL: Invalid presenter configuration: %s\n", type(presenter_config)))
-            dispatcher_record.presenter_error = "Invalid presenter configuration"
+    if dispatcher_config.presenter and not dispatcher_record.transformer_error then
+        local presented_message, error_msg = process_presenter(dispatcher_record, dispatcher_config.presenter)
+        if presented_message then
+            dispatcher_record.presented_message = presented_message
+            dispatcher_record.message = presented_message -- Overwrite message with presented message
+        else
+            dispatcher_record.presenter_error = error_msg
         end
     end
 
-    -- Call the dispatcher function with the appropriate message
-    -- Handle both raw functions and internal format
+    -- Dispatch the record
     local ok, err = pcall(function()
-        if type(dispatcher_entry) == "function" then
-            -- For raw function dispatchers, pass the entire record
-            dispatcher_entry(dispatcher_record)
-        else
-            -- For configured dispatchers, pass the record to the dispatcher function
-            dispatcher_entry.dispatcher_func(dispatcher_record)
-        end
+        -- This is the key fix - make sure we don't lose the level in the config
+        dispatcher_func(dispatcher_record, dispatcher_config)
     end)
-
     if not ok then
-        dispatcher_record.dispatcher_error = err
+        io.stderr:write(string.format("Error dispatching log record: %s\n", err))
+    end
+end
+
+--- Core process dispatcher logic
+-- @param log_record table The log record to process
+-- @param dispatchers table|function Array or single dispatcher
+-- @param context_logger table The logger being used for this dispatch
+local function process_dispatchers(log_record, dispatchers, context_logger)
+    if not dispatchers or #dispatchers == 0 then
+        return -- Nothing to do
+    end
+
+    for _, dispatcher in ipairs(dispatchers) do
+        process_dispatcher(log_record, dispatcher, context_logger)
     end
 end
 

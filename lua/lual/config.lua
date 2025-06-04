@@ -3,6 +3,7 @@
 
 local core_levels = require("lua.lual.levels")
 local table_utils = require("lual.utils.table")
+local component_utils = require("lual.utils.component")
 local all_dispatchers = require("lual.dispatchers.init")
 local all_presenters = require("lual.presenters.init")
 
@@ -13,32 +14,79 @@ local function create_default_dispatchers()
     -- Return a default console dispatcher with text presenter as specified in the design doc
     return {
         {
-            dispatcher_func = all_dispatchers.console_dispatcher,
+            func = all_dispatchers.console_dispatcher,
             config = { presenter = all_presenters.text() }
         }
     }
 end
 
--- Internal state for the _root logger
+-- Default configuration with console dispatcher
 local _root_logger_config = {
-    level = core_levels.definition.WARNING,     -- Default to WARNING as per design
-    dispatchers = create_default_dispatchers(), -- Default console dispatcher
-    propagate = true                            -- Root propagates by default (though it has no parent)
+    level = core_levels.definition.WARNING,
+    propagate = true,
+    dispatchers = {}
 }
 
--- Valid configuration keys and their expected types
+-- Initialize with a default console dispatcher
+local function initialize_default_config()
+    -- Initialize with the console dispatcher
+    local console_dispatcher = require("lual.dispatchers.console_dispatcher")
+    local component_utils = require("lual.utils.component")
+
+    -- Create a normalized dispatcher
+    local normalized = component_utils.normalize_component(
+        console_dispatcher,
+        component_utils.DISPATCHER_DEFAULTS
+    )
+
+    -- Add it to the default config
+    _root_logger_config.dispatchers = { normalized }
+end
+
+-- Call initialization
+initialize_default_config()
+
+-- Table of valid config keys and their expected types/descriptions
 local VALID_CONFIG_KEYS = {
     level = { type = "number", description = "Logging level (use lual.DEBUG, lual.INFO, etc.)" },
     dispatchers = { type = "table", description = "Array of dispatcher functions or configuration tables" },
     propagate = { type = "boolean", description = "Whether to propagate messages (always true for root)" }
 }
 
---- Validates a configuration table
--- @param config_table table The configuration to validate
--- @return boolean, string True if valid, or false with error message
+--- Validates the configuration structure
+-- @param config_table table Configuration to validate
+-- @return boolean, string True if valid, otherwise false and error message
 local function validate_config(config_table)
+    if config_table == nil then
+        return false, "Configuration must be a table, got nil"
+    end
+
     if type(config_table) ~= "table" then
         return false, "Configuration must be a table, got " .. type(config_table)
+    end
+
+    -- Validate dispatchers if present
+    if config_table.dispatchers then
+        if type(config_table.dispatchers) ~= "table" then
+            return false,
+                "Invalid type for 'dispatchers': expected table, got " ..
+                type(config_table.dispatchers) .. ". Array of dispatcher functions or configuration tables"
+        end
+
+        -- Validate each dispatcher
+        for i, disp in ipairs(config_table.dispatchers) do
+            -- Simple validation here - detailed validation happens in component.normalize_component
+            if type(disp) ~= "function" and type(disp) ~= "table" then
+                return false,
+                    "dispatchers[" ..
+                    i .. "] must be a function or a table with function as first element, got " .. type(disp)
+            end
+
+            -- Validate table format if it's a table
+            if type(disp) == "table" and #disp == 0 and not component_utils.is_callable(disp) then
+                return false, "dispatchers[" .. i .. "] must be a function or a table with function as first element"
+            end
+        end
     end
 
     -- Check for unknown keys using table_utils.key_diff
@@ -98,27 +146,6 @@ local function validate_config(config_table)
             if value == core_levels.definition.NOTSET then
                 return false, "Root logger level cannot be set to NOTSET"
             end
-        elseif key == "dispatchers" then
-            -- Validate that dispatchers is an array of functions or valid config tables
-            if not (#value >= 0) then -- Basic array check
-                return false, "dispatchers must be an array (table with numeric indices)"
-            end
-            for i, dispatcher in ipairs(value) do
-                if not (
-                        type(dispatcher) == "function" or
-                        (type(dispatcher) == "table" and (
-                            type(dispatcher.dispatcher_func) == "function" or
-                            type(dispatcher.type) == "function" or
-                            type(dispatcher.type) == "string"
-                        ))
-                    ) then
-                    return false, string.format(
-                        "dispatchers[%d] must be a function, a table with dispatcher_func, or a table with type property (string or function), got %s",
-                        i,
-                        type(dispatcher)
-                    )
-                end
-            end
         end
     end
 
@@ -138,69 +165,36 @@ function M.config(config_table)
     -- Update _root logger configuration with provided values
     for key, value in pairs(config_table) do
         if key == "dispatchers" then
-            -- Store dispatchers in internal format but return raw functions
-            _root_logger_config[key] = {}
-            for _, disp in ipairs(value) do
-                if type(disp) == "function" then
-                    table.insert(_root_logger_config[key], { dispatcher_func = disp, config = {} })
-                elseif type(disp) == "table" then
-                    if type(disp.dispatcher_func) == "function" then
-                        table.insert(_root_logger_config[key], disp)
-                    elseif type(disp.type) == "function" then
-                        -- Handle the case where disp.type is a function reference
-                        table.insert(_root_logger_config[key], {
-                            dispatcher_func = disp.type,
-                            config = disp.config or {}
-                        })
-                    elseif type(disp.type) == "string" then
-                        -- Legacy case: look up the function by name
-                        -- This is handled elsewhere and is just a placeholder
-                        table.insert(_root_logger_config[key], disp)
-                    end
-                end
-            end
+            -- Normalize the dispatchers using the component system
+            _root_logger_config[key] = component_utils.normalize_components(value, component_utils.DISPATCHER_DEFAULTS)
         else
             _root_logger_config[key] = value
         end
     end
 
-    -- Return a copy with raw functions for dispatchers
-    local config_copy = table_utils.deepcopy(_root_logger_config)
-    if config_copy.dispatchers then
-        local raw_dispatchers = {}
-        for _, disp in ipairs(config_copy.dispatchers) do
-            if disp.dispatcher_func then
-                table.insert(raw_dispatchers, disp.dispatcher_func)
-            end
-        end
-        config_copy.dispatchers = raw_dispatchers
-    end
-    return config_copy
+    return table_utils.deepcopy(_root_logger_config)
 end
 
 --- Gets the current _root logger configuration
 -- @return table A copy of the current _root logger configuration
 function M.get_config()
-    local config_copy = table_utils.deepcopy(_root_logger_config)
-    if config_copy.dispatchers then
-        local raw_dispatchers = {}
-        for _, disp in ipairs(config_copy.dispatchers) do
-            if disp.dispatcher_func then
-                table.insert(raw_dispatchers, disp.dispatcher_func)
-            end
-        end
-        config_copy.dispatchers = raw_dispatchers
-    end
-    return config_copy
+    -- Return a deep copy of the internal configuration
+    return table_utils.deepcopy(_root_logger_config)
 end
 
 --- Resets the _root logger configuration to defaults
 function M.reset_config()
+    -- Reset to defaults
     _root_logger_config = {
         level = core_levels.definition.WARNING,
-        dispatchers = create_default_dispatchers(), -- Default console dispatcher
-        propagate = true
+        propagate = true,
+        dispatchers = {}
     }
+
+    -- Re-initialize with default dispatcher
+    initialize_default_config()
+
+    return table_utils.deepcopy(_root_logger_config)
 end
 
 return M

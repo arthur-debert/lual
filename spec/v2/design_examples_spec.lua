@@ -4,6 +4,40 @@ package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lu
 local lual = require("lual.logger")
 local core_levels = require("lua.lual.levels")
 
+--- Creates a mock dispatcher function that captures output
+-- @return function A dispatcher function that records calls
+local function create_mock_dispatcher()
+    local calls = {}
+
+    -- The dispatcher function
+    local function mock_dispatcher(record)
+        table.insert(calls, record)
+    end
+
+    -- Add helper methods to the function object for easier test assertions
+    local api = {
+        -- Return the function
+        func = mock_dispatcher,
+
+        -- Return the calls for assertions
+        get_calls = function()
+            return calls
+        end,
+
+        -- Get call count
+        count = function()
+            return #calls
+        end,
+
+        -- Clear calls
+        clear = function()
+            calls = {}
+        end
+    }
+
+    return api
+end
+
 describe("lual Logger - Design Examples", function()
     before_each(function()
         lual.reset_config()
@@ -12,13 +46,16 @@ describe("lual Logger - Design Examples", function()
 
     describe("Example 1: Simplest Case (Out-of-the-box, no user config)", function()
         it("should work with default configuration", function()
+            -- Use a simple array to collect log records
             local output_captured = {}
-            local mock_dispatcher = function(record)
+
+            -- Create a simple function dispatcher
+            local function capture_logs(record)
                 table.insert(output_captured, record)
             end
 
-            -- Configure root logger with mock dispatcher
-            lual.config({ dispatchers = { mock_dispatcher } })
+            -- Configure root logger with this dispatcher function
+            lual.config({ dispatchers = { capture_logs } })
 
             -- Create logger with auto-name
             local logger = lual.logger()
@@ -41,15 +78,18 @@ describe("lual Logger - Design Examples", function()
 
     describe("Example 2: User Configures Root Logger", function()
         it("should handle root logger configuration with JSON presenter", function()
+            -- Use a simple array to collect log records
             local output_captured = {}
-            local mock_dispatcher = function(record)
+
+            -- Create a simple function dispatcher
+            local function capture_logs(record)
                 table.insert(output_captured, record)
             end
 
-            -- Configure root logger with DEBUG level and mock dispatcher
+            -- Configure root logger with DEBUG level and simple function dispatcher
             lual.config({
                 level = core_levels.definition.DEBUG,
-                dispatchers = { mock_dispatcher }
+                dispatchers = { capture_logs }
             })
 
             -- Create logger with hierarchical name
@@ -69,24 +109,26 @@ describe("lual Logger - Design Examples", function()
 
     describe("Example 3: Logger-Specific Configuration with Root Config", function()
         it("should handle mixed logger configurations", function()
+            -- Use simple arrays to collect log records
             local root_output = {}
             local feature_output = {}
 
-            local root_dispatcher = function(record)
+            -- Create simple function dispatchers
+            local function root_dispatcher(record)
                 table.insert(root_output, record)
             end
 
-            local feature_dispatcher = function(record)
+            local function feature_dispatcher(record)
                 table.insert(feature_output, record)
             end
 
-            -- Configure root logger with INFO level and mock dispatcher
+            -- Configure root logger with INFO level and function dispatcher
             lual.config({
                 level = core_levels.definition.INFO,
                 dispatchers = { root_dispatcher }
             })
 
-            -- Create feature logger with DEBUG level and its own dispatcher
+            -- Create feature logger with DEBUG level and its own function dispatcher
             local feature_logger = lual.logger("app.featureX", {
                 level = core_levels.definition.DEBUG,
                 dispatchers = { feature_dispatcher },
