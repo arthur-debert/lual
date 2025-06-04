@@ -136,7 +136,6 @@ function M.normalize_component(item, defaults)
             for k, v in pairs(item) do
                 if k ~= 1 then
                     user_config[k] = v
-                    print("DEBUG: Adding config key:", k, "=", v)
                 end
             end
 

@@ -146,12 +146,6 @@ local function process_dispatcher(log_record, dispatcher_entry, logger)
     local dispatcher_func = normalized.func
     local dispatcher_config = normalized.config
 
-    -- Print the normalized dispatcher for debugging
-    print("DEBUG: Normalized dispatcher config:")
-    for k, v in pairs(dispatcher_config) do
-        print("  " .. k .. " = " .. tostring(v))
-    end
-
     -- Add logger context to the record
     dispatcher_record.owner_logger_name = logger.name
     dispatcher_record.owner_logger_level = logger.level
@@ -162,9 +156,7 @@ local function process_dispatcher(log_record, dispatcher_entry, logger)
 
     -- Apply level filtering if a level is set
     if dispatcher_level and type(dispatcher_level) == "number" and dispatcher_level > 0 then -- Skip NOTSET (0)
-        print("DEBUG: Level check - log level: " .. log_record.level_no .. ", dispatcher level: " .. dispatcher_level)
         if log_record.level_no < dispatcher_level then
-            print("DEBUG: Filtering - level too low")
             -- Skip this dispatcher as its level is higher than the log record
             return
         end
@@ -231,11 +223,6 @@ local function process_dispatchers(log_record, dispatchers, context_logger)
     end
 
     for _, dispatcher in ipairs(dispatchers) do
-        -- Add debug output
-        if type(dispatcher) == "table" and dispatcher.config then
-            print("DEBUG: Processing dispatcher with config level:", dispatcher.config.level)
-        end
-
         process_dispatcher(log_record, dispatcher, context_logger)
     end
 end

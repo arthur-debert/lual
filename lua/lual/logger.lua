@@ -87,9 +87,6 @@ function logger_prototype:add_dispatcher(dispatcher_func, config)
   local dispatcher = nil
 
   if config then
-    -- Print debug info
-    print("DEBUG: add_dispatcher with config:", type(config), "level=", config.level)
-
     -- If we have config, create a table with the function and config
     dispatcher = {
       func = dispatcher_func,
@@ -102,9 +99,6 @@ function logger_prototype:add_dispatcher(dispatcher_func, config)
 
   -- Normalize it using the component system
   local normalized = component_utils.normalize_component(dispatcher, component_utils.DISPATCHER_DEFAULTS)
-
-  -- Print debug info about the normalized dispatcher
-  print("DEBUG: normalized dispatcher - has level:", normalized.config.level ~= nil)
 
   table.insert(self.dispatchers, normalized)
 end
