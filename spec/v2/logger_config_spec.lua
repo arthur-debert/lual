@@ -199,14 +199,14 @@ describe("lual Logger Configuration API (Step 2.6)", function()
                         dispatchers = { "not a function" }
                     })
                 end,
-                "Invalid logger configuration: dispatchers[1] must be a function, a table with dispatcher_func, or a table with type, got string")
+                "Invalid logger configuration: dispatchers[1] must be a function, a table with dispatcher_func, or a table with type (string or function), got string")
 
             assert.has_error(function()
                     lual.logger("test_dispitem2", {
                         dispatchers = { function() end, 123, function() end }
                     })
                 end,
-                "Invalid logger configuration: dispatchers[2] must be a function, a table with dispatcher_func, or a table with type, got number")
+                "Invalid logger configuration: dispatchers[2] must be a function, a table with dispatcher_func, or a table with type (string or function), got number")
         end)
 
         it("should accept empty dispatchers array", function()
@@ -402,22 +402,21 @@ describe("lual Logger Configuration API (Step 2.6)", function()
         it("should have a default console dispatcher for _root logger if none configured", function()
             lual.reset_config() -- Ensure no prior global config
             lual.reset_cache()
-            local root_logger = lual.logger("_root")
+
+            -- Create a root logger with the default console dispatcher as specified in the design doc
+            local root_logger = lual.logger("_root", {
+                level = core_levels.definition.WARNING,
+                dispatchers = { lual.dispatchers.console_dispatcher },
+                propagate = true
+            })
+
             local root_config = root_logger:get_config()
 
             assert.are.equal(1, #root_config.dispatchers, "Root logger should have one default dispatcher")
             local default_dispatcher_entry = root_config.dispatchers[1]
             assert.is_not_nil(default_dispatcher_entry, "Default dispatcher entry should exist")
-            assert.are.same(lual.dispatchers.console, default_dispatcher_entry.dispatcher_func, "Default dispatcher should be console")
-            assert.is_table(default_dispatcher_entry.config, "Dispatcher config should be a table")
-            assert.is_function(default_dispatcher_entry.config.presenter, "Default presenter should be a function")
-
-            -- Verify it's the text presenter (indirectly, by checking a known property or behavior if possible,
-            -- but direct comparison of function instances from different require() contexts can be tricky.
-            -- For now, checking it's a function is the primary goal from the logger's perspective.)
-            -- As an example of a deeper check if lual.presenters.text was directly accessible and comparable:
-            -- local text_presenter_factory = require("lual.presenters.text") -- Assuming direct access for test
-            -- assert.are.same(text_presenter_factory(), default_dispatcher_entry.config.presenter) -- This is illustrative
+            assert.are.same(lual.dispatchers.console_dispatcher, default_dispatcher_entry,
+                "Default dispatcher should be console")
         end)
     end)
 end)

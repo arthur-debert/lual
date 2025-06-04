@@ -17,8 +17,9 @@ describe("lual.config() API", function()
             })
 
             assert.are.equal(core_levels.definition.DEBUG, updated_config.level)
-            assert.are.equal(true, updated_config.propagate) -- Unchanged default
-            assert.are.same({}, updated_config.dispatchers)  -- Unchanged default
+            assert.are.equal(true, updated_config.propagate)                                     -- Unchanged default
+            assert.are.equal(1, #updated_config.dispatchers)                                     -- Default console dispatcher
+            assert.are.equal(lual.dispatchers.console_dispatcher, updated_config.dispatchers[1]) -- Console dispatcher
         end)
 
         it("should preserve existing configuration for unspecified keys", function()
@@ -34,8 +35,9 @@ describe("lual.config() API", function()
             })
 
             assert.are.equal(core_levels.definition.INFO, updated_config.level)
-            assert.are.equal(false, updated_config.propagate) -- Preserved from previous call
-            assert.are.same({}, updated_config.dispatchers)   -- Unchanged default
+            assert.are.equal(false, updated_config.propagate)                                    -- Preserved from previous call
+            assert.are.equal(1, #updated_config.dispatchers)                                     -- Default console dispatcher
+            assert.are.equal(lual.dispatchers.console_dispatcher, updated_config.dispatchers[1]) -- Console dispatcher
         end)
 
         it("should allow updating dispatchers", function()
@@ -55,8 +57,9 @@ describe("lual.config() API", function()
             })
 
             assert.are.equal(false, updated_config.propagate)
-            assert.are.equal(core_levels.definition.WARNING, updated_config.level) -- Default unchanged
-            assert.are.same({}, updated_config.dispatchers)                        -- Default unchanged
+            assert.are.equal(core_levels.definition.WARNING, updated_config.level)               -- Default unchanged
+            assert.are.equal(1, #updated_config.dispatchers)                                     -- Default console dispatcher
+            assert.are.equal(lual.dispatchers.console_dispatcher, updated_config.dispatchers[1]) -- Console dispatcher
         end)
 
         it("should allow updating multiple keys at once", function()
@@ -186,28 +189,30 @@ describe("lual.config() API", function()
                         dispatchers = "not a table"
                     })
                 end,
-                "Invalid configuration: Invalid type for 'dispatchers': expected table, got string. Array of dispatcher functions")
+                "Invalid configuration: Invalid type for 'dispatchers': expected table, got string. Array of dispatcher functions or configuration tables")
 
             assert.has_error(function()
                     lual.config({
                         dispatchers = 123
                     })
                 end,
-                "Invalid configuration: Invalid type for 'dispatchers': expected table, got number. Array of dispatcher functions")
+                "Invalid configuration: Invalid type for 'dispatchers': expected table, got number. Array of dispatcher functions or configuration tables")
         end)
 
         it("should reject dispatchers containing non-functions", function()
             assert.has_error(function()
-                lual.config({
-                    dispatchers = { "not a function" }
-                })
-            end, "Invalid configuration: dispatchers[1] must be a function, got string")
+                    lual.config({
+                        dispatchers = { "not a function" }
+                    })
+                end,
+                "Invalid configuration: dispatchers[1] must be a function, a table with dispatcher_func, or a table with type property (string or function), got string")
 
             assert.has_error(function()
-                lual.config({
-                    dispatchers = { function() end, 123, function() end }
-                })
-            end, "Invalid configuration: dispatchers[2] must be a function, got number")
+                    lual.config({
+                        dispatchers = { function() end, 123, function() end }
+                    })
+                end,
+                "Invalid configuration: dispatchers[2] must be a function, a table with dispatcher_func, or a table with type property (string or function), got number")
         end)
 
         it("should accept empty dispatchers array", function()
@@ -250,7 +255,8 @@ describe("lual.config() API", function()
             local default_config = lual.get_config()
             assert.are.equal(core_levels.definition.WARNING, default_config.level)
             assert.are.equal(true, default_config.propagate)
-            assert.are.same({}, default_config.dispatchers)
+            assert.are.equal(1, #default_config.dispatchers)                                     -- Default console dispatcher
+            assert.are.equal(lual.dispatchers.console_dispatcher, default_config.dispatchers[1]) -- Console dispatcher
         end)
 
         it("should return a copy (not reference) of configuration", function()
@@ -290,7 +296,8 @@ describe("lual.config() API", function()
             local config = lual.get_config()
             assert.are.equal(core_levels.definition.WARNING, config.level)
             assert.are.equal(true, config.propagate)
-            assert.are.same({}, config.dispatchers)
+            assert.are.equal(1, #config.dispatchers)                                     -- Default console dispatcher
+            assert.are.equal(lual.dispatchers.console_dispatcher, config.dispatchers[1]) -- Console dispatcher
         end)
     end)
 
