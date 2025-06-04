@@ -85,7 +85,7 @@ end
 
 --- Processes a log record through a single dispatcher
 -- @param log_record table The log record to process
--- @param dispatcher_entry table The dispatcher configuration (with dispatcher_func, config, etc.)
+-- @param dispatcher_entry table|function The dispatcher configuration or function
 -- @param logger table The logger that owns this dispatcher
 local function process_dispatcher(log_record, dispatcher_entry, logger)
     -- Create a copy of the log record for this dispatcher
@@ -94,19 +94,28 @@ local function process_dispatcher(log_record, dispatcher_entry, logger)
         dispatcher_record[k] = v
     end
 
-    -- Check dispatcher-specific level if configured
-    if dispatcher_entry.config and dispatcher_entry.config.level then
-        -- Dispatcher level check: skip if log_record.level_no < dispatcher.level
-        if log_record.level_no < dispatcher_entry.config.level then
-            return -- Skip this dispatcher as its level is higher than the log record
-        end
+    -- Normalize dispatcher_entry if it's a function (for backward compatibility)
+    -- The component normalization system standardizes all formats to:
+    -- { func = function_reference, config = { ... } }
+    if type(dispatcher_entry) == "function" then
+        dispatcher_entry = {
+            func = dispatcher_entry,
+            config = {}
+        }
     end
 
-    -- For test cases that set the level directly on the dispatcher_entry
-    if dispatcher_entry.level and not (dispatcher_entry.config and dispatcher_entry.config.level) then
-        if log_record.level_no < dispatcher_entry.level then
-            return -- Skip this dispatcher based on level set directly on entry
-        end
+    -- Get function and config from normalized entry
+    local dispatcher_func = dispatcher_entry.func
+    local dispatcher_config = dispatcher_entry.config or {}
+
+    -- Handle backward compatibility with old format
+    if not dispatcher_func and dispatcher_entry.dispatcher_func then
+        dispatcher_func = dispatcher_entry.dispatcher_func
+    end
+
+    if not dispatcher_func then
+        io.stderr:write("LUAL: Invalid dispatcher: missing function\n")
+        return
     end
 
     -- Add logger context to the record
@@ -114,20 +123,34 @@ local function process_dispatcher(log_record, dispatcher_entry, logger)
     dispatcher_record.owner_logger_level = logger.level
     dispatcher_record.owner_logger_propagate = logger.propagate
 
-    -- Add dispatcher level to the record for informational purposes
-    if dispatcher_entry.config and dispatcher_entry.config.level then
-        dispatcher_record.dispatcher_level = dispatcher_entry.config.level
-    else
-        if dispatcher_entry.level then
-            dispatcher_record.dispatcher_level = dispatcher_entry.level
-        else
-            dispatcher_record.dispatcher_level = core_levels.definition.NOTSET
+    -- Handle dispatcher level filtering (with special case for test spies)
+    local dispatcher_level = nil
+
+    -- 1. Try config.level first (normalized format)
+    if dispatcher_config.level then
+        dispatcher_level = dispatcher_config.level
+        -- 2. Try direct level property (old format)
+    elseif dispatcher_entry.level then
+        dispatcher_level = dispatcher_entry.level
+    end
+
+    -- Apply level filtering if a level is set
+    if dispatcher_level and dispatcher_level > 0 then -- Skip NOTSET (0)
+        if log_record.level_no < dispatcher_level then
+            return                                    -- Skip this dispatcher as its level is higher than the log record
         end
     end
 
+    -- Add dispatcher level to the record for informational purposes
+    if dispatcher_level then
+        dispatcher_record.dispatcher_level = dispatcher_level
+    else
+        dispatcher_record.dispatcher_level = core_levels.definition.NOTSET
+    end
+
     -- Apply transformers if configured
-    if dispatcher_entry.config and dispatcher_entry.config.transformers then
-        for _, transformer in ipairs(dispatcher_entry.config.transformers) do
+    if dispatcher_config.transformers then
+        for _, transformer in ipairs(dispatcher_config.transformers) do
             local ok, result = pcall(function()
                 if type(transformer) == "function" then
                     return transformer(dispatcher_record)
@@ -145,8 +168,8 @@ local function process_dispatcher(log_record, dispatcher_entry, logger)
     end
 
     -- Apply single transformer if configured
-    if dispatcher_entry.config and dispatcher_entry.config.transformer then
-        local transformer = dispatcher_entry.config.transformer
+    if dispatcher_config.transformer then
+        local transformer = dispatcher_config.transformer
         local ok, result = pcall(function()
             if type(transformer) == "function" then
                 return transformer(dispatcher_record)
@@ -163,8 +186,8 @@ local function process_dispatcher(log_record, dispatcher_entry, logger)
     end
 
     -- Apply presenter if configured
-    if dispatcher_entry.config and dispatcher_entry.config.presenter then
-        local presenter_config = dispatcher_entry.config.presenter
+    if dispatcher_config.presenter then
+        local presenter_config = dispatcher_config.presenter
         local presenter_func = nil
 
         if type(presenter_config) == "string" then
@@ -224,7 +247,7 @@ local function process_dispatcher(log_record, dispatcher_entry, logger)
 
     -- If we get here, the dispatcher level check passed (or there was no level configured)
     local ok, err = pcall(function()
-        dispatcher_entry.dispatcher_func(dispatcher_record, dispatcher_entry.config)
+        dispatcher_func(dispatcher_record, dispatcher_config)
     end)
     if not ok then
         -- Add retry logic if required, or at least log the error

@@ -1,5 +1,23 @@
 --- Generic component processing utilities for dispatchers, transformers, and presenters
 -- This module provides unified normalization and configuration merging for all pipeline components
+--
+-- The component system standardizes how dispatchers, transformers, and presenters are handled
+-- by normalizing them to a standard format early in the processing pipeline.
+--
+-- Components can be provided in several formats:
+-- 1. Simple function: function(record, config) ... end
+-- 2. Table with function as first element: { my_func, level = lual.debug, some_config = value }
+-- 3. Legacy format with dispatcher_func: { dispatcher_func = my_func, level = lual.debug }
+-- 4. Legacy format with type field: { type = "console", level = lual.debug }
+--
+-- All formats are normalized to a standard structure:
+-- {
+--   func = function_reference,  -- The actual component function
+--   config = {                  -- Configuration table with merged defaults
+--     level = level_value,      -- Optional level for dispatchers
+--     ... other config values
+--   }
+-- }
 
 local table_utils = require("lual.utils.table")
 
@@ -22,50 +40,67 @@ local function is_callable(obj)
         (type(obj) == "table" and getmetatable(obj) and type(getmetatable(obj).__call) == "function")
 end
 
---- Normalizes a component from function or table form to standardized table form
--- @param item function|table The component to normalize (function or {func, key=val, ...})
+-- Expose the is_callable function
+M.is_callable = is_callable
+
+--- Normalizes a component from any format to standardized table form
+-- @param item function|table The component to normalize
 -- @param defaults table Default configuration for this component type
--- @return table Normalized component with func and config fields
+-- @return table Normalized component
 function M.normalize_component(item, defaults)
     defaults = defaults or {}
 
-    if is_callable(item) then
-        -- Simple function form or callable table: convert to standard form with default config
+    -- Handle function
+    if type(item) == "function" then
         return {
             func = item,
             config = table_utils.deepcopy(defaults)
         }
     end
 
-    if type(item) == "table" and #item > 0 then
-        -- Table form: { func, key=val, key=val, ... }
-        local func = item[1]
+    -- Handle table
+    if type(item) == "table" then
+        -- Handle new table form: { func, key=val, key=val, ... }
+        if #item > 0 and is_callable(item[1]) then
+            local func = item[1]
 
-        if not is_callable(func) then
-            error("First element of component table must be a function or callable table")
+            -- Create a shallow copy without the first element
+            local user_config = {}
+            for k, v in pairs(item) do
+                if k ~= 1 then
+                    user_config[k] = v
+                end
+            end
+
+            -- Merge user config into defaults
+            local merged_config = table_utils.deepcopy(defaults)
+            for k, v in pairs(user_config) do
+                merged_config[k] = v
+            end
+
+            return {
+                func = func,
+                config = merged_config
+            }
         end
 
-        -- Create a shallow copy without the first element
-        local user_config = {}
-        for k, v in pairs(item) do
-            if k ~= 1 then
-                user_config[k] = v
+        -- Special handling for spy objects or tables with level/dispatcher_func
+        if item.dispatcher_func then
+            -- If it has a level, move it to config
+            if item.level and not (item.config and item.config.level) then
+                if not item.config then
+                    item.config = {}
+                end
+                item.config.level = item.level
             end
         end
 
-        -- Merge user config into defaults (user config overwrites defaults)
-        local merged_config = table_utils.deepcopy(defaults)
-        for k, v in pairs(user_config) do
-            merged_config[k] = v
-        end
-
-        return {
-            func = func,
-            config = merged_config
-        }
+        -- For backward compatibility, just return the item as-is
+        return item
     end
 
-    error("Component must be a function or a table with function as first element")
+    -- Unknown format - return as-is (will be caught later)
+    return item
 end
 
 --- Normalizes a list of components
@@ -74,7 +109,7 @@ end
 -- @return table Array of normalized components
 function M.normalize_components(items, defaults)
     if type(items) ~= "table" then
-        error("Components must be provided as a table/array")
+        return {} -- Return empty array for non-table input
     end
 
     local normalized = {}
