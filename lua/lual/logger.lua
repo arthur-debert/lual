@@ -101,10 +101,17 @@ end
 --- Get configuration of this logger
 -- @return table The logger configuration
 function logger_prototype:get_config()
+  local dispatchers_list = {}
+  for _, disp in ipairs(self.dispatchers) do
+    if disp.dispatcher_func then
+      table.insert(dispatchers_list, disp.dispatcher_func)
+    end
+  end
+
   return {
     name = self.name,
     level = self.level,
-    dispatchers = self.dispatchers,
+    dispatchers = dispatchers_list,
     propagate = self.propagate,
     parent_name = self.parent and self.parent.name or nil
   }
@@ -171,8 +178,14 @@ _get_or_create_logger_internal = function(requested_name_or_nil, config_data)
       elseif type(item) == "table" then
         if type(item.dispatcher_func) == "function" then
           table.insert(new_logger.dispatchers, item)
+        elseif type(item.type) == "function" then
+          -- Handle the case where item.type is a function reference (new approach)
+          table.insert(new_logger.dispatchers, {
+            dispatcher_func = item.type,
+            config = item.config or {}
+          })
         elseif type(item.type) == "string" then
-          -- Convert type-based dispatcher to internal format
+          -- Handle the case where item.type is a string (legacy approach)
           local dispatcher = all_dispatchers[item.type]
           if dispatcher then
             table.insert(new_logger.dispatchers, {
@@ -218,21 +231,26 @@ create_root_logger_instance = function()       -- Renamed from create_root_logge
   local main_conf = config_module.get_config() -- Get current global defaults
   local root_config_for_logger = {
     level = main_conf.level,
-    dispatchers = main_conf.dispatchers or {}, -- Use dispatchers directly from config
+    dispatchers = {}, -- Start with an empty array
     propagate = main_conf.propagate
   }
-  -- Convert raw function dispatchers to internal format
-  if root_config_for_logger.dispatchers then
-    local converted_dispatchers = {}
-    for _, disp_fn in ipairs(root_config_for_logger.dispatchers) do
+
+  -- If we have dispatchers in the config, use them
+  if main_conf.dispatchers and #main_conf.dispatchers > 0 then
+    for _, disp_fn in ipairs(main_conf.dispatchers) do
       if type(disp_fn) == "function" then
-        table.insert(converted_dispatchers, { dispatcher_func = disp_fn, config = {} })
+        table.insert(root_config_for_logger.dispatchers, { dispatcher_func = disp_fn, config = {} })
       elseif type(disp_fn) == "table" and type(disp_fn.dispatcher_func) == "function" then
-        table.insert(converted_dispatchers, disp_fn)
+        table.insert(root_config_for_logger.dispatchers, disp_fn)
       end
     end
-    root_config_for_logger.dispatchers = converted_dispatchers
+  else
+    -- If no dispatchers are configured, add a default console dispatcher
+    root_config_for_logger.dispatchers = {
+      { dispatcher_func = all_dispatchers.console_dispatcher, config = { presenter = all_presenters.text() } }
+    }
   end
+
   -- Use the new internal factory to get or create _root
   return _get_or_create_logger_internal("_root", root_config_for_logger)
 end
@@ -302,10 +320,13 @@ local function validate_logger_config_table(config_table)
       for i, dispatcher_item in ipairs(value) do
         if not (type(dispatcher_item) == "function" or
               (type(dispatcher_item) == "table" and
-                (type(dispatcher_item.dispatcher_func) == "function" or type(dispatcher_item.type) == "string"))) then
+                (type(dispatcher_item.dispatcher_func) == "function" or
+                  type(dispatcher_item.type) == "string" or
+                  type(dispatcher_item.type) == "function"))) then
           return false,
               string.format(
-                "dispatchers[%d] must be a function, a table with dispatcher_func, or a table with type, got %s", i,
+                "dispatchers[%d] must be a function, a table with dispatcher_func, or a table with type (string or function), got %s",
+                i,
                 type(dispatcher_item))
         end
       end
@@ -429,21 +450,21 @@ log.error = core_levels.definition.ERROR
 log.critical = core_levels.definition.CRITICAL
 log.none = core_levels.definition.NONE
 
--- Dispatcher constants (string identifiers for config API)
-log.console = "console"
-log.file = "file"
+-- Dispatcher constants (function references for config API)
+log.console = all_dispatchers.console_dispatcher
+log.file = all_dispatchers.file_dispatcher
 
--- Presenter constants (string identifiers for config API)
-log.text = "text"
-log.color = "color"
-log.json = "json"
+-- Presenter constants (function references for config API)
+log.text = all_presenters.text
+log.color = all_presenters.color
+log.json = all_presenters.json
 
--- Timezone constants
+-- Timezone constants (still use strings for these)
 log.local_time = "local"
 log.utc = "utc"
 
 -- Transformer constants
-log.noop = "noop"
+log.noop = all_transformers.noop_transformer
 
 -- Add LEVELS mapping for external validation and use
 log.LEVELS = {
