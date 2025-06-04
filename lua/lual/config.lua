@@ -104,16 +104,54 @@ local function validate_config(config_table)
                 return false, "dispatchers must be an array (table with numeric indices)"
             end
             for i, dispatcher in ipairs(value) do
-                if not (
-                        type(dispatcher) == "function" or
-                        (type(dispatcher) == "table" and (
-                            type(dispatcher.dispatcher_func) == "function" or
-                            type(dispatcher.type) == "function" or
-                            type(dispatcher.type) == "string"
-                        ))
-                    ) then
+                if type(dispatcher) == "function" then
+                    -- Function dispatchers are valid
+                elseif type(dispatcher) == "table" then
+                    -- Validate table dispatcher configuration
+                    local has_valid_type = (
+                        type(dispatcher.dispatcher_func) == "function" or
+                        type(dispatcher.type) == "function" or
+                        type(dispatcher.type) == "string"
+                    )
+
+                    if not has_valid_type then
+                        return false, string.format(
+                            "dispatchers[%d] must be a function, a table with dispatcher_func, or a table with type property (string or function), got table without valid type",
+                            i
+                        )
+                    end
+
+                    -- Validate dispatcher level if present
+                    if dispatcher.level ~= nil then
+                        if type(dispatcher.level) ~= "number" then
+                            return false,
+                                string.format("dispatchers[%d].level must be a number, got %s", i, type(dispatcher.level))
+                        end
+
+                        -- Verify it's a valid level constant
+                        local valid_level = false
+                        for _, level_value in pairs(core_levels.definition) do
+                            if dispatcher.level == level_value then
+                                valid_level = true
+                                break
+                            end
+                        end
+
+                        if not valid_level then
+                            local valid_levels_list = {}
+                            for level_name, level_val in pairs(core_levels.definition) do
+                                table.insert(valid_levels_list, string.format("%s(%d)", level_name, level_val))
+                            end
+                            table.sort(valid_levels_list)
+                            return false,
+                                string.format(
+                                    "Invalid dispatcher level value %d in dispatchers[%d]. Valid levels are: %s",
+                                    dispatcher.level, i, table.concat(valid_levels_list, ", "))
+                        end
+                    end
+                else
                     return false, string.format(
-                        "dispatchers[%d] must be a function, a table with dispatcher_func, or a table with type property (string or function), got %s",
+                        "dispatchers[%d] must be a function or a table, got %s",
                         i,
                         type(dispatcher)
                     )
@@ -123,6 +161,62 @@ local function validate_config(config_table)
     end
 
     return true
+end
+
+--- Convert flat dispatcher configuration to internal format
+-- @param disp table The dispatcher configuration with flat properties
+-- @return table The internal dispatcher entry with config nested properly
+local function convert_flat_dispatcher_config(disp)
+    local entry = { config = {} }
+
+    -- Handle the dispatcher function based on type
+    if type(disp.dispatcher_func) == "function" then
+        entry.dispatcher_func = disp.dispatcher_func
+    elseif type(disp.type) == "function" then
+        entry.dispatcher_func = disp.type
+    elseif type(disp.type) == "string" then
+        -- Map string type to proper dispatcher function name
+        local dispatcher_name = nil
+        if disp.type == "console" then
+            dispatcher_name = "console_dispatcher"
+        elseif disp.type == "file" then
+            dispatcher_name = "file_dispatcher"
+        elseif disp.type == "syslog" then
+            dispatcher_name = "syslog_dispatcher"
+        else
+            dispatcher_name = disp.type .. "_dispatcher" -- Try with suffix
+        end
+
+        -- Look up the dispatcher function by name
+        if all_dispatchers[dispatcher_name] then
+            entry.dispatcher_func = all_dispatchers[dispatcher_name]
+        else
+            error("Unknown dispatcher type: " .. disp.type .. " (tried " .. dispatcher_name .. ")")
+        end
+    else
+        error("Dispatcher must have either 'dispatcher_func' or 'type' property")
+    end
+
+    -- Move level to config.level
+    if disp.level ~= nil then
+        entry.config.level = disp.level
+    end
+
+    -- Copy all other properties (except type and dispatcher_func) to config
+    for key, value in pairs(disp) do
+        if key ~= "type" and key ~= "dispatcher_func" and key ~= "level" and key ~= "config" then
+            entry.config[key] = value
+        end
+    end
+
+    -- If there's a config table, merge it into our config
+    if disp.config and type(disp.config) == "table" then
+        for key, value in pairs(disp.config) do
+            entry.config[key] = value
+        end
+    end
+
+    return entry
 end
 
 --- Updates the _root logger configuration with the provided settings
@@ -140,23 +234,13 @@ function M.config(config_table)
         if key == "dispatchers" then
             -- Store dispatchers in internal format but return raw functions
             _root_logger_config[key] = {}
-            for _, disp in ipairs(value) do
+            for i, disp in ipairs(value) do
                 if type(disp) == "function" then
                     table.insert(_root_logger_config[key], { dispatcher_func = disp, config = {} })
                 elseif type(disp) == "table" then
-                    if type(disp.dispatcher_func) == "function" then
-                        table.insert(_root_logger_config[key], disp)
-                    elseif type(disp.type) == "function" then
-                        -- Handle the case where disp.type is a function reference
-                        table.insert(_root_logger_config[key], {
-                            dispatcher_func = disp.type,
-                            config = disp.config or {}
-                        })
-                    elseif type(disp.type) == "string" then
-                        -- Legacy case: look up the function by name
-                        -- This is handled elsewhere and is just a placeholder
-                        table.insert(_root_logger_config[key], disp)
-                    end
+                    -- Convert flat dispatcher config to internal format
+                    local entry = convert_flat_dispatcher_config(disp)
+                    table.insert(_root_logger_config[key], entry)
                 end
             end
         else
@@ -166,6 +250,7 @@ function M.config(config_table)
 
     -- Return a copy with raw functions for dispatchers
     local config_copy = table_utils.deepcopy(_root_logger_config)
+
     if config_copy.dispatchers then
         local raw_dispatchers = {}
         for _, disp in ipairs(config_copy.dispatchers) do
@@ -181,16 +266,8 @@ end
 --- Gets the current _root logger configuration
 -- @return table A copy of the current _root logger configuration
 function M.get_config()
+    -- Return a deep copy of the internal configuration with full dispatcher entries
     local config_copy = table_utils.deepcopy(_root_logger_config)
-    if config_copy.dispatchers then
-        local raw_dispatchers = {}
-        for _, disp in ipairs(config_copy.dispatchers) do
-            if disp.dispatcher_func then
-                table.insert(raw_dispatchers, disp.dispatcher_func)
-            end
-        end
-        config_copy.dispatchers = raw_dispatchers
-    end
     return config_copy
 end
 

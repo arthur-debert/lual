@@ -136,6 +136,63 @@ get_parent_name_from_hierarchical = function(logger_name)
   return match or "_root" -- Always return "_root" for top-level loggers
 end
 
+-- Create a helper function to convert flat dispatcher config to internal format
+-- This is shared with config.lua to ensure consistent behavior
+-- @param disp table The dispatcher configuration with flat properties
+-- @return table The internal dispatcher entry with config nested properly
+local function convert_flat_dispatcher_config(disp)
+  local entry = { config = {} }
+
+  -- Handle the dispatcher function based on type
+  if type(disp.dispatcher_func) == "function" then
+    entry.dispatcher_func = disp.dispatcher_func
+  elseif type(disp.type) == "function" then
+    entry.dispatcher_func = disp.type
+  elseif type(disp.type) == "string" then
+    -- Map string type to proper dispatcher function name
+    local dispatcher_name = nil
+    if disp.type == "console" then
+      dispatcher_name = "console_dispatcher"
+    elseif disp.type == "file" then
+      dispatcher_name = "file_dispatcher"
+    elseif disp.type == "syslog" then
+      dispatcher_name = "syslog_dispatcher"
+    else
+      dispatcher_name = disp.type .. "_dispatcher" -- Try with suffix
+    end
+
+    -- Look up the dispatcher function by name
+    if all_dispatchers[dispatcher_name] then
+      entry.dispatcher_func = all_dispatchers[dispatcher_name]
+    else
+      return nil -- Unknown dispatcher type
+    end
+  else
+    return nil -- Missing required dispatcher function or type
+  end
+
+  -- Move level to config.level
+  if disp.level ~= nil then
+    entry.config.level = disp.level
+  end
+
+  -- Copy all other properties (except type, dispatcher_func, and level) to config
+  for key, value in pairs(disp) do
+    if key ~= "type" and key ~= "dispatcher_func" and key ~= "level" and key ~= "config" then
+      entry.config[key] = value
+    end
+  end
+
+  -- If there's a config table, merge it into our config
+  if disp.config and type(disp.config) == "table" then
+    for key, value in pairs(disp.config) do
+      entry.config[key] = value
+    end
+  end
+
+  return entry
+end
+
 -- Define _get_or_create_logger_internal
 _get_or_create_logger_internal = function(requested_name_or_nil, config_data)
   local final_name
@@ -176,23 +233,10 @@ _get_or_create_logger_internal = function(requested_name_or_nil, config_data)
       if type(item) == "function" then
         table.insert(new_logger.dispatchers, { dispatcher_func = item, config = {} })
       elseif type(item) == "table" then
-        if type(item.dispatcher_func) == "function" then
-          table.insert(new_logger.dispatchers, item)
-        elseif type(item.type) == "function" then
-          -- Handle the case where item.type is a function reference (new approach)
-          table.insert(new_logger.dispatchers, {
-            dispatcher_func = item.type,
-            config = item.config or {}
-          })
-        elseif type(item.type) == "string" then
-          -- Handle the case where item.type is a string (legacy approach)
-          local dispatcher = all_dispatchers[item.type]
-          if dispatcher then
-            table.insert(new_logger.dispatchers, {
-              dispatcher_func = dispatcher,
-              config = item.config or {}
-            })
-          end
+        -- Convert flat dispatcher config to internal format
+        local dispatcher_entry = convert_flat_dispatcher_config(item)
+        if dispatcher_entry then
+          table.insert(new_logger.dispatchers, dispatcher_entry)
         end
       end
     end
@@ -237,11 +281,18 @@ create_root_logger_instance = function()       -- Renamed from create_root_logge
 
   -- If we have dispatchers in the config, use them
   if main_conf.dispatchers and #main_conf.dispatchers > 0 then
-    for _, disp_fn in ipairs(main_conf.dispatchers) do
-      if type(disp_fn) == "function" then
-        table.insert(root_config_for_logger.dispatchers, { dispatcher_func = disp_fn, config = {} })
-      elseif type(disp_fn) == "table" and type(disp_fn.dispatcher_func) == "function" then
-        table.insert(root_config_for_logger.dispatchers, disp_fn)
+    for i, disp in ipairs(main_conf.dispatchers) do
+      -- The dispatchers should already be in the internal format with config
+      if type(disp) == "table" and type(disp.dispatcher_func) == "function" then
+        -- Just copy the entire dispatcher entry as is
+        local dispatcher_entry = table_utils.deepcopy(disp)
+        table.insert(root_config_for_logger.dispatchers, dispatcher_entry)
+      elseif type(disp) == "function" then
+        -- For backward compatibility, wrap functions (should not happen now)
+        table.insert(root_config_for_logger.dispatchers, {
+          dispatcher_func = disp,
+          config = {}
+        })
       end
     end
   else
@@ -328,6 +379,32 @@ local function validate_logger_config_table(config_table)
                 "dispatchers[%d] must be a function, a table with dispatcher_func, or a table with type (string or function), got %s",
                 i,
                 type(dispatcher_item))
+        end
+
+        -- Validate dispatcher level if present
+        if type(dispatcher_item) == "table" and dispatcher_item.level ~= nil then
+          if type(dispatcher_item.level) ~= "number" then
+            return false, string.format("dispatchers[%d].level must be a number, got %s", i, type(dispatcher_item.level))
+          end
+
+          -- Verify it's a valid level constant
+          local valid_level = false
+          for _, level_value in pairs(core_levels.definition) do
+            if dispatcher_item.level == level_value then
+              valid_level = true
+              break
+            end
+          end
+
+          if not valid_level then
+            local valid_levels_list = {}
+            for level_name, level_val in pairs(core_levels.definition) do
+              table.insert(valid_levels_list, string.format("%s(%d)", level_name, level_val))
+            end
+            table.sort(valid_levels_list)
+            return false, string.format("Invalid dispatcher level value %d in dispatchers[%d]. Valid levels are: %s",
+              dispatcher_item.level, i, table.concat(valid_levels_list, ", "))
+          end
         end
       end
     end

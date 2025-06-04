@@ -1,5 +1,42 @@
 --- Dispatch Module
 -- This module implements the new dispatch loop logic from step 2.7
+--
+-- Dispatcher-Specific Levels:
+--
+-- Dispatchers can optionally be configured with their own levels. During
+-- the dispatch loop, once a logger has determined a log event meets its level
+-- requirement, it iterates over its dispatchers and performs a second level check
+-- against each dispatcher's level.
+--
+-- This occurs after the logger's own level check, hence a dispatcher's level
+-- set to lower (more verbose) than the logger's level will never receive events
+-- because the logger will filter them first.
+--
+-- By default, dispatchers have level NOTSET (0), meaning they will use the
+-- logger's effective level.
+--
+-- This allows for more granular control over which events are sent to each
+-- output. For example, you can configure a file dispatcher to receive all DEBUG
+-- and above messages, while a console dispatcher only shows WARNING and above.
+--
+-- Usage example:
+--
+--   lual.config({
+--     level = lual.DEBUG,  -- Root level is DEBUG
+--     dispatchers = {
+--       {
+--         type = lual.file,
+--         level = lual.DEBUG,  -- File receives all logs
+--         path = "app.log",
+--         presenter = { type = lual.json }
+--       },
+--       {
+--         type = lual.console,
+--         level = lual.WARNING,  -- Console only shows warnings and above
+--         presenter = { type = lual.text }
+--       }
+--     }
+--   })
 
 local core_levels = require("lua.lual.levels")
 local all_presenters = require("lual.presenters.init") -- Added for presenter handling
@@ -57,10 +94,36 @@ local function process_dispatcher(log_record, dispatcher_entry, logger)
         dispatcher_record[k] = v
     end
 
+    -- Check dispatcher-specific level if configured
+    if dispatcher_entry.config and dispatcher_entry.config.level then
+        -- Dispatcher level check: skip if log_record.level_no < dispatcher.level
+        if log_record.level_no < dispatcher_entry.config.level then
+            return -- Skip this dispatcher as its level is higher than the log record
+        end
+    end
+
+    -- For test cases that set the level directly on the dispatcher_entry
+    if dispatcher_entry.level and not (dispatcher_entry.config and dispatcher_entry.config.level) then
+        if log_record.level_no < dispatcher_entry.level then
+            return -- Skip this dispatcher based on level set directly on entry
+        end
+    end
+
     -- Add logger context to the record
     dispatcher_record.owner_logger_name = logger.name
     dispatcher_record.owner_logger_level = logger.level
     dispatcher_record.owner_logger_propagate = logger.propagate
+
+    -- Add dispatcher level to the record for informational purposes
+    if dispatcher_entry.config and dispatcher_entry.config.level then
+        dispatcher_record.dispatcher_level = dispatcher_entry.config.level
+    else
+        if dispatcher_entry.level then
+            dispatcher_record.dispatcher_level = dispatcher_entry.level
+        else
+            dispatcher_record.dispatcher_level = core_levels.definition.NOTSET
+        end
+    end
 
     -- Apply transformers if configured
     if dispatcher_entry.config and dispatcher_entry.config.transformers then
@@ -159,20 +222,13 @@ local function process_dispatcher(log_record, dispatcher_entry, logger)
         end
     end
 
-    -- Call the dispatcher function with the appropriate message
-    -- Handle both raw functions and internal format
+    -- If we get here, the dispatcher level check passed (or there was no level configured)
     local ok, err = pcall(function()
-        if type(dispatcher_entry) == "function" then
-            -- For raw function dispatchers, pass the entire record
-            dispatcher_entry(dispatcher_record)
-        else
-            -- For configured dispatchers, pass the record to the dispatcher function
-            dispatcher_entry.dispatcher_func(dispatcher_record)
-        end
+        dispatcher_entry.dispatcher_func(dispatcher_record, dispatcher_entry.config)
     end)
-
     if not ok then
-        dispatcher_record.dispatcher_error = err
+        -- Add retry logic if required, or at least log the error
+        io.stderr:write(string.format("Error dispatching log record: %s\n", err))
     end
 end
 
