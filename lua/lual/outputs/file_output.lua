@@ -1,6 +1,6 @@
---- dispatcher that writes log messages to a file with rotation.
+--- output that writes log messages to a file with rotation.
 --
--- On initialization, this dispatcher handler will:
+-- On initialization, this output handler will:
 -- 1. Rotate existing log files, keeping up to 5 backups.
 --    - Example: app.log -> app.log.1, app.log.1 -> app.log.2, ..., app.log.4 -> app.log.5
 --    - app.log.5 will be deleted if it exists before rotation.
@@ -8,10 +8,10 @@
 --
 -- @usage
 -- local lual = require("lual")
--- local file_dispatcher_factory = require("lual.dispatchers.file_dispatcher")
+-- local file_output_factory = require("lual.outputs.file_output")
 --
 -- local logger = lual.logger("my_app")
--- logger:add_dispatcher(file_dispatcher_factory({ path = "app.log" }), lual.levels.INFO)
+-- logger:add_output(file_output_factory({ path = "app.log" }), lual.levels.INFO)
 -- logger:info("This will be written to app.log after rotation.")
 
 local MAX_BACKUPS = 5
@@ -158,13 +158,13 @@ local function rotate_logs(log_path)
     execute_rotation_commands(commands)
 end
 
---- Creates a file dispatcher handler with log rotation.
--- @param config (table) Configuration for the file dispatcher.
+--- Creates a file output handler with log rotation.
+-- @param config (table) Configuration for the file output.
 --   Must contain `path` (string) - the path to the main log file.
 -- @return function(record) The actual log writing function.
-local function file_dispatcher_factory(config)
+local function file_output_factory(config)
     if not config or not config.path or type(config.path) ~= "string" then
-        io.stderr:write("lual: file_dispatcher_factory requires config.path (string)\n")
+        io.stderr:write("lual: file_output_factory requires config.path (string)\n")
         return function() end -- Return a no-op function on error
     end
 
@@ -222,7 +222,7 @@ local module = setmetatable({
     _execute_rotation_commands = execute_rotation_commands
 }, {
     __call = function(_, config)
-        return file_dispatcher_factory(config)
+        return file_output_factory(config)
     end
 })
 

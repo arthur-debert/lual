@@ -30,7 +30,7 @@ describe("lual.presenters.color", function()
 
 		-- Debug output for test development:
 		-- print("Expected message:", expected_message)
-		-- print("Formatted dispatcher:", formatted)
+		-- print("Formatted output:", formatted)
 
 		assert.truthy(
 			formatted:find(colors.dim .. timestamp_str .. colors.reset, 1, true),

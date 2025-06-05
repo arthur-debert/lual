@@ -13,17 +13,17 @@ EXAMPLES
     logger.error("This is an error!")       -- Logged to console
     ```
 
-    *   `_root` exists with level `lual.WARN` and a console dispatcher.
-    *   `logger` ("myApp") has `level = lual.NOTSET`, no dispatchers, `propagate = true`.
+    *   `_root` exists with level `lual.WARN` and a console output.
+    *   `logger` ("myApp") has `level = lual.NOTSET`, no outputs, `propagate = true`.
     *   `logger.debug`:
         - Effective level for "myApp" is `WARN` (from `_root`).
-        - `DEBUG < WARN`. No match. "myApp" does not dispatch.
-        - Propagates to `_root`. `DEBUG < _root.level (WARN)`. No match. `_root` does not dispatch.
+        - `DEBUG < WARN`. No match. "myApp" does not output.
+        - Propagates to `_root`. `DEBUG < _root.level (WARN)`. No match. `_root` does not output.
     *   `logger.warn`:
         - Effective level for "myApp" is `WARN`.
-        - `WARN >= WARN`. Match! "myApp" has no dispatchers, so it logs nothing itself.
+        - `WARN >= WARN`. Match! "myApp" has no outputs, so it logs nothing itself.
         - Propagates to `_root`. `WARN >= _root.level (WARN)`. Match! `_root` uses its
-          console dispatcher. Output: "This is a warning." (formatted by
+          console output. Output: "This is a warning." (formatted by
           `_root`'s default presenter).
 
 2.  User Configures Root Logger:
@@ -33,7 +33,7 @@ EXAMPLES
     local lual = require("lual")
     lual.config({
         level = lual.DEBUG,
-        dispatchers = {
+        outputs = {
             {
                 type = lual.file,
                 path = "/var/log/my_app.log",
@@ -50,15 +50,15 @@ EXAMPLES
 
     *   `lual.config` reconfigures `_root`:
         - `_root.level` is now `lual.DEBUG`.
-        - `_root.dispatchers` now contains only the file dispatcher writing JSON.
-    *   `mod_logger` ("myApp.moduleA"): `level = lual.NOTSET`, no dispatchers, `propagate = true`.
+        - `_root.outputs` now contains only the file output writing JSON.
+    *   `mod_logger` ("myApp.moduleA"): `level = lual.NOTSET`, no outputs, `propagate = true`.
     *   `mod_logger.debug`:
         - Effective level for "myApp.moduleA" is `DEBUG` (from `_root`).
-        - `DEBUG >= DEBUG`. Match! "myApp.moduleA" has no dispatchers.
+        - `DEBUG >= DEBUG`. Match! "myApp.moduleA" has no outputs.
         - Propagates to "myApp" (if it exists, otherwise directly to `_root`).
-          Assume "myApp" also has `level = lual.NOTSET` and no dispatchers.
+          Assume "myApp" also has `level = lual.NOTSET` and no outputs.
         - Propagates to `_root`. `DEBUG >= _root.level (DEBUG)`. Match! `_root` uses
-          its file/JSON dispatcher. Output to `/var/log/my_app.log`.
+          its file/JSON output. Output to `/var/log/my_app.log`.
 
 3.  Logger-Specific Configuration with Root Config:
 
@@ -67,7 +67,7 @@ EXAMPLES
     local lual = require("lual")
     lual.config({
         level = lual.INFO, -- Root level is INFO
-        dispatchers = {
+        outputs = {
             { type = lual.file, path = "app.log", presenter = { type = lual.text } }
         }
     })
@@ -75,7 +75,7 @@ EXAMPLES
     -- in feature_x.lua
     local feature_logger = lual.logger("app.featureX", {
         level = lual.DEBUG, -- This logger is more verbose
-        dispatchers = {
+        outputs = {
             { type = lual.console, presenter = { type = lual.color } }
         },
         propagate = true -- Explicitly true, could be false
@@ -90,38 +90,38 @@ EXAMPLES
     -- Output: To app.log (text) by _root logger.
     ```
 
-    *   `_root` level: `lual.INFO`, file dispatcher.
+    *   `_root` level: `lual.INFO`, file output.
     *   `feature_logger` ("app.featureX"):
         - Level: `lual.DEBUG` (explicitly set).
-        - Dispatchers: Its own console/color dispatcher.
+        - outputs: Its own console/color output.
         - Propagate: `true`.
     *   `feature_logger.debug("A detailed debug message...")`:
         - `feature_logger` effective level is `DEBUG`. `DEBUG >= DEBUG`. Match!
-        - `feature_logger` dispatches to its console/color dispatcher.
+        - `feature_logger` outputes to its console/color output.
         - Propagates to `_root`. `_root` level is `INFO`. `DEBUG < INFO`. No match.
-          `_root` does not dispatch.
+          `_root` does not output.
     *   `feature_logger.warn("A warning from Feature X.")`:
         - `feature_logger` effective level is `DEBUG`. `WARN >= DEBUG`. Match!
-        - `feature_logger` dispatches to its console/color dispatcher.
+        - `feature_logger` outputes to its console/color output.
         - Propagates to `_root`. `_root` level is `INFO`. `WARN >= INFO`. Match!
-        - `_root` dispatches to its file/text dispatcher.
+        - `_root` outputes to its file/text output.
 
 This design ensures that loggers only act based on their own configurations
-(or inherited level if `NOTSET`) and explicitly defined dispatchers.
+(or inherited level if `NOTSET`) and explicitly defined outputs.
 Propagation allows higher-level loggers to also process the event if desired,
-without complex merging of dispatcher behaviors.
+without complex merging of output behaviors.
 
 
-4. Dispatcher-Specific Levels: 
+4. output-Specific Levels: 
 
 
-    Dispatchers can be (optionally) be configured with their own levels. During
-    the dispatch loop, once a logger iterates over it's dispatchers, it does a
-    level check against the dispatchers. Note that this ocurs after the logger's
-    own , hence a dispatcher's level set to lower (more verbose) then the loggers 
-    will never dispatch.
+    outputs can be (optionally) be configured with their own levels. During
+    the output loop, once a logger iterates over it's outputs, it does a
+    level check against the outputs. Note that this ocurs after the logger's
+    own , hence a output's level set to lower (more verbose) then the loggers 
+    will never output.
 
-    By default, dispatchers levels are `NOTSET`, meaning they will be evaluated
+    By default, outputs levels are `NOTSET`, meaning they will be evaluated
     to the logger's effective level. 
 
     This allows for more granular control over which events are sent to each
@@ -133,7 +133,7 @@ without complex merging of dispatcher behaviors.
 
         lual.config({
             level = lual.DEBUG, -- Root level is INFO
-            dispatchers = {
+            outputs = {
                 { level = lual.DEBUG, type = lual.file, path = "app.log", presenter = { type = lual.json } }
                 { level = lual.WARN, type = lual.console, presenter = { type = lual.text } }
             }

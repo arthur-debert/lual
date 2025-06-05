@@ -1,5 +1,5 @@
 -- Color presenter for lual.log inspired by the rich Python library
--- Provides colored terminal dispatcher using ANSI color codes
+-- Provides colored terminal output using ANSI color codes
 
 local unpack = unpack or table.unpack -- Ensure unpack is available
 local time_utils = require("lual.utils.time")

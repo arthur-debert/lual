@@ -4,43 +4,43 @@
 local core_levels = require("lua.lual.levels")
 local table_utils = require("lual.utils.table")
 local component_utils = require("lual.utils.component")
-local all_dispatchers = require("lual.dispatchers.init")
+local all_outputs = require("lual.outputs.init")
 local all_presenters = require("lual.presenters.init")
 
 local M = {}
 
--- Helper function to create default dispatchers
-local function create_default_dispatchers()
-    -- Return a default console dispatcher with text presenter as specified in the design doc
+-- Helper function to create default outputs
+local function create_default_outputs()
+    -- Return a default console output with text presenter as specified in the design doc
     return {
         {
-            func = all_dispatchers.console_dispatcher,
+            func = all_outputs.console_output,
             config = { presenter = all_presenters.text() }
         }
     }
 end
 
--- Default configuration with console dispatcher
+-- Default configuration with console output
 local _root_logger_config = {
     level = core_levels.definition.WARNING,
     propagate = true,
-    dispatchers = {}
+    outputs = {}
 }
 
--- Initialize with a default console dispatcher
+-- Initialize with a default console output
 local function initialize_default_config()
-    -- Initialize with the console dispatcher
-    local console_dispatcher = require("lual.dispatchers.console_dispatcher")
+    -- Initialize with the console output
+    local console_output = require("lual.outputs.console_output")
     local component_utils = require("lual.utils.component")
 
-    -- Create a normalized dispatcher
+    -- Create a normalized output
     local normalized = component_utils.normalize_component(
-        console_dispatcher,
+        console_output,
         component_utils.DISPATCHER_DEFAULTS
     )
 
     -- Add it to the default config
-    _root_logger_config.dispatchers = { normalized }
+    _root_logger_config.outputs = { normalized }
 end
 
 -- Call initialization
@@ -49,7 +49,7 @@ initialize_default_config()
 -- Table of valid config keys and their expected types/descriptions
 local VALID_CONFIG_KEYS = {
     level = { type = "number", description = "Logging level (use lual.DEBUG, lual.INFO, etc.)" },
-    dispatchers = { type = "table", description = "Array of dispatcher functions or configuration tables" },
+    outputs = { type = "table", description = "Array of output functions or configuration tables" },
     propagate = { type = "boolean", description = "Whether to propagate messages (always true for root)" }
 }
 
@@ -65,26 +65,26 @@ local function validate_config(config_table)
         return false, "Configuration must be a table, got " .. type(config_table)
     end
 
-    -- Validate dispatchers if present
-    if config_table.dispatchers then
-        if type(config_table.dispatchers) ~= "table" then
+    -- Validate outputs if present
+    if config_table.outputs then
+        if type(config_table.outputs) ~= "table" then
             return false,
-                "Invalid type for 'dispatchers': expected table, got " ..
-                type(config_table.dispatchers) .. ". Array of dispatcher functions or configuration tables"
+                "Invalid type for 'outputs': expected table, got " ..
+                type(config_table.outputs) .. ". Array of output functions or configuration tables"
         end
 
-        -- Validate each dispatcher
-        for i, disp in ipairs(config_table.dispatchers) do
+        -- Validate each output
+        for i, disp in ipairs(config_table.outputs) do
             -- Simple validation here - detailed validation happens in component.normalize_component
             if type(disp) ~= "function" and type(disp) ~= "table" then
                 return false,
-                    "dispatchers[" ..
+                    "outputs[" ..
                     i .. "] must be a function or a table with function as first element, got " .. type(disp)
             end
 
             -- Validate table format if it's a table
             if type(disp) == "table" and #disp == 0 and not component_utils.is_callable(disp) then
-                return false, "dispatchers[" .. i .. "] must be a function or a table with function as first element"
+                return false, "outputs[" .. i .. "] must be a function or a table with function as first element"
             end
         end
     end
@@ -164,8 +164,8 @@ function M.config(config_table)
 
     -- Update _root logger configuration with provided values
     for key, value in pairs(config_table) do
-        if key == "dispatchers" then
-            -- Normalize the dispatchers using the component system
+        if key == "outputs" then
+            -- Normalize the outputs using the component system
             _root_logger_config[key] = component_utils.normalize_components(value, component_utils.DISPATCHER_DEFAULTS)
         else
             _root_logger_config[key] = value
@@ -188,10 +188,10 @@ function M.reset_config()
     _root_logger_config = {
         level = core_levels.definition.WARNING,
         propagate = true,
-        dispatchers = {}
+        outputs = {}
     }
 
-    -- Re-initialize with default dispatcher
+    -- Re-initialize with default output
     initialize_default_config()
 
     return table_utils.deepcopy(_root_logger_config)

@@ -6,13 +6,13 @@ The lual logging library uses a component-based pipeline architecture for log pr
 
 A logging pipeline in lual consists of three main component types:
 
-1. **Dispatchers**: Responsible for sending log messages to destinations (console, files, network, etc.)
+1. **outputs**: Responsible for sending log messages to destinations (console, files, network, etc.)
 2. **Transformers**: Modify log records by adding, removing, or transforming fields
 3. **Presenters**: Format log records into strings for output (text, JSON, etc.)
 
 ## Component Format
 
-All components (dispatchers, transformers, presenters) can be provided in exactly two formats:
+All components (outputs, transformers, presenters) can be provided in exactly two formats:
 
 ### 1. Simple Function
 
@@ -28,35 +28,35 @@ function(record, config) ... end
 
 This format allows you to pass configuration options along with the function.
 
-## Configuring Dispatchers
+## Configuring outputs
 
-Dispatchers determine where log messages are sent. Built-in dispatchers include:
+outputs determine where log messages are sent. Built-in outputs include:
 
 - `lual.console`: Output to console (stdout/stderr)
 - `lual.file`: Write to files with optional rotation
 - `lual.syslog`: Send to syslog (if available)
 
-### Console Dispatcher
+### Console output
 
 ```lua
 -- Basic usage
 lual.config({
-    dispatchers = { lual.console }
+    outputs = { lual.console }
 })
 
 -- With configuration
 lual.config({
-    dispatchers = {
+    outputs = {
         { lual.console, level = lual.warning, stream = io.stderr }
     }
 })
 ```
 
-### File Dispatcher
+### File output
 
 ```lua
 lual.config({
-    dispatchers = {
+    outputs = {
         { 
             lual.file,
             path = "app.log",
@@ -68,14 +68,14 @@ lual.config({
 })
 ```
 
-## Dispatcher-Specific Levels
+## output-Specific Levels
 
-Each dispatcher can have its own level filter, which is applied after the logger's level check:
+Each output can have its own level filter, which is applied after the logger's level check:
 
 ```lua
 lual.config({
     level = lual.debug, -- Logger processes all debug and above
-    dispatchers = {
+    outputs = {
         { lual.file, level = lual.debug, path = "debug.log" },  -- File gets all logs
         { lual.console, level = lual.warning }                  -- Console only gets warnings and errors
     }
@@ -93,7 +93,7 @@ Presenters format log records into strings. Built-in presenters include:
 ```lua
 -- Text presenter with UTC timezone
 lual.config({
-    dispatchers = {
+    outputs = {
         { 
             lual.console,
             presenter = lual.text({ timezone = "utc" })
@@ -103,7 +103,7 @@ lual.config({
 
 -- JSON presenter with pretty printing
 lual.config({
-    dispatchers = {
+    outputs = {
         { 
             lual.file,
             path = "app.log",
@@ -125,7 +125,7 @@ local function add_app_version(record)
 end
 
 lual.config({
-    dispatchers = {
+    outputs = {
         { 
             lual.file,
             path = "app.log",
@@ -141,7 +141,7 @@ Transformers are applied in sequence:
 
 ```lua
 lual.config({
-    dispatchers = {
+    outputs = {
         { 
             lual.file,
             path = "app.log",
@@ -181,7 +181,7 @@ end
 
 -- Use with configuration
 lual.config({
-    dispatchers = {
+    outputs = {
         { 
             lual.console,
             transformers = {
@@ -204,7 +204,7 @@ function csv_presenter(record)
 end
 
 lual.config({
-    dispatchers = {
+    outputs = {
         { 
             lual.file,
             path = "metrics.csv",
@@ -222,7 +222,7 @@ The component system automatically normalizes all components to a standard inter
 {
     func = function_reference,  -- The actual component function
     config = {                  -- Configuration table with merged defaults
-        level = level_value,    -- Optional level for dispatchers
+        level = level_value,    -- Optional level for outputs
         ... other config values
     }
 }

@@ -11,10 +11,10 @@ local log = {}
 
 local core_levels = require("lua.lual.levels")
 local config_module = require("lual.config")
-local dispatch_module = require("lual.dispatch")
+local output_module = require("lual.output")
 local table_utils = require("lual.utils.table")
 local caller_info = require("lual.utils.caller_info")
-local all_dispatchers = require("lual.dispatchers.init")   -- Require the new dispatchers init
+local all_outputs = require("lual.outputs.init")           -- Require the new outputs init
 local all_presenters = require("lual.presenters.init")     -- Require the new presenters init
 local all_transformers = require("lual.transformers.init") -- Require the new transformers init
 local component_utils = require("lual.utils.component")
@@ -75,32 +75,32 @@ function logger_prototype:set_level(level)
   self.level = level
 end
 
---- Imperative API: Add a dispatcher to this logger
--- @param dispatcher_func function The dispatcher function
--- @param config table|nil Optional dispatcher configuration
-function logger_prototype:add_dispatcher(dispatcher_func, config)
-  if type(dispatcher_func) ~= "function" then
-    error("Dispatcher must be a function, got " .. type(dispatcher_func))
+--- Imperative API: Add a output to this logger
+-- @param output_func function The output function
+-- @param config table|nil Optional output configuration
+function logger_prototype:add_output(output_func, config)
+  if type(output_func) ~= "function" then
+    error("output must be a function, got " .. type(output_func))
   end
 
-  -- Create a component-style dispatcher with the function and config
-  local dispatcher = nil
+  -- Create a component-style output with the function and config
+  local output = nil
 
   if config then
     -- If we have config, create a table with the function and config
-    dispatcher = {
-      func = dispatcher_func,
+    output = {
+      func = output_func,
       config = table_utils.deepcopy(config) -- Clone to avoid mutation
     }
   else
     -- Simple function
-    dispatcher = dispatcher_func
+    output = output_func
   end
 
   -- Normalize it using the component system
-  local normalized = component_utils.normalize_component(dispatcher, component_utils.DISPATCHER_DEFAULTS)
+  local normalized = component_utils.normalize_component(output, component_utils.DISPATCHER_DEFAULTS)
 
-  table.insert(self.dispatchers, normalized)
+  table.insert(self.outputs, normalized)
 end
 
 --- Imperative API: Set propagate flag for this logger
@@ -120,14 +120,14 @@ function logger_prototype:get_config()
   return {
     name = self.name,
     level = self.level,
-    dispatchers = table_utils.deepcopy(self.dispatchers),
+    outputs = table_utils.deepcopy(self.outputs),
     propagate = self.propagate,
     parent_name = self.parent and self.parent.name or nil
   }
 end
 
--- Add logging methods from the dispatch system (Step 2.7)
-local logging_methods = dispatch_module.create_logging_methods()
+-- Add logging methods from the output system (Step 2.7)
+local logging_methods = output_module.create_logging_methods()
 for method_name, method_func in pairs(logging_methods) do
   logger_prototype[method_name] = method_func
 end
@@ -145,11 +145,11 @@ get_parent_name_from_hierarchical = function(logger_name)
   return match or "_root" -- Always return "_root" for top-level loggers
 end
 
--- Create a helper function to convert flat dispatcher config to internal format
+-- Create a helper function to convert flat output config to internal format
 -- This is shared with config.lua to ensure consistent behavior
--- @param disp table The dispatcher configuration with flat properties
--- @return table The internal dispatcher entry with config nested properly
-local function convert_flat_dispatcher_config(disp)
+-- @param disp table The output configuration with flat properties
+-- @return table The internal output entry with config nested properly
+local function convert_flat_output_config(disp)
   -- Use the component_utils.normalize_component to handle conversion consistently
   return component_utils.normalize_component(disp, component_utils.DISPATCHER_DEFAULTS)
 end
@@ -188,12 +188,12 @@ _get_or_create_logger_internal = function(requested_name_or_nil, config_data)
     new_logger.level = final_name == "_root" and core_levels.definition.WARNING or core_levels.definition.NOTSET
   end
 
-  new_logger.dispatchers = {}
-  if config_data.dispatchers then
-    for _, item in ipairs(config_data.dispatchers) do
-      -- Always convert to normalized dispatcher format
-      local dispatcher_entry = component_utils.normalize_component(item, component_utils.DISPATCHER_DEFAULTS)
-      table.insert(new_logger.dispatchers, dispatcher_entry)
+  new_logger.outputs = {}
+  if config_data.outputs then
+    for _, item in ipairs(config_data.outputs) do
+      -- Always convert to normalized output format
+      local output_entry = component_utils.normalize_component(item, component_utils.DISPATCHER_DEFAULTS)
+      table.insert(new_logger.outputs, output_entry)
     end
   end
 
@@ -230,26 +230,26 @@ create_root_logger_instance = function()       -- Renamed from create_root_logge
   local main_conf = config_module.get_config() -- Get current global defaults
   local root_config_for_logger = {
     level = main_conf.level,
-    dispatchers = {}, -- Start with an empty array
+    outputs = {}, -- Start with an empty array
     propagate = main_conf.propagate
   }
 
-  -- If we have dispatchers in the config, use them
-  if main_conf.dispatchers and #main_conf.dispatchers > 0 then
-    -- Copy the dispatchers as is - they're already normalized by config.config()
-    root_config_for_logger.dispatchers = table_utils.deepcopy(main_conf.dispatchers)
+  -- If we have outputs in the config, use them
+  if main_conf.outputs and #main_conf.outputs > 0 then
+    -- Copy the outputs as is - they're already normalized by config.config()
+    root_config_for_logger.outputs = table_utils.deepcopy(main_conf.outputs)
   else
-    -- If no dispatchers are configured, add a default console dispatcher
-    local default_console = all_dispatchers.console_dispatcher
-    local normalized_dispatcher = component_utils.normalize_component(default_console,
+    -- If no outputs are configured, add a default console output
+    local default_console = all_outputs.console_output
+    local normalized_output = component_utils.normalize_component(default_console,
       component_utils.DISPATCHER_DEFAULTS)
 
     -- Add a default text presenter if none is set
-    if not normalized_dispatcher.config.presenter then
-      normalized_dispatcher.config.presenter = all_presenters.text()
+    if not normalized_output.config.presenter then
+      normalized_output.config.presenter = all_presenters.text()
     end
 
-    root_config_for_logger.dispatchers = { normalized_dispatcher }
+    root_config_for_logger.outputs = { normalized_output }
   end
 
   -- Use the new internal factory to get or create _root
@@ -267,7 +267,7 @@ log.create_root_logger = create_root_logger_instance
 -- Configuration validation for non-root loggers
 local VALID_LOGGER_CONFIG_KEYS = {
   level = { type = "number", description = "Logging level (use lual.DEBUG, lual.INFO, etc.)" },
-  dispatchers = { type = "table", description = "Array of dispatcher functions or dispatcher config tables" },
+  outputs = { type = "table", description = "Array of output functions or output config tables" },
   propagate = { type = "boolean", description = "Whether to propagate messages to parent loggers" }
 }
 
@@ -316,31 +316,31 @@ local function validate_logger_config_table(config_table)
         return false,
             string.format("Invalid level value %d. Valid levels are: %s", value, table.concat(valid_levels_list, ", "))
       end
-    elseif key == "dispatchers" then
-      -- Validate that dispatchers is an array
+    elseif key == "outputs" then
+      -- Validate that outputs is an array
       if not (#value >= 0) then -- Basic array check
-        return false, "dispatchers must be an array (table with numeric indices)"
+        return false, "outputs must be an array (table with numeric indices)"
       end
 
-      -- Check each dispatcher
-      for i, dispatcher in ipairs(value) do
+      -- Check each output
+      for i, output in ipairs(value) do
         -- Accept function or table
-        if type(dispatcher) ~= "function" and type(dispatcher) ~= "table" then
+        if type(output) ~= "function" and type(output) ~= "table" then
           return false,
               string.format(
-                "dispatchers[%d] must be a function, a table with dispatcher_func, or a table with type (string or function), got %s",
-                i, type(dispatcher))
+                "outputs[%d] must be a function, a table with output_func, or a table with type (string or function), got %s",
+                i, type(output))
         end
 
         -- For table format, validate it properly
-        if type(dispatcher) == "table" then
+        if type(output) == "table" then
           -- Check if it's the { func, ... } format
-          if #dispatcher > 0 then
-            if type(dispatcher[1]) ~= "function" then
-              return false, string.format("dispatchers[%d][1] must be a function, got %s", i, type(dispatcher[1]))
+          if #output > 0 then
+            if type(output[1]) ~= "function" then
+              return false, string.format("outputs[%d][1] must be a function, got %s", i, type(output[1]))
             end
-          elseif not (dispatcher.func or dispatcher.dispatcher_func) then
-            return false, string.format("dispatchers[%d] must have a 'func' property if not an array", i)
+          elseif not (output.func or output.output_func) then
+            return false, string.format("outputs[%d] must have a 'func' property if not an array", i)
           end
         end
       end
@@ -451,7 +451,7 @@ log.create_root_logger = create_root_logger_instance
 -- =============================================================================
 
 log.levels = core_levels.definition
-log.dispatchers = all_dispatchers   -- Assign the dispatchers table
+log.outputs = all_outputs           -- Assign the outputs table
 log.presenters = all_presenters     -- Assign the presenters table
 log.transformers = all_transformers -- Assign the transformers table
 
@@ -464,9 +464,9 @@ log.error = core_levels.definition.ERROR
 log.critical = core_levels.definition.CRITICAL
 log.none = core_levels.definition.NONE
 
--- Dispatcher constants (function references for config API)
-log.console = all_dispatchers.console_dispatcher
-log.file = all_dispatchers.file_dispatcher
+-- output constants (function references for config API)
+log.console = all_outputs.console_output
+log.file = all_outputs.file_output
 
 -- Presenter constants (function references for config API)
 log.text = all_presenters.text

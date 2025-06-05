@@ -3,13 +3,13 @@
 
 local test_helpers = {}
 
---- Creates a spy dispatcher that records calls
+--- Creates a spy output that records calls
 -- @return table Spy object with func and calls
-function test_helpers.create_spy_dispatcher()
+function test_helpers.create_spy_output()
     local calls = {}
 
     local function spy_func(record, config)
-        -- Implement level filtering like a real dispatcher
+        -- Implement level filtering like a real output
         if config and config.level and record.level_no < config.level then
             -- Skip if level is below the configured level
             return
@@ -41,8 +41,8 @@ end
 -- @return table Logger instance with spies
 function test_helpers.create_test_logger(lual, name)
     -- Create spies for different log levels
-    local debug_spy = test_helpers.create_spy_dispatcher()
-    local warning_spy = test_helpers.create_spy_dispatcher()
+    local debug_spy = test_helpers.create_spy_output()
+    local warning_spy = test_helpers.create_spy_output()
 
     -- Set their levels in the config
     debug_spy.config.level = lual.debug
@@ -51,7 +51,7 @@ function test_helpers.create_test_logger(lual, name)
     -- Create the logger with these spies
     local logger = lual.logger(name, {
         level = lual.debug,  -- Logger at debug level
-        dispatchers = {
+        outputs = {
             debug_spy.func,  -- This spy gets everything
             warning_spy.func -- This spy only gets warning+
         }

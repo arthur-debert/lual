@@ -18,7 +18,7 @@ local lual = require("lual.logger")
 
 -- Create a logger with convenience syntax
 local logger = lual.logger("app.database", {
-    dispatcher = lual.console,
+    output = lual.console,
     level = lual.debug,
     presenter = lual.color,
     timezone = lual.local_time
@@ -42,7 +42,7 @@ logger:set_level(lual.debug)
 
 - **Hierarchical Logging**: Automatic parent logger creation and log propagation
 - **Multiple Output Formats**: Text, colored text, and JSON presenters  
-- **Flexible Dispatchers**: Console and file output with customizable streams
+- **Flexible Outputs**: Console and file output with customizable streams
 - **Convenience Syntax**: Simple config-based logger creation
 - **Level Filtering**: Debug, info, warning, error, and critical levels
 - **Timezone Support**: Local time and UTC formatting
@@ -54,19 +54,19 @@ logger:set_level(lual.debug)
 ```lua
 local logger = lual.logger({
     name = "app.audit",
-    dispatcher = lual.file,
+    output = lual.file,
     path = "app.log",
     presenter = lual.json,
     level = lual.info
 })
 ```
 
-### Multiple Dispatchers (Full Syntax)
+### Multiple Outputs (Full Syntax)
 ```lua
 local logger = lual.logger({
     name = "app.main",
     level = lual.debug,
-    dispatchers = {
+    outputs = {
         {type = lual.console, presenter = lual.color},
         {type = lual.file, path = "debug.log", presenter = lual.text}
     }
@@ -75,9 +75,9 @@ local logger = lual.logger({
 
 ## Built-in Components
 
-It has a small but useful set of dispatchers and presenters:
+It has a small but useful set of outputs and presenters:
 
-**dispatchers:**
+**outputs:**
 
 - `console`: prints to the console
 - `file`: writes to a file
@@ -88,7 +88,7 @@ It has a small but useful set of dispatchers and presenters:
 - `color`: terminal colored
 - `json`: as JSON
 
-But presenters and dispatchers are just functions, pass your own.
+But presenters and outputs are just functions, pass your own.
 
 Names can be either introspected or set manually. There is hierarchical logging
 with propagation, see docs/propagation.txt.
@@ -115,7 +115,7 @@ local logger = lual.logger("myapp")    -- Named logger with default config
 -- Two-parameter API: name + config
 local logger = lual.logger("myapp", {
     level = "debug",
-    dispatchers = {
+    outputs = {
         {type = "console", presenter = "color"}
     }
 })
@@ -124,7 +124,7 @@ local logger = lual.logger("myapp", {
 local logger = lual.logger({
     name = "app.database",
     level = "debug",
-    dispatchers = {
+    outputs = {
         {type = "console", presenter = "color"},
         {type = "file", path = "app.log", presenter = "text"}
     }
@@ -140,7 +140,7 @@ local logger = lual.logger({
   `myapp.module.submodule`), allowing for targeted configuration.
 - **Log Levels:** Standard severity levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`,
   `CRITICAL`, plus `NONE` to disable logging for a logger.
-- Dispatchers: 
+- Outputs: 
   -  **Console :** `lualog.lib.console` writes log messages to `io.stdout` (default), `io.stderr`, or any custom stream object that provides `write()` and `flush()` methods.
   - **File:** `lualog.lib.file` writes log messages to files with configurable paths and rotation options.  - Presenters: 
 - Presenters: 
@@ -153,38 +153,38 @@ local logger = lual.logger({
     - Pure structured: `logger:info({event = "UserLogin", userId = 123})`
     - Mixed: `logger:info({eventId = "XYZ"}, "Processing event: %s", eventName)`
       (context table first)
-  - **Per-Logger Configuration:** Log levels and dispatchers (with their
+  - **Per-Logger Configuration:** Log levels and outputs (with their
     presenters) can be configured for each logger instance using methods like
     `:set_level()` and `:add_dispatcher()`.
 - **Message Propagation:** Log messages processed by a logger are passed to its
-  parent's dispatchers by default. Propagation can be disabled per logger
+  parent's outputs by default. Propagation can be disabled per logger
   (`logger.propagate = false`).
 - **Contextual Information:** Log records automatically include a UTC timestamp,
   logger name, and the source filename/line number where the log message was
   emitted.
-- **Error Handling:** Errors within dispatchers or presenters are caught and
+- **Error Handling:** Errors within outputs or presenters are caught and
   reported to `io.stderr`, preventing the logging system from crashing the
   application.
 - **Default Setup:** On require, a root logger is configured with:
   - Level: `lualog.levels.INFO`.
-  - One dispatcher: `lualog.lib.console` writing to `io.stdout`.
-  - Presenter for this dispatcher: `lualog.lib.text`.
+  - One output: `lualog.lib.console` writing to `io.stdout`.
+  - Presenter for this output: `lualog.lib.text`.
 
-You can create custom dispatchers and presenters:
+You can create custom outputs and presenters:
 
-- **Custom dispatcher:** A function with the signature
+- **Custom output:** A function with the signature
   `my_dispatcher(record, config)`
   - `record`: A table containing the log details. Key fields include:
     - `message`: The fully formatted log message string (from the presenter).
     - `level_name`, `level_no`: Severity level.
-    - `logger_name`: Name of the logger that owns the dispatcher processing the
+    - `logger_name`: Name of the logger that owns the output processing the
       record.
     - `timestamp`, `filename`, `lineno`, `source_logger_name` (original
       emitter).
     - `raw_message_fmt`, `raw_args`: Original format string and variadic
       arguments.
     - `context`: The context table, if provided in the log call.
-  - `config`: The `dispatcher_config` table passed when adding the dispatcher.
+  - `config`: The `dispatcher_config` table passed when adding the output.
 - **Custom Presenter:** A function with the signature `my_presenter(record)`
   - `record`: A table with raw log details. Key fields include:
     - `message_fmt`: The raw message format string (e.g., "User %s logged in").

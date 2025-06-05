@@ -3,9 +3,9 @@ package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lu
 
 local lual = require("lual.logger")
 local core_levels = require("lua.lual.levels")
-local dispatch_module = require("lual.dispatch") -- Directly require the dispatch module for testing internals
+local output_module = require("lual.output") -- Directly require the output module for testing internals
 
-describe("Dispatch Log Event Pipeline", function()
+describe("Output Log Event Pipeline", function()
     before_each(function()
         -- Reset config and logger cache for each test
         lual.reset_config()
@@ -14,7 +14,7 @@ describe("Dispatch Log Event Pipeline", function()
 
     -- Tests for format_message (completely uncovered)
     describe("format_message function", function()
-        local format_message = dispatch_module._format_message
+        local format_message = output_module._format_message
 
         it("should handle nil message format", function()
             local result = format_message(nil, table.pack())
@@ -42,7 +42,7 @@ describe("Dispatch Log Event Pipeline", function()
 
     -- Tests for parse_log_args (partially covered)
     describe("parse_log_args function", function()
-        local parse_log_args = dispatch_module._parse_log_args
+        local parse_log_args = output_module._parse_log_args
 
         it("should handle no arguments", function()
             local msg_fmt, args, context = parse_log_args()
@@ -100,7 +100,7 @@ describe("Dispatch Log Event Pipeline", function()
         end)
     end)
 
-    -- Tests for the transformers in process_dispatcher (uncovered)
+    -- Tests for the transformers in process_output (uncovered)
     describe("Transformer pipeline", function()
         it("should process array of transformers", function()
             local transformers_called = {}
@@ -118,15 +118,15 @@ describe("Dispatch Log Event Pipeline", function()
             end
 
             local captured_record = nil
-            local mock_dispatcher = function(record)
+            local mock_output = function(record)
                 captured_record = record
             end
 
             local logger = lual.logger("transformer.test", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = {
+                outputs = {
                     {
-                        dispatcher_func = mock_dispatcher,
+                        output_func = mock_output,
                         config = {
                             transformers = {
                                 test_transformer1,
@@ -139,7 +139,7 @@ describe("Dispatch Log Event Pipeline", function()
 
             logger:info("Test transformers")
 
-            assert.is_not_nil(captured_record, "Dispatch should have been called")
+            assert.is_not_nil(captured_record, "Output should have been called")
             assert.are.equal(2, #transformers_called, "Both transformers should have been called")
             assert.are.equal("transformer1", transformers_called[1])
             assert.are.equal("transformer2", transformers_called[2])
@@ -154,15 +154,15 @@ describe("Dispatch Log Event Pipeline", function()
             end
 
             local captured_record = nil
-            local mock_dispatcher = function(record)
+            local mock_output = function(record)
                 captured_record = record
             end
 
             local logger = lual.logger("transformer.error.test", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = {
+                outputs = {
                     {
-                        dispatcher_func = mock_dispatcher,
+                        output_func = mock_output,
                         config = {
                             transformers = { broken_transformer }
                         }
@@ -172,7 +172,7 @@ describe("Dispatch Log Event Pipeline", function()
 
             logger:info("Test transformer error")
 
-            assert.is_not_nil(captured_record, "Dispatch should still occur after transformer error")
+            assert.is_not_nil(captured_record, "Output should still occur after transformer error")
             assert.is_not_nil(captured_record.transformer_error, "Transformer error should be recorded")
         end)
 
@@ -186,15 +186,15 @@ describe("Dispatch Log Event Pipeline", function()
             end
 
             local captured_record = nil
-            local mock_dispatcher = function(record)
+            local mock_output = function(record)
                 captured_record = record
             end
 
             local logger = lual.logger("single.transformer.test", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = {
+                outputs = {
                     {
-                        dispatcher_func = mock_dispatcher,
+                        output_func = mock_output,
                         config = {
                             transformer = test_transformer
                         }
@@ -205,7 +205,7 @@ describe("Dispatch Log Event Pipeline", function()
             logger:info("Test single transformer")
 
             assert.is_true(transformer_called, "Transformer should have been called")
-            assert.is_not_nil(captured_record, "Dispatch should have been called")
+            assert.is_not_nil(captured_record, "Output should have been called")
             assert.is_true(captured_record.transformed, "Transformer should have modified record")
         end)
 
@@ -221,15 +221,15 @@ describe("Dispatch Log Event Pipeline", function()
             }
 
             local captured_record = nil
-            local mock_dispatcher = function(record)
+            local mock_output = function(record)
                 captured_record = record
             end
 
             local logger = lual.logger("table.transformer.test", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = {
+                outputs = {
                     {
-                        dispatcher_func = mock_dispatcher,
+                        output_func = mock_output,
                         config = {
                             transformers = {
                                 {
@@ -245,12 +245,12 @@ describe("Dispatch Log Event Pipeline", function()
             logger:info("Test table transformer")
 
             assert.is_true(transformer_config_used, "Transformer should have used its config")
-            assert.is_not_nil(captured_record, "Dispatch should have been called")
+            assert.is_not_nil(captured_record, "Output should have been called")
             assert.is_true(captured_record.table_transformed, "Table transformer should have modified record")
         end)
     end)
 
-    -- Tests for presenter in process_dispatcher (uncovered)
+    -- Tests for presenter in process_output (uncovered)
     describe("Presenter pipeline", function()
         it("should apply presenter to record", function()
             local presenter_called = false
@@ -261,15 +261,15 @@ describe("Dispatch Log Event Pipeline", function()
             end
 
             local captured_record = nil
-            local mock_dispatcher = function(record)
+            local mock_output = function(record)
                 captured_record = record
             end
 
             local logger = lual.logger("presenter.test", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = {
+                outputs = {
                     {
-                        dispatcher_func = mock_dispatcher,
+                        output_func = mock_output,
                         config = {
                             presenter = test_presenter
                         }
@@ -280,7 +280,7 @@ describe("Dispatch Log Event Pipeline", function()
             logger:info("Test presenter")
 
             assert.is_true(presenter_called, "Presenter should have been called")
-            assert.is_not_nil(captured_record, "Dispatch should have been called")
+            assert.is_not_nil(captured_record, "Output should have been called")
             assert.are.equal("Presented: Test presenter", captured_record.presented_message)
             assert.are.equal("Presented: Test presenter", captured_record.message)
         end)
@@ -292,15 +292,15 @@ describe("Dispatch Log Event Pipeline", function()
             end
 
             local captured_record = nil
-            local mock_dispatcher = function(record)
+            local mock_output = function(record)
                 captured_record = record
             end
 
             local logger = lual.logger("presenter.error.test", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = {
+                outputs = {
                     {
-                        dispatcher_func = mock_dispatcher,
+                        output_func = mock_output,
                         config = {
                             presenter = broken_presenter
                         }
@@ -310,38 +310,38 @@ describe("Dispatch Log Event Pipeline", function()
 
             logger:info("Test presenter error")
 
-            assert.is_not_nil(captured_record, "Dispatch should still occur after presenter error")
+            assert.is_not_nil(captured_record, "Output should still occur after presenter error")
             assert.is_not_nil(captured_record.presenter_error, "Presenter error should be recorded")
         end)
     end)
 
-    -- Tests for dispatcher error handling
-    describe("Dispatcher error handling", function()
-        it("should handle dispatcher errors", function()
-            local function broken_dispatcher(record)
-                error("Dispatcher error")
+    -- Tests for output error handling
+    describe("output error handling", function()
+        it("should handle output errors", function()
+            local function broken_output(record)
+                error("output error")
             end
 
-            local logger = lual.logger("dispatcher.error.test", {
+            local logger = lual.logger("output.error.test", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = {
-                    { dispatcher_func = broken_dispatcher } -- Now it's correctly formatted as a dispatcher entry
+                outputs = {
+                    { output_func = broken_output } -- Now it's correctly formatted as a output entry
                 }
             })
 
             -- Create a direct test without using the logger
-            local test_record = dispatch_module._create_log_record(
+            local test_record = output_module._create_log_record(
                 logger,
                 core_levels.definition.INFO,
                 "INFO",
-                "Test dispatcher error",
+                "Test output error",
                 table.pack(),
                 nil
             )
 
-            -- Directly test the process_dispatcher function
-            local dispatcher_entry = { dispatcher_func = broken_dispatcher }
-            dispatch_module._process_dispatcher(test_record, dispatcher_entry, logger)
+            -- Directly test the process_output function
+            local output_entry = { output_func = broken_output }
+            output_module._process_output(test_record, output_entry, logger)
 
             -- If no error was thrown, the test passes (the error was handled by the pcall)
             assert.is_true(true)
@@ -358,7 +358,7 @@ describe("Dispatch Log Event Pipeline", function()
             local message_fmt = "This %s has %d too many %s placeholders"
             local args = table.pack("value") -- Not enough args to satisfy format
 
-            local record = dispatch_module._create_log_record(
+            local record = output_module._create_log_record(
                 logger, level_no, level_name, message_fmt, args, nil
             )
 
@@ -366,29 +366,29 @@ describe("Dispatch Log Event Pipeline", function()
         end)
     end)
 
-    -- Tests for raw function dispatchers (uncovered)
-    describe("Raw function dispatchers", function()
-        it("should handle raw function dispatchers", function()
-            local dispatcher_called = false
-            local dispatcher_received_record = nil
+    -- Tests for raw function outputs (uncovered)
+    describe("Raw function outputs", function()
+        it("should handle raw function outputs", function()
+            local output_called = false
+            local output_received_record = nil
 
-            local function raw_dispatcher(record)
-                dispatcher_called = true
-                dispatcher_received_record = record
+            local function raw_output(record)
+                output_called = true
+                output_received_record = record
             end
 
             -- For this test, we need to test with a real logger since the implementation
-            -- handles raw function dispatchers differently than dispatcher entry objects
-            local logger = lual.logger("raw.dispatcher.test", {
+            -- handles raw function outputs differently than output entry objects
+            local logger = lual.logger("raw.output.test", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = { raw_dispatcher }
+                outputs = { raw_output }
             })
 
-            logger:info("Test raw dispatcher")
+            logger:info("Test raw output")
 
-            assert.is_true(dispatcher_called, "Raw dispatcher should have been called")
-            assert.is_not_nil(dispatcher_received_record, "Dispatcher should have received record")
-            assert.are.equal("Test raw dispatcher", dispatcher_received_record.message)
+            assert.is_true(output_called, "Raw output should have been called")
+            assert.is_not_nil(output_received_record, "output should have received record")
+            assert.are.equal("Test raw output", output_received_record.message)
         end)
     end)
 end)

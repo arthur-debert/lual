@@ -234,13 +234,13 @@ describe("lual Logger - Naming Conventions", function()
     it("should auto-generate name and use provided config (lual.logger(config))", function()
         -- For this test, the auto-generated name might vary, so we don't assert its exact value beyond not being anonymous.
         -- The key is that the config is applied and level is NOTSET by default if not in config.
-        local logger = lual.logger({ dispatchers = {} }) -- No level specified in config
+        local logger = lual.logger({ outputs = {} }) -- No level specified in config
         assert.is_not_nil(logger.name)
         assert.is_not_equal("", logger.name)
         assert.is_not_equal("anonymous", logger.name)
         assert.are.equal(core_levels.definition.NOTSET, logger.level) -- Corrected: Default level if not in config is NOTSET
-        assert.is_table(logger.dispatchers)
-        assert.are.equal(0, #logger.dispatchers)
+        assert.is_table(logger.outputs)
+        assert.are.equal(0, #logger.outputs)
     end)
 
     it("should auto-generate name and use provided config (lual.logger(nil, config))", function()
@@ -287,17 +287,17 @@ describe("lual Logger - Naming Conventions", function()
     end)
 
     it("should raise an error for invalid keys in config table", function()
-        assert.has_error(function() lual.logger("cfgkeytest", { invalid_key = 123 }) end,                                           -- Unique name
-            "Invalid logger configuration: Unknown configuration key 'invalid_key'. Valid keys are: dispatchers, level, propagate") -- Added "are"
+        assert.has_error(function() lual.logger("cfgkeytest", { invalid_key = 123 }) end,                                       -- Unique name
+            "Invalid logger configuration: Unknown configuration key 'invalid_key'. Valid keys are: level, outputs, propagate") -- Added "are"
     end)
 
     it("should raise an error for invalid value types in config table", function()
-        assert.has_error(function() lual.logger("cfgvaltest1", { level = "not_a_number" }) end,                                                                    -- Unique name
-            "Invalid logger configuration: Invalid type for 'level': expected number, got string. Logging level (use lual.DEBUG, lual.INFO, etc.)")                -- Changed "e.g." to "use"
-        assert.has_error(function() lual.logger("cfgvaltest2", { dispatchers = "not_a_table" }) end,                                                               -- Unique name
-            "Invalid logger configuration: Invalid type for 'dispatchers': expected table, got string. Array of dispatcher functions or dispatcher config tables") -- Adjusted
-        assert.has_error(function() lual.logger("cfgvaltest3", { propagate = "not_a_boolean" }) end,                                                               -- Unique name
-            "Invalid logger configuration: Invalid type for 'propagate': expected boolean, got string. Whether to propagate messages to parent loggers")           -- Plural "loggers"
+        assert.has_error(function() lual.logger("cfgvaltest1", { level = "not_a_number" }) end,                                                          -- Unique name
+            "Invalid logger configuration: Invalid type for 'level': expected number, got string. Logging level (use lual.DEBUG, lual.INFO, etc.)")      -- Changed "e.g." to "use"
+        assert.has_error(function() lual.logger("cfgvaltest2", { outputs = "not_a_table" }) end,                                                         -- Unique name
+            "Invalid logger configuration: Invalid type for 'outputs': expected table, got string. Array of output functions or output config tables")   -- Adjusted
+        assert.has_error(function() lual.logger("cfgvaltest3", { propagate = "not_a_boolean" }) end,                                                     -- Unique name
+            "Invalid logger configuration: Invalid type for 'propagate': expected boolean, got string. Whether to propagate messages to parent loggers") -- Plural "loggers"
     end)
 
     it("should create loggers with hierarchy and correct parents", function()

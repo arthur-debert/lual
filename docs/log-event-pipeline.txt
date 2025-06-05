@@ -1,17 +1,17 @@
-lual Logging Components: Transformers, Presenters & Dispatchers
+lual Logging Components: Transformers, Presenters & outputs
 
 1.  Overview: The Log Record Flow
 
     In lual, when you call `logger:info("message")`, your log event flows through a precise pipeline:
 
     ```
-    Logger Emit → Log Record Creation → Transformers → Presenter → Dispatcher → Output
+    Logger Emit → Log Record Creation → Transformers → Presenter → output → Output
     ```
 
     Each component has a specific role:
     - **Transformers**: Modify log record data (add/change fields)
     - **Presenters**: Format the record into a string (text, JSON, colors)
-    - **Dispatchers**: Send the formatted string to an output destination (console, file, syslog)
+    - **outputs**: Send the formatted string to an output destination (console, file, syslog)
 
 
 2. Transformers: Data Modification
@@ -62,7 +62,7 @@ lual Logging Components: Transformers, Presenters & Dispatchers
         ### Configuration
         ```lua
         local logger = lual.logger({
-            dispatchers = {
+            outputs = {
                 {
                     type = lual.console,
                     presenter = lual.text,
@@ -169,23 +169,23 @@ lual Logging Components: Transformers, Presenters & Dispatchers
         
         --- lua
 
-4. Dispatchers: Output Delivery
+4. outputs: Output Delivery
 
     4.1 What They Do
         
-        Dispatchers are the final step - they take formatted messages from presenters and send them to output destinations. They're simpler than transformers/presenters and handle:
+        outputs are the final step - they take formatted messages from presenters and send them to output destinations. They're simpler than transformers/presenters and handle:
 
         - Writing to streams (stdout, stderr, files)
         - Network delivery (syslog)
         - Error handling for output failures
         - Buffering and flushing
 
-    4.2 Built-in Dispatchers
+    4.2 Built-in outputs
 
-        4.2.1 Console Dispatcher
+        4.2.1 Console output
             
             -- Writes to stdout by default
-                local function console_dispatcher(record, config)
+                local function console_output(record, config)
                     local stream = config.stream or io.stdout
                     stream:write(record.message)
                     stream:write("\n")
@@ -194,19 +194,19 @@ lual Logging Components: Transformers, Presenters & Dispatchers
             
             --- lua
 
-        4.2.2 File Dispatcher
+        4.2.2 File output
             
             -- Writes to rotating log files
-                local file_disp = lual.dispatchers.file_dispatcher({ 
+                local file_disp = lual.outputs.file_output({ 
                     path = "/var/log/app.log" 
                 })
             
             --- lua
 
-        4.2.3 Syslog Dispatcher
+        4.2.3 Syslog output
             
             -- Sends to system log
-                local syslog_disp = lual.dispatchers.syslog_dispatcher({
+                local syslog_disp = lual.outputs.syslog_output({
                     facility = "local0",
                     hostname = "myserver"
                 })
@@ -215,9 +215,9 @@ lual Logging Components: Transformers, Presenters & Dispatchers
 
     4.3 Simple Function Pattern
         
-        Unlike transformers/presenters, dispatchers are simpler functions:
+        Unlike transformers/presenters, outputs are simpler functions:
 
-            local function custom_dispatcher(record, config)
+            local function custom_output(record, config)
                 config = config or {}
                 
                 -- Your output logic here
@@ -234,24 +234,24 @@ lual Logging Components: Transformers, Presenters & Dispatchers
 
 5. Configuration & Integration
 
-    5.1 Single Dispatcher Setup
+    5.1 Single output Setup
         
             local logger = lual.logger({
                 name = "app",
                 level = lual.info,
-                dispatcher = lual.console,    -- Dispatcher constant
+                output = lual.console,    -- output constant
                 presenter = lual.text,        -- Presenter constant
                 timezone = lual.utc          -- Time constant
             })
         
         --- lua
 
-    5.2 Multiple Dispatchers with Full Configuration
+    5.2 Multiple outputs with Full Configuration
         
             local logger = lual.logger({
                 name = "app",
                 level = lual.debug,
-                dispatchers = {
+                outputs = {
                     {
                         type = lual.console,
                         presenter = lual.color,
@@ -277,8 +277,8 @@ lual Logging Components: Transformers, Presenters & Dispatchers
     5.3 Imperative API
         
             local logger = lual.logger("app")
-            logger:add_dispatcher(
-                lual.dispatchers.console_dispatcher(),
+            logger:add_output(
+                lual.outputs.console_output(),
                 lual.presenters.text({ timezone = lual.utc })
             )
         
@@ -288,11 +288,11 @@ lual Logging Components: Transformers, Presenters & Dispatchers
 
     6.1 Component Dependencies
         
-        - Transformers are dispatcher-specific: Each dispatcher can have its own transformer chain
-        - Presenters are dispatcher-specific: Each dispatcher uses exactly one presenter
-        - Configuration flows down: Timezone and other settings can be configured at the dispatcher level
+        - Transformers are output-specific: Each output can have its own transformer chain
+        - Presenters are output-specific: Each output uses exactly one presenter
+        - Configuration flows down: Timezone and other settings can be configured at the output level
         - Error isolation: If a transformer fails, logging continues with the original record
-        - Sequential processing: Transformers run in order, but dispatchers run independently
+        - Sequential processing: Transformers run in order, but outputs run independently
 
 7. Best Practices
 
@@ -302,7 +302,7 @@ lual Logging Components: Transformers, Presenters & Dispatchers
         - Always copy records: Don't mutate the original in transformers
         - Handle missing fields: Check for field existence before using
         - Use appropriate presenters: JSON for structured logs, text for human reading, color for development
-        - Configure timezone consistently: Especially important for multi-dispatcher setups
+        - Configure timezone consistently: Especially important for multi-output setups
         - Test error conditions: Ensure components handle edge cases gracefully
 
-    This architecture provides flexibility while maintaining clear separation of concerns - transformers handle data, presenters handle formatting, and dispatchers handle delivery.
+    This architecture provides flexibility while maintaining clear separation of concerns - transformers handle data, presenters handle formatting, and outputs handle delivery.

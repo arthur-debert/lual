@@ -1,25 +1,25 @@
 #!/usr/bin/env lua
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 
--- Test suite for dispatcher-specific levels
+-- Test suite for output-specific levels
 local lual = require("lual.logger")
 local core_levels = require("lua.lual.levels")
 local test_helpers = require("spec.utils.test_helpers")
 
-describe("Dispatcher-specific levels", function()
+describe("output-specific levels", function()
     before_each(function()
         -- Reset logging system before each test
         lual.reset_config()
         lual.reset_cache()
     end)
 
-    it("respects dispatcher level filtering using direct configuration API", function()
+    it("respects output level filtering using direct configuration API", function()
         -- Create a very simple test
         local calls_debug = {}
         local calls_warning = {}
 
-        -- Create simple dispatch functions with level filtering
-        local function debug_dispatcher(record, config)
+        -- Create simple output functions with level filtering
+        local function debug_output(record, config)
             -- Debug output: print("DEBUG DISPATCHER - record level: " .. record.level_no ..
             --     ", config type: " .. type(config) ..
             --     ", config.level: " .. tostring(config.level))
@@ -32,7 +32,7 @@ describe("Dispatcher-specific levels", function()
             table.insert(calls_debug, record.message)
         end
 
-        local function warning_dispatcher(record, config)
+        local function warning_output(record, config)
             -- Debug output: print("WARNING DISPATCHER - record level: " .. record.level_no ..
             --     ", config type: " .. type(config) ..
             --     ", config.level: " .. tostring(config.level))
@@ -45,19 +45,19 @@ describe("Dispatcher-specific levels", function()
             table.insert(calls_warning, record.message)
         end
 
-        -- Create logger with these dispatchers
+        -- Create logger with these outputs
         local logger = lual.logger("simple.test")
 
-        -- Debug output: print("Logger dispatchers before:", #logger.dispatchers)
+        -- Debug output: print("Logger outputs before:", #logger.outputs)
 
-        -- Add our dispatchers
-        logger:add_dispatcher(debug_dispatcher, { level = lual.debug })
-        logger:add_dispatcher(warning_dispatcher, { level = lual.warning })
+        -- Add our outputs
+        logger:add_output(debug_output, { level = lual.debug })
+        logger:add_output(warning_output, { level = lual.warning })
 
-        -- Debug dispatcher dump:
-        -- print("Logger dispatchers after:", #logger.dispatchers)
-        -- for i, disp in ipairs(logger.dispatchers) do
-        --     print("  Dispatcher " .. i .. ":")
+        -- Debug output dump:
+        -- print("Logger outputs after:", #logger.outputs)
+        -- for i, disp in ipairs(logger.outputs) do
+        --     print("  output " .. i .. ":")
         --     print("    func: " .. tostring(disp.func))
         --     print("    config: " .. tostring(disp.config))
         --     print("    config.level: " .. tostring(disp.config.level))
@@ -72,20 +72,20 @@ describe("Dispatcher-specific levels", function()
         logger:warn("Warning message")
         logger:error("Error message")
 
-        -- Debug level dispatcher should see all messages
+        -- Debug level output should see all messages
         assert.equals(4, #calls_debug)
 
-        -- Warning level dispatcher should only see warning and error
+        -- Warning level output should only see warning and error
         assert.equals(2, #calls_warning)
         assert.equals("Warning message", calls_warning[1])
         assert.equals("Error message", calls_warning[2])
     end)
 
-    it("supports the flat format for dispatcher configuration", function()
+    it("supports the flat format for output configuration", function()
         -- Create a very simple test
         local calls_captured = {}
 
-        -- Create simple dispatch functions with level filtering
+        -- Create simple output functions with level filtering
         local function capture_logs(record, config)
             -- Debug output: print("CAPTURE LOGS - record level: " .. record.level_no ..
             --     ", config type: " .. type(config) ..
@@ -102,7 +102,7 @@ describe("Dispatcher-specific levels", function()
         -- Configure the root logger with the level in the config
         lual.config({
             level = lual.debug,
-            dispatchers = {
+            outputs = {
                 { capture_logs, level = lual.warning }
             }
         })
@@ -126,8 +126,8 @@ describe("Dispatcher-specific levels", function()
         local root_calls = {}
         local app_calls = {}
 
-        -- Create simple dispatch functions with level filtering
-        local function root_dispatcher(record, config)
+        -- Create simple output functions with level filtering
+        local function root_output(record, config)
             -- Debug output: print("ROOT DISPATCHER - record level: " .. record.level_no ..
             --     ", config type: " .. type(config) ..
             --     ", config.level: " .. tostring(config.level))
@@ -140,7 +140,7 @@ describe("Dispatcher-specific levels", function()
             table.insert(root_calls, record.message)
         end
 
-        local function app_dispatcher(record, config)
+        local function app_output(record, config)
             -- Debug output: print("APP DISPATCHER - record level: " .. record.level_no ..
             --     ", config type: " .. type(config) ..
             --     ", config.level: " .. tostring(config.level))
@@ -156,16 +156,16 @@ describe("Dispatcher-specific levels", function()
         -- Configure root logger
         lual.config({
             level = lual.debug,
-            dispatchers = {
-                { root_dispatcher } -- No level, accepts all
+            outputs = {
+                { root_output } -- No level, accepts all
             }
         })
 
-        -- Create a specific logger with its own dispatcher
+        -- Create a specific logger with its own output
         local app_logger = lual.logger("app", {
-            level = lual.debug,                       -- Process all logs
-            dispatchers = {
-                { app_dispatcher, level = lual.info } -- Only INFO and above
+            level = lual.debug,                   -- Process all logs
+            outputs = {
+                { app_output, level = lual.info } -- Only INFO and above
             }
         })
 
@@ -174,7 +174,7 @@ describe("Dispatcher-specific levels", function()
         app_logger:info("App info message")
         app_logger:warn("App warning message")
 
-        -- App spy should only get INFO and WARN (due to dispatcher level)
+        -- App spy should only get INFO and WARN (due to output level)
         assert.equals(2, #app_calls)
         assert.equals("App info message", app_calls[1])
         assert.equals("App warning message", app_calls[2])
@@ -186,11 +186,11 @@ describe("Dispatcher-specific levels", function()
         assert.equals("App warning message", root_calls[3])
     end)
 
-    it("handles NOTSET dispatcher level correctly", function()
+    it("handles NOTSET output level correctly", function()
         -- Create a very simple test
         local calls_captured = {}
 
-        -- Create simple dispatch functions with level filtering
+        -- Create simple output functions with level filtering
         local function capture_logs(record, config)
             -- Debug output: print("NOTSET DISPATCHER - record level: " .. record.level_no ..
             --     ", config type: " .. type(config) ..
@@ -207,7 +207,7 @@ describe("Dispatcher-specific levels", function()
         -- Configure root logger using level = NOTSET
         lual.config({
             level = lual.info,                        -- Only process INFO and above
-            dispatchers = {
+            outputs = {
                 { capture_logs, level = lual.notset } -- Should inherit logger level
             }
         })
@@ -225,15 +225,15 @@ describe("Dispatcher-specific levels", function()
         assert.equals("Warning message", calls_captured[2])
     end)
 
-    it("supports standard format with real dispatchers", function()
-        -- This test uses actual dispatchers to test the full API
+    it("supports standard format with real outputs", function()
+        -- This test uses actual outputs to test the full API
 
-        -- Configure root logger with both file and console dispatchers
+        -- Configure root logger with both file and console outputs
         lual.config({
             level = lual.debug,
-            dispatchers = {
-                { lual.dispatchers.file_dispatcher,    path = "test_log.log", level = lual.debug },
-                { lual.dispatchers.console_dispatcher, level = lual.warning }
+            outputs = {
+                { lual.outputs.file_output,    path = "test_log.log", level = lual.debug },
+                { lual.outputs.console_output, level = lual.warning }
             }
         })
 
