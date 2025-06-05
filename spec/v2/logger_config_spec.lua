@@ -17,6 +17,26 @@ local function verify_output(actual, expected_func)
     return true
 end
 
+-- Helper function to verify if a logger has an output in its pipelines
+-- @param logger table The logger to check
+-- @param expected_func function The expected output function
+-- @return boolean Whether the logger has the output
+local function has_output_in_pipelines(logger, expected_func)
+    if not logger.pipelines then
+        return false
+    end
+
+    for _, pipeline in ipairs(logger.pipelines) do
+        for _, output in ipairs(pipeline.outputs) do
+            if output.func == expected_func then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
 describe("lual Logger Configuration API (Step 2.6)", function()
     before_each(function()
         -- Reset config and logger cache for each test
@@ -33,8 +53,8 @@ describe("lual Logger Configuration API (Step 2.6)", function()
 
             -- Default initial state for non-root loggers (Step 2.6 requirement)
             assert.are.equal(core_levels.definition.NOTSET, logger.level)
-            assert.is_table(logger.outputs)
-            assert.are.equal(0, #logger.outputs)
+            assert.is_table(logger.pipelines)
+            assert.are.equal(0, #logger.pipelines)
             assert.are.equal(true, logger.propagate)
         end)
 
@@ -86,12 +106,19 @@ describe("lual Logger Configuration API (Step 2.6)", function()
 
             local logger = lual.logger("configured.logger", {
                 level = core_levels.definition.DEBUG,
-                outputs = { mock_output }
+                pipelines = {
+                    {
+                        outputs = { mock_output },
+                        presenter = lual.text
+                    }
+                }
                 -- propagate not specified, should use default
             })
 
             assert.are.equal(core_levels.definition.DEBUG, logger.level)
-            assert.are.equal(1, #logger.outputs)
+            assert.are.equal(1, #logger.pipelines)
+            assert.are.equal(1, #logger.pipelines[1].outputs)
+            assert.are.equal(mock_output, logger.pipelines[1].outputs[1].func)
             assert.are.equal(true, logger.propagate) -- Default value
         end)
 
@@ -101,8 +128,8 @@ describe("lual Logger Configuration API (Step 2.6)", function()
             })
 
             assert.are.equal(core_levels.definition.NOTSET, logger.level) -- Default
-            assert.is_table(logger.outputs)                               -- Default is empty table
-            assert.are.equal(0, #logger.outputs)
+            assert.is_table(logger.pipelines)                             -- Default is empty table
+            assert.are.equal(0, #logger.pipelines)
             assert.are.equal(false, logger.propagate)                     -- Explicitly set
         end)
 
@@ -110,8 +137,8 @@ describe("lual Logger Configuration API (Step 2.6)", function()
             local logger = lual.logger("empty.config", {})
 
             assert.are.equal(core_levels.definition.NOTSET, logger.level)
-            assert.is_table(logger.outputs)
-            assert.are.equal(0, #logger.outputs)
+            assert.is_table(logger.pipelines)
+            assert.are.equal(0, #logger.pipelines)
             assert.are.equal(true, logger.propagate)
         end)
 
@@ -120,15 +147,21 @@ describe("lual Logger Configuration API (Step 2.6)", function()
             local mock_output2 = function() end
 
             local logger = lual.logger("test.outputs", {
-                outputs = { mock_output1, mock_output2 }
+                pipelines = {
+                    {
+                        outputs = { mock_output1, mock_output2 },
+                        presenter = lual.text
+                    }
+                }
             })
 
             assert.are.equal("test.outputs", logger.name)
-            assert.are.equal(2, #logger.outputs)
+            assert.are.equal(1, #logger.pipelines)
+            assert.are.equal(2, #logger.pipelines[1].outputs)
 
             -- Verify both outputs
-            verify_output(logger.outputs[1], mock_output1)
-            verify_output(logger.outputs[2], mock_output2)
+            verify_output(logger.pipelines[1].outputs[1], mock_output1)
+            verify_output(logger.pipelines[1].outputs[2], mock_output2)
         end)
     end)
 
@@ -150,7 +183,7 @@ describe("lual Logger Configuration API (Step 2.6)", function()
                         unknown_key = "value"
                     })
                 end,
-                "Invalid logger configuration: Unknown configuration key 'unknown_key'. Valid keys are: level, outputs, propagate")
+                "Invalid logger configuration: Unknown configuration key 'unknown_key'. Valid keys are: level, pipelines, propagate")
         end)
 
         it("should reject invalid level type", function()
@@ -197,35 +230,35 @@ describe("lual Logger Configuration API (Step 2.6)", function()
                 "Invalid logger configuration: Invalid type for 'propagate': expected boolean, got string. Whether to propagate messages to parent loggers")
         end)
 
-        it("should reject invalid outputs type", function()
+        it("should reject outputs configuration", function()
             assert.has_error(function()
                     lual.logger("test_disptype", {
                         outputs = "not a table"
                     })
                 end,
-                "Invalid logger configuration: Invalid type for 'outputs': expected table, got string. Array of output functions or output config tables")
+                "Invalid logger configuration: 'outputs' is no longer supported. Use 'pipelines' instead.")
         end)
 
-        it("should reject non-function/non-table outputs in array", function()
+        it("should reject outputs array entirely", function()
             assert.has_error(function()
                     lual.logger("test_dispitem1", {
                         outputs = { "not a function" }
                     })
                 end,
-                "Invalid logger configuration: outputs[1] must be a function, a table with output_func, or a table with type (string or function), got string")
+                "Invalid logger configuration: 'outputs' is no longer supported. Use 'pipelines' instead.")
 
             assert.has_error(function()
                     lual.logger("test_dispitem2", {
                         outputs = { function() end, 123, function() end }
                     })
                 end,
-                "Invalid logger configuration: outputs[2] must be a function, a table with output_func, or a table with type (string or function), got number")
+                "Invalid logger configuration: 'outputs' is no longer supported. Use 'pipelines' instead.")
         end)
 
-        it("should accept empty outputs array", function()
+        it("should accept empty pipelines array", function()
             assert.has_no_error(function()
-                lual.logger("test_empty_disp_ok", {
-                    outputs = {}
+                lual.logger("test_empty_pipelines_ok", {
+                    pipelines = {}
                 })
             end)
         end)
@@ -286,8 +319,12 @@ describe("lual Logger Configuration API (Step 2.6)", function()
 
                 logger:add_output(mock_output)
 
-                assert.are.equal(1, #logger.outputs)
-                verify_output(logger.outputs[1], mock_output)
+                assert.are.equal(1, #logger.pipelines)
+                assert.are.equal(1, #logger.pipelines[1].outputs)
+
+                -- Function is now stored directly, not normalized
+                assert.is_function(logger.pipelines[1].outputs[1])
+                assert.are.equal(mock_output, logger.pipelines[1].outputs[1])
             end)
 
             it("should add output with config", function()
@@ -296,10 +333,12 @@ describe("lual Logger Configuration API (Step 2.6)", function()
 
                 logger:add_output(mock_output, { level = 30, stream = "test" })
 
-                assert.are.equal(1, #logger.outputs)
-                verify_output(logger.outputs[1], mock_output)
-                assert.are.equal(30, logger.outputs[1].config.level)
-                assert.are.equal("test", logger.outputs[1].config.stream)
+                assert.are.equal(1, #logger.pipelines)
+                assert.are.equal(1, #logger.pipelines[1].outputs)
+
+                -- Function is now stored directly, not normalized
+                assert.is_function(logger.pipelines[1].outputs[1])
+                assert.are.equal(mock_output, logger.pipelines[1].outputs[1])
             end)
 
             it("should add multiple outputs", function()
@@ -310,15 +349,21 @@ describe("lual Logger Configuration API (Step 2.6)", function()
                 logger:add_output(mock_output1)
                 logger:add_output(mock_output2)
 
-                assert.are.equal(2, #logger.outputs)
-                verify_output(logger.outputs[1], mock_output1)
-                verify_output(logger.outputs[2], mock_output2)
+                assert.are.equal(2, #logger.pipelines)
+                assert.are.equal(1, #logger.pipelines[1].outputs)
+                assert.are.equal(1, #logger.pipelines[2].outputs)
+
+                -- Functions are now stored directly, not normalized
+                assert.is_function(logger.pipelines[1].outputs[1])
+                assert.is_function(logger.pipelines[2].outputs[1])
+                assert.are.equal(mock_output1, logger.pipelines[1].outputs[1])
+                assert.are.equal(mock_output2, logger.pipelines[2].outputs[1])
             end)
 
             it("should reject non-function outputs", function()
                 assert.has_error(function()
                     test_logger:add_output("not a function")
-                end, "output must be a function, got string")
+                end, "Output must be a function, got string")
             end)
         end)
 
@@ -347,7 +392,12 @@ describe("lual Logger Configuration API (Step 2.6)", function()
                 local mock_output = function() end
                 local logger = lual.logger("test", {
                     level = core_levels.definition.INFO,
-                    outputs = { mock_output },
+                    pipelines = {
+                        {
+                            outputs = { mock_output },
+                            presenter = lual.text()
+                        }
+                    },
                     propagate = false
                 })
 
@@ -358,9 +408,14 @@ describe("lual Logger Configuration API (Step 2.6)", function()
                 assert.are.equal(false, config.propagate)
                 assert.are.equal("_root", config.parent_name)
 
-                -- Verify outputs array contains normalized outputs
-                assert.are.equal(1, #config.outputs)
-                verify_output(config.outputs[1], mock_output)
+                -- Verify pipelines array
+                assert.are.equal(1, #config.pipelines)
+                assert.are.equal(1, #config.pipelines[1].outputs)
+                assert.is_function(config.pipelines[1].outputs[1].func)
+                assert.are.equal(mock_output, config.pipelines[1].outputs[1].func)
+
+                -- No backward compatibility - outputs field doesn't exist
+                assert.is_nil(config.outputs)
             end)
 
             it("should return nil parent_name for orphaned logger", function()
@@ -404,8 +459,8 @@ describe("lual Logger Configuration API (Step 2.6)", function()
             local logger = lual.logger("non.root.defaults")
 
             assert.are.equal(core_levels.definition.NOTSET, logger.level)
-            assert.is_table(logger.outputs)
-            assert.are.equal(0, #logger.outputs)
+            assert.is_table(logger.pipelines)
+            assert.are.equal(0, #logger.pipelines)
             assert.are.equal(true, logger.propagate)
         end)
 
@@ -414,7 +469,7 @@ describe("lual Logger Configuration API (Step 2.6)", function()
             local root_logger = lual.logger("_root")
 
             assert.are.equal(core_levels.definition.WARNING, root_logger.level)
-            assert.is_table(root_logger.outputs)
+            assert.is_table(root_logger.pipelines)
             -- assert.are.equal(0, #root_logger.outputs) -- This will be changed by the new default
             assert.are.equal(true, root_logger.propagate)
         end)
@@ -425,9 +480,12 @@ describe("lual Logger Configuration API (Step 2.6)", function()
 
             -- Debug output: print("Root logger:", require("inspect")(root_logger))
 
-            -- Check that we have a default console output
-            assert.are.equal(1, #root_logger.outputs, "Root logger should have one default output")
-            assert.are.equal(lual.outputs.console_output, root_logger.outputs[1].func,
+            -- Check that we have a default pipeline with console output
+            assert.is_table(root_logger.pipelines, "Root logger should have pipelines")
+            assert.are.equal(1, #root_logger.pipelines, "Root logger should have one default pipeline")
+            assert.is_table(root_logger.pipelines[1].outputs, "Pipeline should have outputs")
+            assert.are.equal(1, #root_logger.pipelines[1].outputs, "Default pipeline should have one output")
+            assert.are.equal(lual.outputs.console_output, root_logger.pipelines[1].outputs[1].func,
                 "Default output should be console")
         end)
     end)

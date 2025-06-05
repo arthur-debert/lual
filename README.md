@@ -34,7 +34,7 @@ logger:debug("Query executed in 1.2ms")
 
 ```lua
 local logger = lual.logger("app.network") 
-logger:add_dispatcher(lual.lib.console, lual.lib.text)
+logger:add_output(lual.lib.console, lual.lib.text)
 logger:set_level(lual.debug)
 ```
 
@@ -155,7 +155,7 @@ local logger = lual.logger({
       (context table first)
   - **Per-Logger Configuration:** Log levels and outputs (with their
     presenters) can be configured for each logger instance using methods like
-    `:set_level()` and `:add_dispatcher()`.
+    `:set_level()` and `:add_output()`.
 - **Message Propagation:** Log messages processed by a logger are passed to its
   parent's outputs by default. Propagation can be disabled per logger
   (`logger.propagate = false`).
@@ -173,7 +173,7 @@ local logger = lual.logger({
 You can create custom outputs and presenters:
 
 - **Custom output:** A function with the signature
-  `my_dispatcher(record, config)`
+  `my_output(record, config)`
   - `record`: A table containing the log details. Key fields include:
     - `message`: The fully formatted log message string (from the presenter).
     - `level_name`, `level_no`: Severity level.
@@ -184,7 +184,7 @@ You can create custom outputs and presenters:
     - `raw_message_fmt`, `raw_args`: Original format string and variadic
       arguments.
     - `context`: The context table, if provided in the log call.
-  - `config`: The `dispatcher_config` table passed when adding the output.
+  - `config`: The `output_config` table passed when adding the output.
 - **Custom Presenter:** A function with the signature `my_presenter(record)`
   - `record`: A table with raw log details. Key fields include:
     - `message_fmt`: The raw message format string (e.g., "User %s logged in").

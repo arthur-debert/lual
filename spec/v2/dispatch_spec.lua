@@ -45,7 +45,12 @@ describe("Output Loop Logic (Step 2.7)", function()
 
             local logger = lual.logger("test.level.check", {
                 level = core_levels.definition.WARNING,
-                outputs = { mock_output }
+                pipelines = {
+                    {
+                        outputs = { mock_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             -- DEBUG and INFO should not be outputed (below WARNING)
@@ -70,7 +75,12 @@ describe("Output Loop Logic (Step 2.7)", function()
 
             -- Create child logger with NOTSET (inherits ERROR from root)
             local child_logger = lual.logger("inherits.error", {
-                outputs = { mock_output }
+                pipelines = {
+                    {
+                        outputs = { mock_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             -- Should inherit ERROR level from root
@@ -102,15 +112,25 @@ describe("Output Loop Logic (Step 2.7)", function()
                 table.insert(parent_records, record)
             end
 
-            -- Create hierarchy with outputs
+            -- Create hierarchy with pipelines
             local parent_logger = lual.logger("parent", {
                 level = core_levels.definition.DEBUG,
-                outputs = { parent_output }
+                pipelines = {
+                    {
+                        outputs = { parent_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             local child_logger = lual.logger("parent.child", {
                 level = core_levels.definition.DEBUG,
-                outputs = { child_output }
+                pipelines = {
+                    {
+                        outputs = { child_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             -- Log through child
@@ -140,12 +160,22 @@ describe("Output Loop Logic (Step 2.7)", function()
             -- Create hierarchy with different levels
             local parent_logger = lual.logger("parent", {
                 level = core_levels.definition.ERROR, -- Only ERROR and above
-                outputs = { high_level_output }
+                pipelines = {
+                    {
+                        outputs = { high_level_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             local child_logger = lual.logger("parent.child", {
                 level = core_levels.definition.DEBUG, -- All messages
-                outputs = { low_level_output }
+                pipelines = {
+                    {
+                        outputs = { low_level_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             -- Log INFO message through child
@@ -178,12 +208,22 @@ describe("Output Loop Logic (Step 2.7)", function()
             -- Create hierarchy with propagate = false on child
             local parent_logger = lual.logger("parent", {
                 level = core_levels.definition.DEBUG,
-                outputs = { parent_output }
+                pipelines = {
+                    {
+                        outputs = { parent_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             local child_logger = lual.logger("parent.child", {
                 level = core_levels.definition.DEBUG,
-                outputs = { child_output },
+                pipelines = {
+                    {
+                        outputs = { child_output },
+                        presenter = lual.text
+                    }
+                },
                 propagate = false -- Stop propagation
             })
 
@@ -210,7 +250,12 @@ describe("Output Loop Logic (Step 2.7)", function()
             -- Configure root logger manually
             lual.config({
                 level = core_levels.definition.DEBUG,
-                outputs = { root_output }
+                pipelines = {
+                    {
+                        outputs = { root_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             -- Create child logger
@@ -267,7 +312,12 @@ describe("Output Loop Logic (Step 2.7)", function()
 
             local logger = lual.logger("record.test", {
                 level = core_levels.definition.DEBUG,
-                outputs = { mock_output }
+                pipelines = {
+                    {
+                        outputs = { mock_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             logger:info("Test message %s %d", "arg1", 42)
@@ -302,7 +352,12 @@ describe("Output Loop Logic (Step 2.7)", function()
 
             local logger = lual.logger("context.test", {
                 level = core_levels.definition.DEBUG,
-                outputs = { mock_output }
+                pipelines = {
+                    {
+                        outputs = { mock_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             local context = { user_id = 123, action = "login" }
@@ -323,7 +378,12 @@ describe("Output Loop Logic (Step 2.7)", function()
 
             local logger = lual.logger("context.only.test", {
                 level = core_levels.definition.DEBUG,
-                outputs = { mock_output }
+                pipelines = {
+                    {
+                        outputs = { mock_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             local context = { event = "SystemRestart", reason = "Update" }
@@ -356,22 +416,42 @@ describe("Output Loop Logic (Step 2.7)", function()
             -- Create deep hierarchy: level1 -> level2 -> level3 -> level4
             local level1 = lual.logger("level1", {
                 level = core_levels.definition.DEBUG,
-                outputs = { outputs.level1 }
+                pipelines = {
+                    {
+                        outputs = { outputs.level1 },
+                        presenter = lual.text
+                    }
+                }
             })
 
             local level2 = lual.logger("level1.level2", {
                 level = core_levels.definition.DEBUG,
-                outputs = { outputs.level2 }
+                pipelines = {
+                    {
+                        outputs = { outputs.level2 },
+                        presenter = lual.text
+                    }
+                }
             })
 
             local level3 = lual.logger("level1.level2.level3", {
                 level = core_levels.definition.DEBUG,
-                outputs = { outputs.level3 }
+                pipelines = {
+                    {
+                        outputs = { outputs.level3 },
+                        presenter = lual.text
+                    }
+                }
             })
 
             local level4 = lual.logger("level1.level2.level3.level4", {
                 level = core_levels.definition.DEBUG,
-                outputs = { outputs.level4 }
+                pipelines = {
+                    {
+                        outputs = { outputs.level4 },
+                        presenter = lual.text
+                    }
+                }
             })
 
             -- Log from deepest level
@@ -408,25 +488,45 @@ describe("Output Loop Logic (Step 2.7)", function()
             -- Create hierarchy with mixed propagation settings
             local level1 = lual.logger("mixed1", {
                 level = core_levels.definition.DEBUG,
-                outputs = { outputs.level1 },
+                pipelines = {
+                    {
+                        outputs = { outputs.level1 },
+                        presenter = lual.text
+                    }
+                },
                 propagate = true
             })
 
             local level2 = lual.logger("mixed1.mixed2", {
                 level = core_levels.definition.DEBUG,
-                outputs = { outputs.level2 },
+                pipelines = {
+                    {
+                        outputs = { outputs.level2 },
+                        presenter = lual.text
+                    }
+                },
                 propagate = false -- Stop propagation here
             })
 
             local level3 = lual.logger("mixed1.mixed2.mixed3", {
                 level = core_levels.definition.DEBUG,
-                outputs = { outputs.level3 },
+                pipelines = {
+                    {
+                        outputs = { outputs.level3 },
+                        presenter = lual.text
+                    }
+                },
                 propagate = true
             })
 
             local level4 = lual.logger("mixed1.mixed2.mixed3.mixed4", {
                 level = core_levels.definition.DEBUG,
-                outputs = { outputs.level4 },
+                pipelines = {
+                    {
+                        outputs = { outputs.level4 },
+                        presenter = lual.text
+                    }
+                },
                 propagate = true
             })
 
@@ -451,7 +551,12 @@ describe("Output Loop Logic (Step 2.7)", function()
 
             local logger = lual.logger("generic.test", {
                 level = core_levels.definition.DEBUG,
-                outputs = { mock_output }
+                pipelines = {
+                    {
+                        outputs = { mock_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             logger:log(core_levels.definition.WARNING, "Warning via log method")
@@ -478,7 +583,12 @@ describe("Output Loop Logic (Step 2.7)", function()
 
             local logger = lual.logger("generic.level.test", {
                 level = core_levels.definition.WARNING,
-                outputs = { mock_output }
+                pipelines = {
+                    {
+                        outputs = { mock_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             -- Below WARNING level should not be outputed
@@ -496,7 +606,7 @@ describe("Output Loop Logic (Step 2.7)", function()
     end)
 end)
 
-describe("Presenter Configuration in outputs", function()
+describe("Presenter Configuration in pipelines", function()
     local captured_record_for_presenter_test
 
     local mock_output_func = function(record)
@@ -512,8 +622,11 @@ describe("Presenter Configuration in outputs", function()
     it("should use text presenter when configured with text function", function()
         local logger = lual.logger("presenter.text.function", {
             level = lual.levels.DEBUG,
-            outputs = {
-                { output_func = mock_output_func, config = { presenter = lual.text() } }
+            pipelines = {
+                {
+                    outputs = { mock_output_func },
+                    presenter = lual.text()
+                }
             }
         })
         logger:info("Hello text presenter")
@@ -535,8 +648,11 @@ describe("Presenter Configuration in outputs", function()
     it("should use json presenter when configured with json function", function()
         local logger = lual.logger("presenter.json.function", {
             level = lual.levels.DEBUG,
-            outputs = {
-                { output_func = mock_output_func, config = { presenter = lual.json() } }
+            pipelines = {
+                {
+                    outputs = { mock_output_func },
+                    presenter = lual.json()
+                }
             }
         })
         logger:info("Hello json presenter")
@@ -560,8 +676,11 @@ describe("Presenter Configuration in outputs", function()
     it("should use json presenter with pretty print when configured with options", function()
         local logger = lual.logger("presenter.json.pretty", {
             level = lual.levels.DEBUG,
-            outputs = {
-                { output_func = mock_output_func, config = { presenter = lual.json({ pretty = true }) } }
+            pipelines = {
+                {
+                    outputs = { mock_output_func },
+                    presenter = lual.json({ pretty = true })
+                }
             }
         })
         logger:info("Hello pretty json")
@@ -588,8 +707,11 @@ describe("Presenter Configuration in outputs", function()
     it("should use json presenter with empty config", function()
         local logger = lual.logger("presenter.json.noconf", {
             level = lual.levels.DEBUG,
-            outputs = {
-                { output_func = mock_output_func, config = { presenter = lual.json({}) } }
+            pipelines = {
+                {
+                    outputs = { mock_output_func },
+                    presenter = lual.json({})
+                }
             }
         })
         logger:info("Hello json no config")
@@ -619,8 +741,11 @@ describe("Presenter Configuration in outputs", function()
         end
         local logger = lual.logger("presenter.function", {
             level = lual.levels.DEBUG,
-            outputs = {
-                { output_func = mock_output_func, config = { presenter = custom_presenter } }
+            pipelines = {
+                {
+                    outputs = { mock_output_func },
+                    presenter = custom_presenter
+                }
             }
         })
         logger:info("Hello custom function presenter")
@@ -636,12 +761,10 @@ describe("Presenter Configuration in outputs", function()
         end
         local logger = lual.logger("presenter.array.form", {
             level = lual.levels.DEBUG,
-            outputs = {
+            pipelines = {
                 {
-                    output_func = mock_output_func,
-                    config = {
-                        presenter = { custom_presenter, custom_option = "value" }
-                    }
+                    outputs = { mock_output_func },
+                    presenter = { custom_presenter, custom_option = "value" }
                 }
             }
         })
@@ -664,8 +787,11 @@ describe("Presenter Configuration in outputs", function()
         end
         local logger = lual.logger("presenter.erroring.func", {
             level = lual.levels.DEBUG,
-            outputs = {
-                { output_func = mock_output_func, config = { presenter = erroring_presenter } }
+            pipelines = {
+                {
+                    outputs = { mock_output_func },
+                    presenter = erroring_presenter
+                }
             }
         })
         logger:info("Message for erroring presenter")

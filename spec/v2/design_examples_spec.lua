@@ -55,7 +55,14 @@ describe("lual Logger - Design Examples", function()
             end
 
             -- Configure root logger with this output function
-            lual.config({ outputs = { capture_logs } })
+            lual.config({
+                pipelines = {
+                    {
+                        outputs = { capture_logs },
+                        presenter = lual.text
+                    }
+                }
+            })
 
             -- Create logger with auto-name
             local logger = lual.logger()
@@ -89,7 +96,12 @@ describe("lual Logger - Design Examples", function()
             -- Configure root logger with DEBUG level and simple function output
             lual.config({
                 level = core_levels.definition.DEBUG,
-                outputs = { capture_logs }
+                pipelines = {
+                    {
+                        outputs = { capture_logs },
+                        presenter = lual.json
+                    }
+                }
             })
 
             -- Create logger with hierarchical name
@@ -125,13 +137,23 @@ describe("lual Logger - Design Examples", function()
             -- Configure root logger with INFO level and function output
             lual.config({
                 level = core_levels.definition.INFO,
-                outputs = { root_output }
+                pipelines = {
+                    {
+                        outputs = { root_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             -- Create feature logger with DEBUG level and its own function output
             local feature_logger = lual.logger("app.featureX", {
                 level = core_levels.definition.DEBUG,
-                outputs = { feature_output },
+                pipelines = {
+                    {
+                        outputs = { feature_output },
+                        presenter = lual.text
+                    }
+                },
                 propagate = true
             })
 

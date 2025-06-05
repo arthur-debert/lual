@@ -26,11 +26,13 @@ describe("lual.config() API", function()
 
             assert.are.equal(core_levels.definition.DEBUG, result.level)
 
-            -- Default output should be preserved
-            local outputs = result.outputs
-            assert.is_table(outputs)
-            assert.are.equal(1, #outputs)
-            assert_output_is_function(outputs[1], lual.outputs.console_output)
+            -- Default pipeline should be preserved
+            local pipelines = result.pipelines
+            assert.is_table(pipelines)
+            assert.are.equal(1, #pipelines)
+            assert.is_table(pipelines[1].outputs)
+            assert.are.equal(1, #pipelines[1].outputs)
+            assert_output_is_function(pipelines[1].outputs[1], lual.outputs.console_output)
         end)
 
         it("should preserve existing configuration for unspecified keys", function()
@@ -48,24 +50,33 @@ describe("lual.config() API", function()
             assert.are.equal(core_levels.definition.INFO, result.level)
             assert.is_false(result.propagate)
 
-            -- Default output should still be there
-            local outputs = result.outputs
-            assert.is_table(outputs)
-            assert.are.equal(1, #outputs)
-            assert_output_is_function(outputs[1], lual.outputs.console_output)
+            -- Default pipeline should still be there
+            local pipelines = result.pipelines
+            assert.is_table(pipelines)
+            assert.are.equal(1, #pipelines)
+            assert.is_table(pipelines[1].outputs)
+            assert.are.equal(1, #pipelines[1].outputs)
+            assert_output_is_function(pipelines[1].outputs[1], lual.outputs.console_output)
         end)
 
-        it("should allow updating outputs", function()
+        it("should allow updating pipelines", function()
             local custom_output = function() end
 
             local result = lual.config({
-                outputs = { custom_output }
+                pipelines = {
+                    {
+                        outputs = { custom_output },
+                        presenter = lual.text()
+                    }
+                }
             })
 
-            local outputs = result.outputs
-            assert.is_table(outputs)
-            assert.are.equal(1, #outputs)
-            assert_output_is_function(outputs[1], custom_output)
+            local pipelines = result.pipelines
+            assert.is_table(pipelines)
+            assert.are.equal(1, #pipelines)
+            assert.is_table(pipelines[1].outputs)
+            assert.are.equal(1, #pipelines[1].outputs)
+            assert_output_is_function(pipelines[1].outputs[1], custom_output)
         end)
 
         it("should allow updating propagate", function()
@@ -75,11 +86,13 @@ describe("lual.config() API", function()
 
             assert.is_false(result.propagate)
 
-            -- Default output should still be there
-            local outputs = result.outputs
-            assert.is_table(outputs)
-            assert.are.equal(1, #outputs)
-            assert_output_is_function(outputs[1], lual.outputs.console_output)
+            -- Default pipeline should still be there
+            local pipelines = result.pipelines
+            assert.is_table(pipelines)
+            assert.are.equal(1, #pipelines)
+            assert.is_table(pipelines[1].outputs)
+            assert.are.equal(1, #pipelines[1].outputs)
+            assert_output_is_function(pipelines[1].outputs[1], lual.outputs.console_output)
         end)
 
         it("should allow updating multiple keys at once", function()
@@ -88,16 +101,23 @@ describe("lual.config() API", function()
             local result = lual.config({
                 level = core_levels.definition.ERROR,
                 propagate = false,
-                outputs = { custom_output }
+                pipelines = {
+                    {
+                        outputs = { custom_output },
+                        presenter = lual.text()
+                    }
+                }
             })
 
             assert.are.equal(core_levels.definition.ERROR, result.level)
             assert.is_false(result.propagate)
 
-            local outputs = result.outputs
-            assert.is_table(outputs)
-            assert.are.equal(1, #outputs)
-            assert_output_is_function(outputs[1], custom_output)
+            local pipelines = result.pipelines
+            assert.is_table(pipelines)
+            assert.are.equal(1, #pipelines)
+            assert.is_table(pipelines[1].outputs)
+            assert.are.equal(1, #pipelines[1].outputs)
+            assert_output_is_function(pipelines[1].outputs[1], custom_output)
         end)
     end)
 
@@ -109,7 +129,7 @@ describe("lual.config() API", function()
                         unknown_key = "value"
                     })
                 end,
-                "Invalid configuration: Unknown configuration key 'unknown_key'. Valid keys are: level, outputs, propagate")
+                "Invalid configuration: Unknown configuration key 'unknown_key'")
         end)
 
         it("should reject multiple unknown keys with helpful message", function()
@@ -136,7 +156,7 @@ describe("lual.config() API", function()
                         unknown_key = "value"
                     })
                 end,
-                "Invalid configuration: Unknown configuration key 'unknown_key'. Valid keys are: level, outputs, propagate")
+                "Invalid configuration: Unknown configuration key 'unknown_key'")
         end)
 
         it("should reject invalid level type", function()
@@ -176,13 +196,13 @@ describe("lual.config() API", function()
                 "Invalid configuration: Invalid type for 'propagate': expected boolean, got string. Whether to propagate messages (always true for root)")
         end)
 
-        it("should reject invalid outputs type", function()
+        it("should reject outputs configuration", function()
             assert.has_error(function()
                     lual.config({
-                        outputs = "not_an_array"
+                        outputs = { function() end }
                     })
                 end,
-                "Invalid configuration: Invalid type for 'outputs': expected table, got string. Array of output functions or configuration tables")
+                "Invalid configuration: 'outputs' is no longer supported. Use 'pipelines' instead.")
         end)
 
         it("should reject outputs containing non-functions", function()
@@ -191,12 +211,11 @@ describe("lual.config() API", function()
                         outputs = { "not_a_output" }
                     })
                 end,
-                "Invalid configuration: outputs[1] must be a function or a table with function as first element, got string")
+                "Invalid configuration: 'outputs' is no longer supported. Use 'pipelines' instead.")
         end)
 
         it("should accept all valid level values", function()
             local valid_levels = {
-                core_levels.definition.NOTSET,
                 core_levels.definition.DEBUG,
                 core_levels.definition.INFO,
                 core_levels.definition.WARNING,
@@ -227,24 +246,28 @@ describe("lual.config() API", function()
                         outputs = 123
                     })
                 end,
-                "Invalid configuration: Invalid type for 'outputs': expected table, got number. Array of output functions or configuration tables")
+                "Invalid configuration: 'outputs' is no longer supported. Use 'pipelines' instead.")
         end)
 
-        it("should accept empty outputs array", function()
+        it("should accept empty pipelines array", function()
             assert.has_no_error(function()
                 lual.config({
-                    outputs = {}
+                    pipelines = {}
                 })
             end)
         end)
 
-        it("should accept valid outputs array", function()
-            local mock_output1 = function() end
-            local mock_output2 = function() end
+        it("should accept valid pipelines array", function()
+            local mock_output = function() end
 
             assert.has_no_error(function()
                 lual.config({
-                    outputs = { mock_output1, mock_output2 }
+                    pipelines = {
+                        {
+                            outputs = { mock_output },
+                            presenter = lual.text()
+                        }
+                    }
                 })
             end)
         end)
@@ -257,7 +280,12 @@ describe("lual.config() API", function()
 
             lual.config({
                 level = core_levels.definition.DEBUG,
-                outputs = { custom_output },
+                pipelines = {
+                    {
+                        outputs = { custom_output },
+                        presenter = lual.text()
+                    }
+                },
                 propagate = false
             })
 
@@ -268,10 +296,12 @@ describe("lual.config() API", function()
             assert.are.equal(core_levels.definition.DEBUG, config.level)
             assert.is_false(config.propagate)
 
-            -- Verify outputs
-            assert.is_table(config.outputs)
-            assert.are.equal(1, #config.outputs)
-            assert_output_is_function(config.outputs[1], custom_output)
+            -- Verify pipelines
+            assert.is_table(config.pipelines)
+            assert.are.equal(1, #config.pipelines)
+            assert.is_table(config.pipelines[1].outputs)
+            assert.are.equal(1, #config.pipelines[1].outputs)
+            assert_output_is_function(config.pipelines[1].outputs[1], custom_output)
 
             -- Verify that modifying the returned config doesn't affect the internal state
             config.level = core_levels.definition.ERROR
@@ -287,10 +317,12 @@ describe("lual.config() API", function()
             assert.are.equal(core_levels.definition.WARNING, config.level)
             assert.is_true(config.propagate)
 
-            -- Verify default output
-            assert.is_table(config.outputs)
-            assert.are.equal(1, #config.outputs)
-            assert_output_is_function(config.outputs[1], lual.outputs.console_output)
+            -- Verify default pipeline
+            assert.is_table(config.pipelines)
+            assert.are.equal(1, #config.pipelines)
+            assert.is_table(config.pipelines[1].outputs)
+            assert.are.equal(1, #config.pipelines[1].outputs)
+            assert_output_is_function(config.pipelines[1].outputs[1], lual.outputs.console_output)
         end)
     end)
 
@@ -301,7 +333,12 @@ describe("lual.config() API", function()
 
             lual.config({
                 level = core_levels.definition.DEBUG,
-                outputs = { custom_output },
+                pipelines = {
+                    {
+                        outputs = { custom_output },
+                        presenter = lual.text()
+                    }
+                },
                 propagate = false
             })
 
@@ -309,9 +346,11 @@ describe("lual.config() API", function()
             local before_reset = lual.get_config()
             assert.are.equal(core_levels.definition.DEBUG, before_reset.level)
             assert.is_false(before_reset.propagate)
-            assert.is_table(before_reset.outputs)
-            assert.are.equal(1, #before_reset.outputs)
-            assert_output_is_function(before_reset.outputs[1], custom_output)
+            assert.is_table(before_reset.pipelines)
+            assert.are.equal(1, #before_reset.pipelines)
+            assert.is_table(before_reset.pipelines[1].outputs)
+            assert.are.equal(1, #before_reset.pipelines[1].outputs)
+            assert_output_is_function(before_reset.pipelines[1].outputs[1], custom_output)
 
             -- Reset the configuration
             lual.reset_config()
@@ -320,9 +359,11 @@ describe("lual.config() API", function()
             local after_reset = lual.get_config()
             assert.are.equal(core_levels.definition.WARNING, after_reset.level)
             assert.is_true(after_reset.propagate)
-            assert.is_table(after_reset.outputs)
-            assert.are.equal(1, #after_reset.outputs)
-            assert_output_is_function(after_reset.outputs[1], lual.outputs.console_output)
+            assert.is_table(after_reset.pipelines)
+            assert.are.equal(1, #after_reset.pipelines)
+            assert.is_table(after_reset.pipelines[1].outputs)
+            assert.are.equal(1, #after_reset.pipelines[1].outputs)
+            assert_output_is_function(after_reset.pipelines[1].outputs[1], lual.outputs.console_output)
         end)
     end)
 

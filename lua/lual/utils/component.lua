@@ -32,6 +32,10 @@ M.PRESENTER_DEFAULTS = {
     timezone = "local"
 }
 
+M.PIPELINE_DEFAULTS = {
+    level = 0 -- NOTSET by default
+}
+
 -- Helper function to check if an object is callable (function or table with __call metafunction)
 local function is_callable(obj)
     if type(obj) == "function" then

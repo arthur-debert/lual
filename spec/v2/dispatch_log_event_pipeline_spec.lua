@@ -124,14 +124,17 @@ describe("Output Log Event Pipeline", function()
 
             local logger = lual.logger("transformer.test", {
                 level = core_levels.definition.DEBUG,
-                outputs = {
+                pipelines = {
                     {
-                        output_func = mock_output,
-                        config = {
-                            transformers = {
-                                test_transformer1,
-                                test_transformer2
+                        outputs = {
+                            {
+                                output_func = mock_output
                             }
+                        },
+                        presenter = lual.text,
+                        transformers = {
+                            test_transformer1,
+                            test_transformer2
                         }
                     }
                 }
@@ -160,12 +163,11 @@ describe("Output Log Event Pipeline", function()
 
             local logger = lual.logger("transformer.error.test", {
                 level = core_levels.definition.DEBUG,
-                outputs = {
+                pipelines = {
                     {
-                        output_func = mock_output,
-                        config = {
-                            transformers = { broken_transformer }
-                        }
+                        outputs = { mock_output },
+                        presenter = lual.text,
+                        transformers = { broken_transformer }
                     }
                 }
             })
@@ -192,12 +194,11 @@ describe("Output Log Event Pipeline", function()
 
             local logger = lual.logger("single.transformer.test", {
                 level = core_levels.definition.DEBUG,
-                outputs = {
+                pipelines = {
                     {
-                        output_func = mock_output,
-                        config = {
-                            transformer = test_transformer
-                        }
+                        outputs = { mock_output },
+                        presenter = lual.text,
+                        transformers = { test_transformer }
                     }
                 }
             })
@@ -227,15 +228,14 @@ describe("Output Log Event Pipeline", function()
 
             local logger = lual.logger("table.transformer.test", {
                 level = core_levels.definition.DEBUG,
-                outputs = {
+                pipelines = {
                     {
-                        output_func = mock_output,
-                        config = {
-                            transformers = {
-                                {
-                                    func = table_transformer.func,
-                                    config = { test_value = "test" }
-                                }
+                        outputs = { mock_output },
+                        presenter = lual.text,
+                        transformers = {
+                            {
+                                func = table_transformer.func,
+                                config = { test_value = "test" }
                             }
                         }
                     }
@@ -267,12 +267,10 @@ describe("Output Log Event Pipeline", function()
 
             local logger = lual.logger("presenter.test", {
                 level = core_levels.definition.DEBUG,
-                outputs = {
+                pipelines = {
                     {
-                        output_func = mock_output,
-                        config = {
-                            presenter = test_presenter
-                        }
+                        outputs = { mock_output },
+                        presenter = test_presenter
                     }
                 }
             })
@@ -298,12 +296,10 @@ describe("Output Log Event Pipeline", function()
 
             local logger = lual.logger("presenter.error.test", {
                 level = core_levels.definition.DEBUG,
-                outputs = {
+                pipelines = {
                     {
-                        output_func = mock_output,
-                        config = {
-                            presenter = broken_presenter
-                        }
+                        outputs = { mock_output },
+                        presenter = broken_presenter
                     }
                 }
             })
@@ -381,7 +377,12 @@ describe("Output Log Event Pipeline", function()
             -- handles raw function outputs differently than output entry objects
             local logger = lual.logger("raw.output.test", {
                 level = core_levels.definition.DEBUG,
-                outputs = { raw_output }
+                pipelines = {
+                    {
+                        outputs = { raw_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             logger:info("Test raw output")

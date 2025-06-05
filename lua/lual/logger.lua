@@ -11,7 +11,7 @@ local log = {}
 
 local core_levels = require("lua.lual.levels")
 local config_module = require("lual.config")
-local output_module = require("lual.output")
+local pipeline_module = require("lual.pipeline")
 local table_utils = require("lual.utils.table")
 local caller_info = require("lual.utils.caller_info")
 local all_outputs = require("lual.outputs.init")           -- Require the new outputs init
@@ -75,32 +75,58 @@ function logger_prototype:set_level(level)
   self.level = level
 end
 
+--- Imperative API: Add a pipeline to this logger
+-- @param pipeline table Pipeline configuration
+function logger_prototype:add_pipeline(pipeline)
+  if type(pipeline) ~= "table" then
+    error("Pipeline must be a table, got " .. type(pipeline))
+  end
+
+  -- Validate required fields
+  if not pipeline.outputs then
+    error("Pipeline must have an outputs field")
+  end
+
+  if not pipeline.presenter then
+    error("Pipeline must have a presenter field")
+  end
+
+  -- Create a normalized pipeline with normalized outputs
+  local normalized_pipeline = {
+    level = pipeline.level,
+    presenter = pipeline.presenter,
+    transformers = pipeline.transformers
+  }
+
+  -- Normalize the outputs
+  normalized_pipeline.outputs = component_utils.normalize_components(
+    pipeline.outputs,
+    component_utils.DISPATCHER_DEFAULTS
+  )
+
+  -- Add to the logger's pipelines
+  table.insert(self.pipelines, normalized_pipeline)
+end
+
 --- Imperative API: Add a output to this logger
 -- @param output_func function The output function
 -- @param config table|nil Optional output configuration
 function logger_prototype:add_output(output_func, config)
   if type(output_func) ~= "function" then
-    error("output must be a function, got " .. type(output_func))
+    error("Output must be a function, got " .. type(output_func))
   end
 
-  -- Create a component-style output with the function and config
-  local output = nil
+  -- Create a pipeline with the output and a default text presenter
+  local pipeline = {
+    outputs = { output_func },
+    presenter = all_presenters.text()
+  }
 
-  if config then
-    -- If we have config, create a table with the function and config
-    output = {
-      func = output_func,
-      config = table_utils.deepcopy(config) -- Clone to avoid mutation
-    }
-  else
-    -- Simple function
-    output = output_func
-  end
+  -- Add to the logger's pipelines
+  table.insert(self.pipelines, pipeline)
 
-  -- Normalize it using the component system
-  local normalized = component_utils.normalize_component(output, component_utils.DISPATCHER_DEFAULTS)
-
-  table.insert(self.outputs, normalized)
+  -- Print deprecation warning
+  io.stderr:write("WARNING: add_output() is deprecated. Use add_pipeline() instead.\n")
 end
 
 --- Imperative API: Set propagate flag for this logger
@@ -117,17 +143,19 @@ end
 -- @return table The logger configuration
 function logger_prototype:get_config()
   -- Return a deep copy of the current configuration
-  return {
+  local config = {
     name = self.name,
     level = self.level,
-    outputs = table_utils.deepcopy(self.outputs),
+    pipelines = table_utils.deepcopy(self.pipelines),
     propagate = self.propagate,
     parent_name = self.parent and self.parent.name or nil
   }
+
+  return config
 end
 
--- Add logging methods from the output system (Step 2.7)
-local logging_methods = output_module.create_logging_methods()
+-- Add logging methods from the pipeline system
+local logging_methods = pipeline_module.create_logging_methods()
 for method_name, method_func in pairs(logging_methods) do
   logger_prototype[method_name] = method_func
 end
@@ -188,13 +216,28 @@ _get_or_create_logger_internal = function(requested_name_or_nil, config_data)
     new_logger.level = final_name == "_root" and core_levels.definition.WARNING or core_levels.definition.NOTSET
   end
 
-  new_logger.outputs = {}
-  if config_data.outputs then
-    for _, item in ipairs(config_data.outputs) do
-      -- Always convert to normalized output format
-      local output_entry = component_utils.normalize_component(item, component_utils.DISPATCHER_DEFAULTS)
-      table.insert(new_logger.outputs, output_entry)
+  new_logger.pipelines = {}
+  if config_data.pipelines then
+    for _, pipeline in ipairs(config_data.pipelines) do
+      -- Create a normalized pipeline
+      local normalized_pipeline = {
+        level = pipeline.level,
+        presenter = pipeline.presenter,
+        transformers = pipeline.transformers
+      }
+
+      -- Normalize outputs within the pipeline
+      normalized_pipeline.outputs = component_utils.normalize_components(
+        pipeline.outputs, component_utils.DISPATCHER_DEFAULTS
+      )
+
+      table.insert(new_logger.pipelines, normalized_pipeline)
     end
+  end
+
+  -- No backward compatibility - reject outputs configuration
+  if config_data.outputs then
+    error("'outputs' configuration is no longer supported. Use 'pipelines' instead.")
   end
 
   if config_data.propagate ~= nil then
@@ -230,26 +273,28 @@ create_root_logger_instance = function()       -- Renamed from create_root_logge
   local main_conf = config_module.get_config() -- Get current global defaults
   local root_config_for_logger = {
     level = main_conf.level,
-    outputs = {}, -- Start with an empty array
+    pipelines = {}, -- Start with an empty array
     propagate = main_conf.propagate
   }
 
-  -- If we have outputs in the config, use them
-  if main_conf.outputs and #main_conf.outputs > 0 then
-    -- Copy the outputs as is - they're already normalized by config.config()
-    root_config_for_logger.outputs = table_utils.deepcopy(main_conf.outputs)
+  -- If we have pipelines in the config, use them
+  if main_conf.pipelines and #main_conf.pipelines > 0 then
+    -- Copy the pipelines as is - they're already normalized by config.config()
+    root_config_for_logger.pipelines = table_utils.deepcopy(main_conf.pipelines)
   else
-    -- If no outputs are configured, add a default console output
+    -- If no pipelines are configured, add a default pipeline with console output
     local default_console = all_outputs.console_output
     local normalized_output = component_utils.normalize_component(default_console,
       component_utils.DISPATCHER_DEFAULTS)
 
-    -- Add a default text presenter if none is set
-    if not normalized_output.config.presenter then
-      normalized_output.config.presenter = all_presenters.text()
-    end
+    -- Create a default pipeline
+    local default_pipeline = {
+      level = core_levels.definition.WARNING,
+      outputs = { normalized_output },
+      presenter = all_presenters.text()
+    }
 
-    root_config_for_logger.outputs = { normalized_output }
+    root_config_for_logger.pipelines = { default_pipeline }
   end
 
   -- Use the new internal factory to get or create _root
@@ -267,7 +312,7 @@ log.create_root_logger = create_root_logger_instance
 -- Configuration validation for non-root loggers
 local VALID_LOGGER_CONFIG_KEYS = {
   level = { type = "number", description = "Logging level (use lual.DEBUG, lual.INFO, etc.)" },
-  outputs = { type = "table", description = "Array of output functions or output config tables" },
+  pipelines = { type = "table", description = "Array of pipeline configurations" },
   propagate = { type = "boolean", description = "Whether to propagate messages to parent loggers" }
 }
 
@@ -277,6 +322,11 @@ local VALID_LOGGER_CONFIG_KEYS = {
 local function validate_logger_config_table(config_table)
   if type(config_table) ~= "table" then
     return false, "Configuration must be a table, got " .. type(config_table)
+  end
+
+  -- Reject outputs key entirely - no backward compatibility
+  if config_table.outputs then
+    return false, "'outputs' is no longer supported. Use 'pipelines' instead."
   end
 
   local key_diff = table_utils.key_diff(VALID_LOGGER_CONFIG_KEYS, config_table)
@@ -315,34 +365,6 @@ local function validate_logger_config_table(config_table)
         table.sort(valid_levels_list)
         return false,
             string.format("Invalid level value %d. Valid levels are: %s", value, table.concat(valid_levels_list, ", "))
-      end
-    elseif key == "outputs" then
-      -- Validate that outputs is an array
-      if not (#value >= 0) then -- Basic array check
-        return false, "outputs must be an array (table with numeric indices)"
-      end
-
-      -- Check each output
-      for i, output in ipairs(value) do
-        -- Accept function or table
-        if type(output) ~= "function" and type(output) ~= "table" then
-          return false,
-              string.format(
-                "outputs[%d] must be a function, a table with output_func, or a table with type (string or function), got %s",
-                i, type(output))
-        end
-
-        -- For table format, validate it properly
-        if type(output) == "table" then
-          -- Check if it's the { func, ... } format
-          if #output > 0 then
-            if type(output[1]) ~= "function" then
-              return false, string.format("outputs[%d][1] must be a function, got %s", i, type(output[1]))
-            end
-          elseif not (output.func or output.output_func) then
-            return false, string.format("outputs[%d] must have a 'func' property if not an array", i)
-          end
-        end
       end
     end
   end
