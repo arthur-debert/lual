@@ -1,0 +1,526 @@
+package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
+
+local lual = require("lual.logger")
+local async_writer = require("lual.async_writer")
+
+describe("Async I/O", function()
+    local captured_output
+    local test_output_func
+    local error_messages
+    local test_error_handler
+
+    before_each(function()
+        -- Reset everything
+        lual.reset_config()
+        async_writer.reset()
+        captured_output = {}
+        error_messages = {}
+
+        -- Test output function that captures messages
+        test_output_func = function(record, config)
+            table.insert(captured_output, {
+                message = record.formatted_message or record.message,
+                level_name = record.level_name,
+                logger_name = record.logger_name,
+                timestamp = record.timestamp
+            })
+        end
+
+        -- Test error handler
+        test_error_handler = function(error_message)
+            table.insert(error_messages, error_message)
+        end
+        async_writer.set_error_handler(test_error_handler)
+    end)
+
+    after_each(function()
+        async_writer.reset()
+        lual.reset_config()
+    end)
+
+    describe("Configuration", function()
+        it("should accept async configuration options", function()
+            local config = {
+                async_enabled = true,
+                async_batch_size = 25,
+                async_flush_interval = 0.5,
+                level = lual.debug,
+                pipelines = {
+                    {
+                        level = lual.debug,
+                        outputs = { test_output_func },
+                        presenter = lual.text()
+                    }
+                }
+            }
+
+            assert.has_no.errors(function()
+                lual.config(config)
+            end)
+
+            local stats = async_writer.get_stats()
+            assert.is_true(stats.enabled)
+            assert.equals(25, stats.batch_size)
+            assert.equals(0.5, stats.flush_interval)
+        end)
+
+        it("should validate async_batch_size", function()
+            assert.has_error(function()
+                lual.config({
+                    async_enabled = true,
+                    async_batch_size = 0
+                })
+            end, "Invalid configuration: async_batch_size must be greater than 0")
+
+            assert.has_error(function()
+                lual.config({
+                    async_enabled = true,
+                    async_batch_size = -5
+                })
+            end, "Invalid configuration: async_batch_size must be greater than 0")
+        end)
+
+        it("should validate async_flush_interval", function()
+            assert.has_error(function()
+                lual.config({
+                    async_enabled = true,
+                    async_flush_interval = 0
+                })
+            end, "Invalid configuration: async_flush_interval must be greater than 0")
+
+            assert.has_error(function()
+                lual.config({
+                    async_enabled = true,
+                    async_flush_interval = -1.5
+                })
+            end, "Invalid configuration: async_flush_interval must be greater than 0")
+        end)
+
+        it("should start async writer when async_enabled is true", function()
+            lual.config({
+                async_enabled = true,
+                level = lual.debug,
+                pipelines = {
+                    {
+                        level = lual.debug,
+                        outputs = { test_output_func },
+                        presenter = lual.text()
+                    }
+                }
+            })
+
+            assert.is_true(async_writer.is_enabled())
+        end)
+
+        it("should stop async writer when async_enabled is false", function()
+            -- First enable it
+            lual.config({ async_enabled = true })
+            assert.is_true(async_writer.is_enabled())
+
+            -- Then disable it
+            lual.config({ async_enabled = false })
+            assert.is_false(async_writer.is_enabled())
+        end)
+    end)
+
+    describe("Async logging", function()
+        before_each(function()
+            lual.config({
+                async_enabled = true,
+                async_batch_size = 3,
+                level = lual.debug,
+                pipelines = {
+                    {
+                        level = lual.debug,
+                        outputs = { test_output_func },
+                        presenter = lual.text()
+                    }
+                }
+            })
+        end)
+
+        it("should queue log events without immediate processing", function()
+            local logger = lual.logger("test")
+
+            logger:info("Test message 1")
+            logger:info("Test message 2")
+
+            -- Messages should be queued, not immediately processed
+            assert.equals(0, #captured_output)
+
+            local stats = async_writer.get_stats()
+            assert.equals(2, stats.queue_size)
+        end)
+
+        it("should process messages when batch size is reached", function()
+            local logger = lual.logger("test")
+
+            logger:info("Message 1")
+            logger:info("Message 2")
+            assert.equals(0, #captured_output) -- Not processed yet
+
+            logger:info("Message 3")           -- This should trigger batch processing
+
+            -- Resume worker to process the batch
+            async_writer.resume_worker()
+
+            assert.equals(3, #captured_output)
+            assert.equals("Message 1", captured_output[1].message)
+            assert.equals("Message 2", captured_output[2].message)
+            assert.equals("Message 3", captured_output[3].message)
+        end)
+
+        it("should respect logger hierarchy in async mode", function()
+            local parent_logger = lual.logger("parent")
+            local child_logger = lual.logger("parent.child")
+
+            child_logger:info("Child message")
+
+            -- Manually process to test hierarchy
+            lual.flush()
+
+            -- Should have processed the message
+            assert.equals(1, #captured_output)
+            assert.equals("Child message", captured_output[1].message)
+            assert.equals("parent.child", captured_output[1].logger_name)
+        end)
+
+        it("should handle different log levels in async mode", function()
+            local logger = lual.logger("test")
+
+            logger:debug("Debug message")
+            logger:info("Info message")
+            logger:error("Error message")
+
+            lual.flush()
+
+            assert.equals(3, #captured_output)
+            assert.equals("DEBUG", captured_output[1].level_name)
+            assert.equals("INFO", captured_output[2].level_name)
+            assert.equals("ERROR", captured_output[3].level_name)
+        end)
+    end)
+
+    describe("Flush functionality", function()
+        before_each(function()
+            lual.config({
+                async_enabled = true,
+                async_batch_size = 10, -- Large batch size so it won't auto-trigger
+                level = lual.debug,
+                pipelines = {
+                    {
+                        level = lual.debug,
+                        outputs = { test_output_func },
+                        presenter = lual.text()
+                    }
+                }
+            })
+        end)
+
+        it("should flush all queued messages immediately", function()
+            local logger = lual.logger("test")
+
+            logger:info("Message 1")
+            logger:info("Message 2")
+            logger:info("Message 3")
+
+            assert.equals(0, #captured_output) -- Not processed yet
+
+            lual.flush()
+
+            assert.equals(3, #captured_output)
+            assert.equals("Message 1", captured_output[1].message)
+            assert.equals("Message 2", captured_output[2].message)
+            assert.equals("Message 3", captured_output[3].message)
+        end)
+
+        it("should not error when flushing with no queued messages", function()
+            assert.has_no.errors(function()
+                lual.flush()
+            end)
+        end)
+
+        it("should not error when flushing with async disabled", function()
+            lual.config({ async_enabled = false })
+
+            assert.has_no.errors(function()
+                lual.flush()
+            end)
+        end)
+    end)
+
+    describe("Error handling", function()
+        local error_output_func
+
+        before_each(function()
+            error_output_func = function(record, config)
+                error("Simulated output error")
+            end
+
+            lual.config({
+                async_enabled = true,
+                async_batch_size = 2,
+                level = lual.debug,
+                pipelines = {
+                    {
+                        level = lual.debug,
+                        outputs = { error_output_func },
+                        presenter = lual.text()
+                    }
+                }
+            })
+        end)
+
+        it("should handle output errors gracefully", function()
+            local logger = lual.logger("test")
+
+            logger:info("Message 1")
+            logger:info("Message 2") -- This should trigger processing
+
+            -- Process the batch
+            async_writer.resume_worker()
+
+            -- The error should be printed to stderr but not captured in our error_messages
+            -- because the pipeline module catches the error and prints it directly
+            -- Let's just verify that the async system continues to work
+            assert.equals(0, #captured_output) -- No successful outputs due to error
+        end)
+
+        it("should continue processing after errors", function()
+            local mixed_outputs = {
+                error_output_func,
+                test_output_func -- This should still work
+            }
+
+            lual.config({
+                async_enabled = true,
+                async_batch_size = 1,
+                level = lual.debug,
+                pipelines = {
+                    {
+                        level = lual.debug,
+                        outputs = mixed_outputs,
+                        presenter = lual.text()
+                    }
+                }
+            })
+
+            local logger = lual.logger("test")
+            logger:info("Test message")
+
+            async_writer.resume_worker()
+
+            -- Should have successful output despite error in first output
+            assert.equals(1, #captured_output)
+            assert.equals("Test message", captured_output[1].message)
+        end)
+    end)
+
+    describe("Synchronous fallback", function()
+        it("should process messages synchronously when async is disabled", function()
+            lual.config({
+                async_enabled = false,
+                level = lual.debug,
+                pipelines = {
+                    {
+                        level = lual.debug,
+                        outputs = { test_output_func },
+                        presenter = lual.text()
+                    }
+                }
+            })
+
+            local logger = lual.logger("test")
+            logger:info("Sync message")
+
+            -- Should be processed immediately
+            assert.equals(1, #captured_output)
+            assert.equals("Sync message", captured_output[1].message)
+        end)
+    end)
+
+    describe("Performance characteristics", function()
+        it("should handle large numbers of messages efficiently", function()
+            lual.config({
+                async_enabled = true,
+                async_batch_size = 100,
+                level = lual.debug,
+                pipelines = {
+                    {
+                        level = lual.debug,
+                        outputs = { test_output_func },
+                        presenter = lual.text()
+                    }
+                }
+            })
+
+            local logger = lual.logger("test")
+            local message_count = 1000
+
+            -- Log many messages
+            for i = 1, message_count do
+                logger:info("Message " .. i)
+            end
+
+            -- Flush all messages
+            lual.flush()
+
+            assert.equals(message_count, #captured_output)
+            assert.equals("Message 1", captured_output[1].message)
+            assert.equals("Message " .. message_count, captured_output[message_count].message)
+        end)
+    end)
+
+    describe("Module stats", function()
+        it("should provide accurate statistics", function()
+            lual.config({
+                async_enabled = true,
+                async_batch_size = 5,
+                async_flush_interval = 2.0
+            })
+
+            local stats = async_writer.get_stats()
+            assert.is_true(stats.enabled)
+            assert.equals(5, stats.batch_size)
+            assert.equals(2.0, stats.flush_interval)
+            assert.equals(0, stats.queue_size)
+            assert.equals("running", stats.worker_status)
+        end)
+
+        it("should update queue size correctly", function()
+            lual.config({
+                async_enabled = true,
+                async_batch_size = 10,
+                level = lual.debug,
+                pipelines = {
+                    {
+                        level = lual.debug,
+                        outputs = { test_output_func },
+                        presenter = lual.text()
+                    }
+                }
+            })
+
+            local logger = lual.logger("test")
+
+            local stats = async_writer.get_stats()
+            assert.equals(0, stats.queue_size)
+
+            logger:info("Message 1")
+            stats = async_writer.get_stats()
+            assert.equals(1, stats.queue_size)
+
+            logger:info("Message 2")
+            stats = async_writer.get_stats()
+            assert.equals(2, stats.queue_size)
+
+            lual.flush()
+            stats = async_writer.get_stats()
+            assert.equals(0, stats.queue_size)
+        end)
+    end)
+
+    describe("Integration with existing features", function()
+        it("should work with custom levels", function()
+            -- First set custom levels
+            lual.config({
+                custom_levels = { verbose = 15 } -- Use valid range 11-39
+            })
+
+            -- Then configure with async and pipelines
+            lual.config({
+                async_enabled = true,
+                async_batch_size = 2,
+                level = 15, -- verbose level
+                pipelines = {
+                    {
+                        level = 15,
+                        outputs = { test_output_func },
+                        presenter = lual.text()
+                    }
+                }
+            })
+
+            local logger = lual.logger("test")
+            logger:verbose("Verbose message")
+            logger:verbose("Another verbose message")
+
+            async_writer.resume_worker()
+
+            assert.equals(2, #captured_output)
+            assert.equals("VERBOSE", captured_output[1].level_name)
+            assert.equals("VERBOSE", captured_output[2].level_name)
+        end)
+
+        it("should work with multiple pipelines", function()
+            local output2 = {}
+            local output2_func = function(record, config)
+                table.insert(output2, record.formatted_message or record.message)
+            end
+
+            lual.config({
+                async_enabled = true,
+                async_batch_size = 1,
+                level = lual.debug,
+                pipelines = {
+                    {
+                        level = lual.info,
+                        outputs = { test_output_func },
+                        presenter = lual.text()
+                    },
+                    {
+                        level = lual.error,
+                        outputs = { output2_func },
+                        presenter = lual.text()
+                    }
+                }
+            })
+
+            local logger = lual.logger("test")
+            logger:info("Info message")
+            logger:error("Error message")
+
+            lual.flush()
+
+            -- Info message should go to first pipeline only (level INFO >= INFO)
+            -- Error message should go to both pipelines (level ERROR >= INFO and ERROR >= ERROR)
+            assert.equals(2, #captured_output) -- Both info and error messages
+            assert.equals("Info message", captured_output[1].message)
+            assert.equals("Error message", captured_output[2].message)
+
+            -- Error message should also go to second pipeline
+            assert.equals(1, #output2)
+            assert.equals("Error message", output2[1])
+        end)
+
+        it("should work with transformers", function()
+            local prefix_transformer = function(record, config)
+                record.formatted_message = "[ASYNC] " .. record.formatted_message
+                record.message = record.formatted_message
+                return record
+            end
+
+            lual.config({
+                async_enabled = true,
+                async_batch_size = 1,
+                level = lual.debug,
+                pipelines = {
+                    {
+                        level = lual.debug,
+                        outputs = { test_output_func },
+                        presenter = lual.text(),
+                        transformers = { prefix_transformer }
+                    }
+                }
+            })
+
+            local logger = lual.logger("test")
+            logger:info("Test message")
+
+            lual.flush()
+
+            assert.equals(1, #captured_output)
+            assert.equals("[ASYNC] Test message", captured_output[1].message)
+        end)
+    end)
+end)

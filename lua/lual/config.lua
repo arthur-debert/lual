@@ -6,6 +6,7 @@ local table_utils = require("lual.utils.table")
 local component_utils = require("lual.utils.component")
 local all_outputs = require("lual.outputs.init")
 local all_presenters = require("lual.presenters.init")
+local async_writer = require("lual.async_writer")
 
 local M = {}
 
@@ -65,7 +66,10 @@ local VALID_CONFIG_KEYS = {
     level = { type = "number", description = "Logging level (use lual.DEBUG, lual.INFO, etc.)" },
     pipelines = { type = "table", description = "Array of pipeline configurations" },
     propagate = { type = "boolean", description = "Whether to propagate messages (always true for root)" },
-    custom_levels = { type = "table", description = "Custom log levels as name = value pairs" }
+    custom_levels = { type = "table", description = "Custom log levels as name = value pairs" },
+    async_enabled = { type = "boolean", description = "Enable asynchronous logging mode" },
+    async_batch_size = { type = "number", description = "Number of messages to batch before writing" },
+    async_flush_interval = { type = "number", description = "Time interval (seconds) to force flush batches" }
 }
 
 -- Table of valid pipeline keys and their expected types/descriptions
@@ -136,9 +140,10 @@ local function validate_pipeline(pipeline, index)
 
         -- Additional validation for specific keys
         if key == "level" then
-            -- Validate that level is a known level value
+            -- Validate that level is a known level value (including custom levels)
+            local all_levels = core_levels.get_all_levels()
             local valid_level = false
-            for _, level_value in pairs(core_levels.definition) do
+            for _, level_value in pairs(all_levels) do
                 if value == level_value then
                     valid_level = true
                     break
@@ -146,7 +151,7 @@ local function validate_pipeline(pipeline, index)
             end
             if not valid_level then
                 local valid_levels = {}
-                for level_name, level_value in pairs(core_levels.definition) do
+                for level_name, level_value in pairs(all_levels) do
                     table.insert(valid_levels, string.format("%s(%d)", level_name, level_value))
                 end
                 table.sort(valid_levels)
@@ -331,6 +336,14 @@ local function validate_config(config_table)
             if value == core_levels.definition.NOTSET then
                 return false, "Root logger level cannot be set to NOTSET"
             end
+        elseif key == "async_batch_size" then
+            if value <= 0 then
+                return false, "async_batch_size must be greater than 0"
+            end
+        elseif key == "async_flush_interval" then
+            if value <= 0 then
+                return false, "async_flush_interval must be greater than 0"
+            end
         end
 
         ::continue::
@@ -397,6 +410,25 @@ function M.config(config_table)
         end
     end
 
+    -- Handle async configuration - start/stop async writer as needed
+    if config_table.async_enabled ~= nil then
+        if config_table.async_enabled then
+            -- Start async writer with current config
+            local async_config = {
+                async_enabled = _root_logger_config.async_enabled,
+                async_batch_size = _root_logger_config.async_batch_size or 50,
+                async_flush_interval = _root_logger_config.async_flush_interval or 1.0
+            }
+            async_writer.start(async_config, nil)
+            -- Setup the dispatch function in pipeline module
+            local pipeline_module = require("lual.pipeline")
+            pipeline_module.setup_async_writer()
+        else
+            -- Stop async writer
+            async_writer.stop()
+        end
+    end
+
     return table_utils.deepcopy(_root_logger_config)
 end
 
@@ -409,6 +441,9 @@ end
 
 --- Resets the _root logger configuration to defaults
 function M.reset_config()
+    -- Stop async writer if running
+    async_writer.stop()
+
     -- Reset to defaults
     _root_logger_config = {
         level = core_levels.definition.WARNING,
