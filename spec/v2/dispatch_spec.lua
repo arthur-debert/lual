@@ -580,9 +580,20 @@ describe("Output Loop Logic (Step 2.7)", function()
         it("should reject invalid log level types", function()
             local logger = lual.logger("invalid.level.test")
 
+            -- Test with boolean (invalid type)
             assert.has_error(function()
-                logger:log("warning", "Invalid level type")
-            end, "Log level must be a number, got string")
+                logger:log(true, "Invalid level type")
+            end, "Log level must be a number or string, got boolean")
+
+            -- Test with table (invalid type)
+            assert.has_error(function()
+                logger:log({}, "Invalid level type")
+            end, "Log level must be a number or string, got table")
+
+            -- Test with unknown custom level name
+            assert.has_error(function()
+                logger:log("unknown_custom_level", "Invalid level name")
+            end, "Unknown level name: unknown_custom_level")
         end)
 
         it("should respect level checking for generic log method", function()

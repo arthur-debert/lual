@@ -53,6 +53,28 @@ Built-in severity levels, from most to least verbose:
 ### NOTSET
 A special level value (`lual.NOTSET`) indicating that a logger should inherit its effective level from its parent.
 
+### Custom Levels
+User-defined log levels with meaningful names that supplement the built-in levels. Defined globally and available to all loggers.
+
+```lua
+lual.config({
+    custom_levels = {
+        verbose = 25,  -- Between INFO(20) and WARNING(30)
+        trace = 15     -- Between DEBUG(10) and INFO(20)
+    }
+})
+
+-- Usage
+logger:log("verbose", "message")  -- Primary usage
+logger:verbose("message")         -- Dynamic method call
+```
+
+### Custom Level Rules
+- Names must be lowercase valid Lua identifiers (no leading underscores)
+- Values must be integers between DEBUG(10) and ERROR(40), exclusive
+- Cannot conflict with built-in level values
+- Display as uppercase in log output (e.g., `[VERBOSE]`, `[TRACE]`)
+
 ## Pipeline Architecture
 
 ### Pipeline

@@ -361,10 +361,25 @@ function M.create_logging_methods()
     methods.critical = create_log_method(core_levels.definition.CRITICAL, "CRITICAL")
 
     -- Generic log method
-    methods.log = function(self, level_no, ...)
-        -- Validate level
-        if type(level_no) ~= "number" then
-            error("Log level must be a number, got " .. type(level_no))
+    methods.log = function(self, level_arg, ...)
+        local level_no
+        local level_name
+
+        -- Handle both numeric levels and custom level names
+        if type(level_arg) == "number" then
+            level_no = level_arg
+            level_name = core_levels.get_level_name(level_no)
+        elseif type(level_arg) == "string" then
+            -- Check if it's a custom level name
+            local custom_level_value = core_levels.get_custom_level_value(level_arg)
+            if custom_level_value then
+                level_no = custom_level_value
+                level_name = level_arg:upper()
+            else
+                error("Unknown level name: " .. level_arg)
+            end
+        else
+            error("Log level must be a number or string, got " .. type(level_arg))
         end
 
         -- Check if logging is enabled for this level
@@ -372,9 +387,6 @@ function M.create_logging_methods()
         if level_no < effective_level then
             return -- Early exit if level not enabled
         end
-
-        -- Get level name
-        local level_name = core_levels.get_level_name(level_no)
 
         -- Parse arguments
         local msg_fmt, args, context = parse_log_args(...)

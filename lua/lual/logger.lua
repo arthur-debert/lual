@@ -160,6 +160,36 @@ for method_name, method_func in pairs(logging_methods) do
   logger_prototype[method_name] = method_func
 end
 
+-- Set up metamethod for custom level method dispatch
+logger_prototype.__index = function(self, key)
+  -- First check if it's a regular method
+  if logger_prototype[key] then
+    return logger_prototype[key]
+  end
+
+  -- Then check if it's a custom level name
+  if core_levels.is_custom_level(key) then
+    local level_no = core_levels.get_custom_level_value(key)
+    return function(self_inner, ...)
+      -- Check if logging is enabled for this level
+      local effective_level = self_inner:_get_effective_level()
+      if level_no < effective_level then
+        return -- Early exit if level not enabled
+      end
+
+      -- Parse arguments
+      local msg_fmt, args, context = pipeline_module._parse_log_args(...)
+
+      -- Create log record
+      local log_record = pipeline_module._create_log_record(self_inner, level_no, key:upper(), msg_fmt, args, context)
+      pipeline_module.dispatch_log_event(self_inner, log_record)
+    end
+  end
+
+  -- Return nil if not found
+  return nil
+end
+
 -- Forward declarations
 local create_root_logger_instance
 local get_parent_name_from_hierarchical
@@ -199,6 +229,9 @@ _get_or_create_logger_internal = function(requested_name_or_nil, config_data)
   local new_logger = {}
   for k, v in pairs(logger_prototype) do new_logger[k] = v end
   new_logger.name = final_name
+
+  -- Set the metatable to enable custom level method dispatch
+  setmetatable(new_logger, logger_prototype)
 
   -- Update parent logic here
   if final_name == "_root" then
@@ -464,6 +497,18 @@ function log.reset_cache()
   _logger_cache = {}
 end
 
+--- Gets all levels (built-in + custom)
+-- @return table All available levels
+function log.get_levels()
+  return core_levels.get_all_levels()
+end
+
+--- Sets custom levels (replaces all existing custom levels)
+-- @param custom_levels table Custom levels as name = value pairs
+function log.set_levels(custom_levels)
+  core_levels.set_custom_levels(custom_levels)
+end
+
 -- Expose internal functions for testing
 -- log.create_logger = create_logger -- REMOVE THIS LINE
 log.create_root_logger = create_root_logger_instance
@@ -476,6 +521,11 @@ log.levels = core_levels.definition
 log.outputs = all_outputs           -- Assign the outputs table
 log.presenters = all_presenters     -- Assign the presenters table
 log.transformers = all_transformers -- Assign the transformers table
+
+-- Configuration API
+log.config = config_module.config
+log.get_config = config_module.get_config
+log.reset_config = config_module.reset_config
 
 -- Level constants (flat namespace)
 log.notset = core_levels.definition.NOTSET

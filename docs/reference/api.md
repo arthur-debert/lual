@@ -36,6 +36,12 @@ Configures the root logger with the specified settings.
 **Parameters:**
 - `config` (table): Configuration table for the root logger.
 
+**Configuration Options:**
+- `level` (level constant): The minimum level to process.
+- `pipelines` (table): Array of pipeline configurations.
+- `propagate` (boolean): Whether events propagate (always true for root).
+- `custom_levels` (table): Custom level definitions as name = value pairs.
+
 **Returns:**
 - None
 
@@ -44,13 +50,87 @@ Configures the root logger with the specified settings.
 -- Configure the root logger
 lual.config({
     level = lual.info,
-    outputs = {
-        { lual.console, presenter = lual.color() }
+    pipelines = {
+        { outputs = { lual.console }, presenter = lual.color() }
+    }
+})
+
+-- Configure with custom levels
+lual.config({
+    level = lual.debug,
+    custom_levels = {
+        verbose = 25,
+        trace = 15
+    },
+    pipelines = {
+        { outputs = { lual.console }, presenter = lual.text() },
+        { outputs = { { lual.file, path = "app.log" } }, presenter = lual.json() }
     }
 })
 ```
 
+### lual.get_levels()
+
+Returns all available log levels (built-in + custom).
+
+**Parameters:**
+- None
+
+**Returns:**
+- (table): A table mapping level names to level values.
+
+**Examples:**
+```lua
+local all_levels = lual.get_levels()
+print(all_levels.DEBUG)    -- 10
+print(all_levels.VERBOSE)  -- 25 (if custom level defined)
+```
+
+### lual.set_levels(custom_levels)
+
+Sets or replaces all custom log levels.
+
+**Parameters:**
+- `custom_levels` (table): A table mapping custom level names to level values.
+
+**Returns:**
+- None
+
+**Examples:**
+```lua
+-- Define custom levels
+lual.set_levels({
+    verbose = 25,
+    trace = 15
+})
+
+-- Clear all custom levels
+lual.set_levels({})
+```
+
 ## Logger Methods
+
+### logger:log(level, message, ...)
+
+Logs a message at the specified level. Accepts both numeric levels and custom level names.
+
+**Parameters:**
+- `level` (number or string): The log level (numeric) or custom level name (string).
+- `message` (string): The log message. Can include printf-style format specifiers.
+- `...` (any): Optional arguments for format specifiers.
+
+**Returns:**
+- None
+
+**Examples:**
+```lua
+-- Numeric levels
+logger:log(25, "Custom numeric level")
+
+-- Custom level names (primary usage for custom levels)
+logger:log("verbose", "This is a verbose message")
+logger:log("trace", "Detailed trace information")
+```
 
 ### logger:debug(message, ...)
 

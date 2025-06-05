@@ -64,7 +64,8 @@ initialize_default_config()
 local VALID_CONFIG_KEYS = {
     level = { type = "number", description = "Logging level (use lual.DEBUG, lual.INFO, etc.)" },
     pipelines = { type = "table", description = "Array of pipeline configurations" },
-    propagate = { type = "boolean", description = "Whether to propagate messages (always true for root)" }
+    propagate = { type = "boolean", description = "Whether to propagate messages (always true for root)" },
+    custom_levels = { type = "table", description = "Custom log levels as name = value pairs" }
 }
 
 -- Table of valid pipeline keys and their expected types/descriptions
@@ -191,6 +192,40 @@ local function validate_pipeline(pipeline, index)
     return true
 end
 
+--- Validates custom levels configuration
+-- @param custom_levels table Custom levels configuration to validate
+-- @return boolean, string True if valid, otherwise false and error message
+local function validate_custom_levels(custom_levels)
+    if type(custom_levels) ~= "table" then
+        return false, "custom_levels must be a table"
+    end
+
+    -- Validate each custom level
+    for name, value in pairs(custom_levels) do
+        local name_valid, name_error = core_levels.validate_custom_level_name(name)
+        if not name_valid then
+            return false, "Invalid custom level name '" .. tostring(name) .. "': " .. name_error
+        end
+
+        local value_valid, value_error = core_levels.validate_custom_level_value(value, true) -- exclude current customs
+        if not value_valid then
+            return false, "Invalid custom level value for '" .. name .. "': " .. value_error
+        end
+    end
+
+    -- Check for duplicate values
+    local seen_values = {}
+    for name, value in pairs(custom_levels) do
+        if seen_values[value] then
+            return false,
+                "Duplicate level value " .. value .. " for levels '" .. seen_values[value] .. "' and '" .. name .. "'"
+        end
+        seen_values[value] = name
+    end
+
+    return true
+end
+
 --- Validates the configuration structure
 -- @param config_table table Configuration to validate
 -- @return boolean, string True if valid, otherwise false and error message
@@ -206,6 +241,14 @@ local function validate_config(config_table)
     -- Reject outputs key entirely - no backward compatibility
     if config_table.outputs then
         return false, "'outputs' is no longer supported. Use 'pipelines' instead."
+    end
+
+    -- Validate custom_levels if present
+    if config_table.custom_levels then
+        local valid, error_msg = validate_custom_levels(config_table.custom_levels)
+        if not valid then
+            return false, error_msg
+        end
     end
 
     -- Validate pipelines if present
@@ -242,6 +285,12 @@ local function validate_config(config_table)
     -- Type validation
     for key, value in pairs(config_table) do
         local expected_spec = VALID_CONFIG_KEYS[key]
+
+        -- Skip type validation for custom_levels since it's validated separately
+        if key == "custom_levels" then
+            goto continue
+        end
+
         local expected_type = expected_spec.type
         local actual_type = type(value)
 
@@ -257,9 +306,10 @@ local function validate_config(config_table)
 
         -- Additional validation for specific keys
         if key == "level" then
-            -- Validate that level is a known level value
+            -- Get all levels (built-in + custom) for validation
+            local all_levels = core_levels.get_all_levels()
             local valid_level = false
-            for _, level_value in pairs(core_levels.definition) do
+            for _, level_value in pairs(all_levels) do
                 if value == level_value then
                     valid_level = true
                     break
@@ -267,7 +317,7 @@ local function validate_config(config_table)
             end
             if not valid_level then
                 local valid_levels = {}
-                for level_name, level_value in pairs(core_levels.definition) do
+                for level_name, level_value in pairs(all_levels) do
                     table.insert(valid_levels, string.format("%s(%d)", level_name, level_value))
                 end
                 table.sort(valid_levels)
@@ -282,6 +332,8 @@ local function validate_config(config_table)
                 return false, "Root logger level cannot be set to NOTSET"
             end
         end
+
+        ::continue::
     end
 
     return true
@@ -321,7 +373,12 @@ end
 -- @param config_table table Configuration updates to apply
 -- @return table The updated _root logger configuration
 function M.config(config_table)
-    -- Validate the configuration
+    -- Handle custom levels first if present
+    if config_table.custom_levels then
+        core_levels.set_custom_levels(config_table.custom_levels)
+    end
+
+    -- Validate the configuration (after custom levels are set)
     local valid, error_msg = validate_config(config_table)
     if not valid then
         error("Invalid configuration: " .. error_msg)
@@ -332,6 +389,9 @@ function M.config(config_table)
         if key == "pipelines" then
             -- Normalize the pipelines
             _root_logger_config[key] = normalize_pipelines(value)
+        elseif key == "custom_levels" then
+            -- Skip custom_levels as it's already processed
+            -- (We don't store it in _root_logger_config)
         else
             _root_logger_config[key] = value
         end

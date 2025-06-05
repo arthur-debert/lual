@@ -27,6 +27,7 @@ lual.config({
 
 - **Flexible Logging**: Format strings, structured logs - choose what works best for your needs.
 - **Leveled Configuration**: From "set the level and go" to centralized configuration to complex hierarchical logger configurations.
+- **Custom Log Levels**: Define named levels like `verbose` or `trace` with meaningful semantics for specialized logging needs.
 - **Pluggable Log Pipeline**: For processing, formatting, and outputting logs. Use the built-in components or write custom functions.
 - **Built-in Components**: Write to the console, files, or syslog; format as JSON, plain text, or colored terminal output.
 - **Hierarchical Loggers**: Dot-separated logger names create automatic parent-child relationships with propagation.

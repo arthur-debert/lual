@@ -52,6 +52,40 @@ local logger = lual.logger("myapp")
 logger:debug("Now this appears too!")
 ```
 
+## Custom Log Levels
+
+Define your own levels for specialized logging:
+
+```lua
+local lual = require("lual")
+
+-- Define custom levels
+lual.config({
+    level = lual.debug,
+    custom_levels = {
+        verbose = 25,  -- Between INFO(20) and WARNING(30)
+        trace = 15     -- Between DEBUG(10) and INFO(20)
+    }
+})
+
+local logger = lual.logger("myapp")
+
+-- Use custom levels with log() method (primary usage)
+logger:log("verbose", "Starting complex operation")
+logger:log("trace", "Variable x = %d", 42)
+
+-- Or use dynamic method calls (secondary usage)
+logger:verbose("Processing batch 1 of 10")
+logger:trace("Loop iteration %d", i)
+```
+
+**Output:**
+```text
+2024-01-15 14:30:25 VERBOSE [myapp] Starting complex operation
+2024-01-15 14:30:25 TRACE [myapp] Variable x = 42
+2024-01-15 14:30:25 VERBOSE [myapp] Processing batch 1 of 10
+```
+
 ## Add File Logging
 
 Log to both console and file:
@@ -61,9 +95,9 @@ local lual = require("lual")
 
 lual.config({
     level = lual.info,
-    outputs = {
-        { lual.console, presenter = lual.color() },    -- Colored console
-        { lual.file, path = "app.log", presenter = lual.text() }  -- Plain text file
+    pipelines = {
+        { outputs = { lual.console }, presenter = lual.color() },              -- Colored console
+        { outputs = { { lual.file, path = "app.log" } }, presenter = lual.text() }  -- Plain text file
     }
 })
 
@@ -96,8 +130,8 @@ Create loggers with their own behavior:
 -- Database logger with detailed file logging
 local db_logger = lual.logger("myapp.database", {
     level = lual.debug,
-    outputs = {
-        { lual.file, path = "database.log", presenter = lual.json() }
+    pipelines = {
+        { outputs = { { lual.file, path = "database.log" } }, presenter = lual.json() }
     }
 })
 
