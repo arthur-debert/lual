@@ -64,6 +64,54 @@ local db_logger = lual.logger("myapp.database", {
 local query_logger = lual.logger("myapp.database.query")  -- Inherits DEBUG from parent
 ```
 
+### Custom Log Levels
+
+You can define custom log levels with meaningful names for specialized logging needs:
+
+```lua
+-- Define custom levels in configuration
+lual.config({
+    custom_levels = {
+        verbose = 25,  -- Between INFO(20) and WARNING(30)
+        trace = 15     -- Between DEBUG(10) and INFO(20)
+    },
+    level = lual.debug  -- Set to allow all custom levels
+})
+
+local logger = lual.logger("myapp")
+
+-- Use custom levels with explicit log() method (primary usage)
+logger:log("verbose", "This is a verbose message")
+logger:log("trace", "Detailed trace information")
+
+-- Or use dynamic method calls (secondary usage)
+logger:verbose("This also works")
+logger:trace("So does this")
+
+-- Custom levels work with all level filtering
+lual.config({ level = 25 })  -- Only verbose(25) and above will be processed
+```
+
+**Custom Level Rules:**
+- Names must be lowercase valid Lua identifiers (no underscores at start)
+- Values must be integers between DEBUG(10) and ERROR(40), exclusive
+- Cannot conflict with built-in level values (10, 20, 30, 40, 50)
+- Custom levels appear as uppercase in log output (e.g., `[VERBOSE]`, `[TRACE]`)
+
+**API Methods:**
+```lua
+-- Get all available levels (built-in + custom)
+local all_levels = lual.get_levels()
+
+-- Set/replace all custom levels
+lual.set_levels({
+    verbose = 25,
+    trace = 15
+})
+```
+
+**Legacy Support:** You can still use any numeric level value directly with `logger:log(34, "message")`, which displays as `UNKNOWN_LEVEL_NO_34`.
+
 ## Root Logger
 
 The **root logger** (`_root` internally) is automatically created when lual loads. It provides default configuration for all other loggers.
@@ -72,8 +120,8 @@ The **root logger** (`_root` internally) is automatically created when lual load
 -- Configure root logger behavior
 lual.config({
     level = lual.debug,
-    outputs = {
-        { lual.console, presenter = lual.color() }
+    pipelines = {
+        { outputs = { lual.console }, presenter = lual.color() }
     }
 })
 
@@ -81,16 +129,17 @@ lual.config({
 local logger = lual.logger("any.name")  -- Gets root config
 ```
 
-## Outputs and Presenters  
+## Pipelines, Outputs and Presenters  
 
+**Pipelines** combine outputs and presenters with optional level filtering.
 **Outputs** determine where logs go (console, files, network).  
 **Presenters** determine how logs are formatted (text, JSON, colors).
 
 ```lua
 lual.config({
-    outputs = {
-        { lual.console, presenter = lual.text() },      -- Plain text to console
-        { lual.file, path = "app.log", presenter = lual.json() }  -- JSON to file
+    pipelines = {
+        { outputs = { lual.console }, presenter = lual.text() },                    -- Plain text to console
+        { outputs = { { lual.file, path = "app.log" } }, presenter = lual.json() }  -- JSON to file
     }
 })
 ```
@@ -114,7 +163,7 @@ lual.config({
 
 ```lua
 local db_logger = lual.logger("myapp.database", {
-    outputs = { { lual.file, path = "db.log" } }
+    pipelines = { { outputs = { { lual.file, path = "db.log" } }, presenter = lual.text() } }
 })
 
 db_logger:error("Connection failed")
@@ -122,14 +171,14 @@ db_logger:error("Connection failed")
 
 This error message goes to:
 
-1. `db.log` (from myapp.database's output)
-2. Console (from root logger's default output)
+1. `db.log` (from myapp.database's pipeline)
+2. Console (from root logger's default pipeline)
 
 Propagation can be disabled per logger:
 
 ```lua
 local db_logger = lual.logger("myapp.database", {
-    outputs = { { lual.file, path = "db.log" } },
+    pipelines = { { outputs = { { lual.file, path = "db.log" } }, presenter = lual.text() } },
     propagate = false  -- Stop here, don't go to parent
 })
 ```
@@ -142,7 +191,7 @@ local db_logger = lual.logger("myapp.database", {
 -- Configure root logger for all loggers
 lual.config({
     level = lual.info,
-    outputs = { { lual.console } }
+    pipelines = { { outputs = { lual.console }, presenter = lual.text() } }
 })
 ```
 
@@ -152,7 +201,7 @@ lual.config({
 -- Configure individual loggers
 local logger = lual.logger("myapp", {
     level = lual.debug,
-    outputs = { { lual.file, path = "debug.log" } }
+    pipelines = { { outputs = { { lual.file, path = "debug.log" } }, presenter = lual.text() } }
 })
 ```
 
@@ -162,16 +211,20 @@ local logger = lual.logger("myapp", {
 -- Configure using methods
 local logger = lual.logger("myapp")
 logger:set_level(lual.debug)
-logger:add_output(lual.file, { path = "debug.log" })
+logger:add_pipeline({
+    outputs = { { lual.file, path = "debug.log" } },
+    presenter = lual.text()
+})
 ```
 
 ## Key Takeaways
 
 1. **Loggers form hierarchies** based on dot-separated names
-2. **Levels filter messages** - set appropriate thresholds  
+2. **Levels filter messages** - set appropriate thresholds, including custom levels
 3. **Root logger provides defaults** for all other loggers
 4. **Events propagate upward** unless explicitly disabled
-5. **Outputs and presenters are independent** - mix and match
+5. **Pipelines combine outputs and presenters** with optional level filtering
+6. **Custom levels** add meaningful names to numeric levels for specialized logging
 
 ## What's Next?
 
