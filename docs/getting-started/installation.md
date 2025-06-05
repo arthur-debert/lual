@@ -17,13 +17,15 @@ This will automatically install lual and all its dependencies.
 If you can't use LuaRocks, you can install lual manually:
 
 1. Download the source from GitHub:
+
    ```bash
-   git clone https://github.com/yourusername/lual.git
+   git clone https://github.com/adilsondebert/lual.git
    ```
 
 2. Copy the `lua/lual` directory to your Lua package path.
 
 3. Ensure the package can be required:
+
    ```lua
    local lual = require("lual")
    ```
@@ -31,6 +33,7 @@ If you can't use LuaRocks, you can install lual manually:
 ## Dependencies
 
 lual has minimal dependencies:
+
 - Lua 5.1+ or LuaJIT
 - (Optional) LuaSocket for network capabilities
 - (Optional) LuaFileSystem for advanced file operations
@@ -60,6 +63,6 @@ luarocks make
 ## Next Steps
 
 Now that lual is installed, let's learn how to use it:
+
 - Continue to [Basic Concepts](basic-concepts.md)
 - Try the [Quick Start](quick-start.md) examples
-- Build your first logger in [Your First Logger](first-logger.md) 

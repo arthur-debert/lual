@@ -25,8 +25,10 @@ logger:error("Something went wrong!")   -- Logged to console
 - **Performance**: Efficient level filtering and lazy evaluation
 
 ## Common Usage Patterns
+## Common Usage Patterns
 
 ### 1. Out-of-the-box Logging
+
 ```lua
 local lual = require("lual")
 local logger = lual.logger("myapp")
@@ -35,7 +37,8 @@ logger:warn("This appears in console")   -- Uses built-in root logger
 logger:debug("This doesn't")             -- Below default WARN level
 ```
 
-### 2. Configure Root Logger  
+### 2. Configure Root Logger
+
 ```lua
 local lual = require("lual")
 
@@ -53,6 +56,7 @@ logger:debug("Now debug messages appear everywhere")
 ```
 
 ### 3. Logger-Specific Configuration
+
 ```lua
 -- Create a logger with its own outputs
 local db_logger = lual.logger("myapp.database", {
@@ -65,7 +69,6 @@ local db_logger = lual.logger("myapp.database", {
 db_logger:debug("Database query executed")  -- Goes to database.log
 db_logger:error("Connection failed")        -- Goes to database.log AND root logger outputs
 ```
-
 ## Installation
 
 Install via LuaRocks:
@@ -78,24 +81,26 @@ Or download and require the library directly.
 
 ## Documentation
 
-- **[Getting Started Guide](docs/v1/getting-started/)** - Quick introduction and basic concepts
-- **[User Guide](docs/v1/guide/)** - Configuration, hierarchy, and common patterns  
-- **[Examples](docs/v1/examples/)** - Real-world usage scenarios
-- **[Deep Dives](docs/v1/deep-dives/)** - Advanced topics and internals
-- **[API Reference](docs/v1/reference/)** - Complete API documentation
+- **[Getting Started Guide](docs/getting-started/)** - Quick introduction and basic concepts
+- **[User Guide](docs/guide/)** - Configuration, hierarchy, and common patterns
+- **[Deep Dives](docs/deep-dives/)** - Advanced topics and internals
+- **[API Reference](docs/reference/)** - Complete API documentation
 
 ## Built-in Components
 
 **Outputs:**
+
 - `lual.console` - Write to stdout/stderr
-- `lual.file` - Write to files with rotation support  
+- `lual.file` - Write to files with rotation support
 
 **Presenters:**
+
 - `lual.text()` - Plain text format with timestamps
 - `lual.json()` - Structured JSON output
 - `lual.color()` - ANSI colored text for terminals
 
 **Levels:**
+
 - `lual.debug`, `lual.info`, `lual.warn`, `lual.error`, `lual.critical`
 
 ## Contributing
@@ -105,7 +110,3 @@ Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 ## License
 
 MIT License - see LICENSE file for details.
-
-```
-
-```

@@ -18,14 +18,14 @@ local cache_logger = lual.logger("myapp.cache")
 ### Logger Names and Hierarchy
 
 Logger names use dot notation to create automatic parent-child relationships:
-
-```
+```text
 _root (internal)
 ├── myapp
-│   ├── myapp.database  
+│   ├── myapp.database
 │   ├── myapp.cache
 │   └── myapp.auth
 │       └── myapp.auth.oauth
+```
 ```
 
 Child loggers inherit configuration from parents and propagate events upward.
@@ -98,10 +98,12 @@ lual.config({
 ### Built-in Components
 
 **Outputs:**
+
 - `lual.console` - stdout/stderr
 - `lual.file` - File with rotation
 
-**Presenters:**  
+**Presenters:**
+
 - `lual.text()` - Plain text with timestamps
 - `lual.json()` - Structured JSON
 - `lual.color()` - ANSI colored text
@@ -119,6 +121,7 @@ db_logger:error("Connection failed")
 ```
 
 This error message goes to:
+
 1. `db.log` (from myapp.database's output)
 2. Console (from root logger's default output)
 
@@ -134,6 +137,7 @@ local db_logger = lual.logger("myapp.database", {
 ## Configuration Approaches
 
 ### 1. Global Configuration
+
 ```lua
 -- Configure root logger for all loggers
 lual.config({
@@ -142,7 +146,8 @@ lual.config({
 })
 ```
 
-### 2. Logger-Specific Configuration  
+### 2. Logger-Specific Configuration
+
 ```lua
 -- Configure individual loggers
 local logger = lual.logger("myapp", {
@@ -152,6 +157,7 @@ local logger = lual.logger("myapp", {
 ```
 
 ### 3. Imperative Configuration
+
 ```lua
 -- Configure using methods
 local logger = lual.logger("myapp")
@@ -169,7 +175,7 @@ logger:add_output(lual.file, { path = "debug.log" })
 
 ## What's Next?
 
-- **Hands-on practice** → [Your First Logger](first-logger.md)
-- **See it in action** → [Basic Examples](../examples/basic-examples.md)  
+- **See it in action** → [Quick Start](quick-start.md)
 - **Learn hierarchy details** → [Hierarchical Logging](../guide/hierarchical-logging.md)
-- **Master configuration** → [Configuration Guide](../guide/configuration.md) 
+- **Explore advanced features** → [Deep Dives](../deep-dives/)
+- **Find specific functions** → [API Reference](../reference/api.md)

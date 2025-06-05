@@ -16,10 +16,11 @@ local logger = lual.logger("myapp")
 
 logger:info("Hello, lual!")
 ```
-
 **Output:**
-```
+
+```text
 2024-01-15 14:30:25 INFO [myapp] Hello, lual!
+```
 ```
 
 That's it! The root logger automatically handles console output with a sensible default format.
@@ -110,9 +111,9 @@ db_logger:error("Connection timeout")  -- Goes to database.log AND console
 You now know the basics! Here's where to go next:
 
 - **Learn core concepts** → [Basic Concepts](basic-concepts.md)
-- **See more examples** → [Examples](../examples/basic-examples.md)
 - **Understand hierarchy** → [Hierarchical Logging](../guide/hierarchical-logging.md)
-- **Configure like a pro** → [Configuration Guide](../guide/configuration.md)
+- **Explore advanced features** → [Deep Dives](../deep-dives/)
+- **Find specific functions** → [API Reference](../reference/api.md)
 
 ## Common Questions
 
@@ -130,4 +131,4 @@ A: Use `presenter = lual.json()` in your output configuration.
 
 ---
 
-**Ready for more?** Continue with [Basic Concepts](basic-concepts.md) or jump to [Examples](../examples/). 
+**Ready for more?** Continue with [Basic Concepts](basic-concepts.md) or explore [Deep Dives](../deep-dives/).
