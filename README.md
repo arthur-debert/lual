@@ -75,6 +75,9 @@ Currently, lual has two primary limitations that might be important for your use
 
     Improving this aspect is an area for potential future development. Feedback or suggestions on non-blocking I/O approaches suitable for the Lua ecosystem are welcome.
 
+    Async-io is under planning no the async-io branch
+
+
 ## Contributing
 
 Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
