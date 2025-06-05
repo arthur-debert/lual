@@ -1,221 +1,112 @@
-# lual - A Lua Logger
+# lual - A Hierarchical Logging Library for Lua
 
-lual is a focused but powerful and flexible logging library for Lua. Inspired by
-Python's stdlib and loguru loggers, it aims at being a simple yet quite flexible
-logger.
-
-It borrows from Python but also leverages Lua's strengths, hence the entire
-design is done over functions and tables, look ma, no classes.
-
-## Overview
-
-LUAL is a hierarchical logging library for Lua that provides flexible configuration, multiple output formats, and efficient log management.
+lual is a powerful yet simple logging library for Lua, inspired by Python's standard library logging. It provides hierarchical loggers, flexible configuration, and a clean component-based architecture.
 
 ## Quick Start
 
 ```lua
-local lual = require("lual.logger")
+local lual = require("lual")
 
--- Create a logger with convenience syntax
-local logger = lual.logger("app.database", {
-    output = lual.console,
-    level = lual.debug,
-    presenter = lual.color,
-    timezone = lual.local_time
-})
+-- Simple logging with auto-configuration
+local logger = lual.logger("myapp")
 
-logger:info("Database connection established")
-logger:debug("Query executed in 1.2ms")
+logger:info("Application started")      -- Logged to console
+logger:debug("Debug info")             -- Not logged (default level is WARN)
+logger:error("Something went wrong!")   -- Logged to console
 ```
 
-## API Documentation
+## Key Features
 
-### Imperative API (Method-based configuration)
+- **Hierarchical Loggers**: Dot-separated logger names create automatic parent-child relationships
+- **Flexible Configuration**: Simple configs for basic use, powerful options for complex scenarios  
+- **Component Pipeline**: Modular transformers, presenters, and outputs
+- **Built-in Components**: Console, file, JSON, text, and colored output
+- **Propagation**: Log events automatically flow up the logger hierarchy
+- **Performance**: Efficient level filtering and lazy evaluation
+
+## Common Usage Patterns
+## Common Usage Patterns
+
+### 1. Out-of-the-box Logging
 
 ```lua
-local logger = lual.logger("app.network") 
-logger:add_output(lual.lib.console, lual.lib.text)
-logger:set_level(lual.debug)
+local lual = require("lual")
+local logger = lual.logger("myapp")
+
+logger:warn("This appears in console")   -- Uses built-in root logger
+logger:debug("This doesn't")             -- Below default WARN level
 ```
 
-## Features
+### 2. Configure Root Logger
 
-- **Hierarchical Logging**: Automatic parent logger creation and log propagation
-- **Multiple Output Formats**: Text, colored text, and JSON presenters  
-- **Flexible Outputs**: Console and file output with customizable streams
-- **Convenience Syntax**: Simple config-based logger creation
-- **Level Filtering**: Debug, info, warning, error, and critical levels
-- **Timezone Support**: Local time and UTC formatting
-- **Memory Efficient**: Logger caching and optimized string formatting
-
-## Configuration Examples
-
-### File Logging
 ```lua
-local logger = lual.logger({
-    name = "app.audit",
-    output = lual.file,
-    path = "app.log",
-    presenter = lual.json,
-    level = lual.info
-})
-```
+local lual = require("lual")
 
-### Multiple Outputs (Full Syntax)
-```lua
-local logger = lual.logger({
-    name = "app.main",
+-- Configure global logging behavior
+lual.config({
     level = lual.debug,
     outputs = {
-        {type = lual.console, presenter = lual.color},
-        {type = lual.file, path = "debug.log", presenter = lual.text}
+        { lual.console, presenter = lual.color() },
+        { lual.file, path = "app.log", presenter = lual.json() }
     }
 })
+
+local logger = lual.logger("myapp.database")
+logger:debug("Now debug messages appear everywhere")
 ```
 
-## Built-in Components
+### 3. Logger-Specific Configuration
 
-It has a small but useful set of outputs and presenters:
+```lua
+-- Create a logger with its own outputs
+local db_logger = lual.logger("myapp.database", {
+    level = lual.debug,
+    outputs = {
+        { lual.file, path = "database.log", presenter = lual.text() }
+    }
+})
 
-**outputs:**
-
-- `console`: prints to the console
-- `file`: writes to a file
-
-**Presenters:**
-
-- `text`: plain text
-- `color`: terminal colored
-- `json`: as JSON
-
-But presenters and outputs are just functions, pass your own.
-
-Names can be either introspected or set manually. There is hierarchical logging
-with propagation, see docs/propagation.txt.
-
+db_logger:debug("Database query executed")  -- Goes to database.log
+db_logger:error("Connection failed")        -- Goes to database.log AND root logger outputs
+```
 ## Installation
 
-Lual is available as a LuaRocks module, so you can install it with:
+Install via LuaRocks:
 
 ```bash
 luarocks install lual
 ```
 
-## API
+Or download and require the library directly.
 
-The main API is `lual.logger()` which creates or retrieves a logger:
+## Documentation
 
-```lua
-local lual = require("lual")
+- **[Getting Started Guide](docs/getting-started/)** - Quick introduction and basic concepts
+- **[User Guide](docs/guide/)** - Configuration, hierarchy, and common patterns
+- **[Deep Dives](docs/deep-dives/)** - Advanced topics and internals
+- **[API Reference](docs/reference/)** - Complete API documentation
 
--- Simple logger creation
-local logger = lual.logger()           -- Auto-named from filename
-local logger = lual.logger("myapp")    -- Named logger with default config
+## Built-in Components
 
--- Two-parameter API: name + config
-local logger = lual.logger("myapp", {
-    level = "debug",
-    outputs = {
-        {type = "console", presenter = "color"}
-    }
-})
+**Outputs:**
 
--- Config table API (full syntax)
-local logger = lual.logger({
-    name = "app.database",
-    level = "debug",
-    outputs = {
-        {type = "console", presenter = "color"},
-        {type = "file", path = "app.log", presenter = "text"}
-    }
-})
-```
+- `lual.console` - Write to stdout/stderr
+- `lual.file` - Write to files with rotation support
 
-**Note:** `lual.logger()` is still available for backward compatibility, but
-`lual.logger()` is now the official API.
+**Presenters:**
 
-## Features (v1)
+- `lual.text()` - Plain text format with timestamps
+- `lual.json()` - Structured JSON output
+- `lual.color()` - ANSI colored text for terminals
 
-- **Hierarchical Loggers:** Loggers are named using dot-separated paths (e.g.,
-  `myapp.module.submodule`), allowing for targeted configuration.
-- **Log Levels:** Standard severity levels: `DEBUG`, `INFO`, `WARNING`, `ERROR`,
-  `CRITICAL`, plus `NONE` to disable logging for a logger.
-- Outputs: 
-  -  **Console :** `lualog.lib.console` writes log messages to `io.stdout` (default), `io.stderr`, or any custom stream object that provides `write()` and `flush()` methods.
-  - **File:** `lualog.lib.file` writes log messages to files with configurable paths and rotation options.  - Presenters: 
-- Presenters: 
-  - **Text:** `lualog.lib.text` traditional log txt message with ISO datatime: `YYYY-MM-DD HH:MM:S LEVEL [LoggerName] Message`.
-  - **Color:** `lualog.lib.color` ANSI color codes for enhanced terminal readability.
-  - **JSON:** `lualog.lib.json` s JSON for structured logging and easy parsing by log aggregation systems.
-- **Timezone Support:** Configurable timezone for timestamps - supports both UTC and local time formatting (defaults to local time).
-  - **String Formatting:** Supports `printf`-style string formatting (e.g., `logger:info("Hello %s", name)`).
-  - **Structured Logging:** Supports logging rich, structured data.
-    - Pure structured: `logger:info({event = "UserLogin", userId = 123})`
-    - Mixed: `logger:info({eventId = "XYZ"}, "Processing event: %s", eventName)`
-      (context table first)
-  - **Per-Logger Configuration:** Log levels and outputs (with their
-    presenters) can be configured for each logger instance using methods like
-    `:set_level()` and `:add_output()`.
-- **Message Propagation:** Log messages processed by a logger are passed to its
-  parent's outputs by default. Propagation can be disabled per logger
-  (`logger.propagate = false`).
-- **Contextual Information:** Log records automatically include a UTC timestamp,
-  logger name, and the source filename/line number where the log message was
-  emitted.
-- **Error Handling:** Errors within outputs or presenters are caught and
-  reported to `io.stderr`, preventing the logging system from crashing the
-  application.
-- **Default Setup:** On require, a root logger is configured with:
-  - Level: `lualog.levels.INFO`.
-  - One output: `lualog.lib.console` writing to `io.stdout`.
-  - Presenter for this output: `lualog.lib.text`.
+**Levels:**
 
-You can create custom outputs and presenters:
-
-- **Custom output:** A function with the signature
-  `my_output(record, config)`
-  - `record`: A table containing the log details. Key fields include:
-    - `message`: The fully formatted log message string (from the presenter).
-    - `level_name`, `level_no`: Severity level.
-    - `logger_name`: Name of the logger that owns the output processing the
-      record.
-    - `timestamp`, `filename`, `lineno`, `source_logger_name` (original
-      emitter).
-    - `raw_message_fmt`, `raw_args`: Original format string and variadic
-      arguments.
-    - `context`: The context table, if provided in the log call.
-  - `config`: The `output_config` table passed when adding the output.
-- **Custom Presenter:** A function with the signature `my_presenter(record)`
-  - `record`: A table with raw log details. Key fields include:
-    - `message_fmt`: The raw message format string (e.g., "User %s logged in").
-      Can be `nil` if context implies the message.
-    - `args`: A packed table of arguments for `message_fmt` (e.g.,
-      `{n=1, "john.doe"}`).
-    - `context`: The context table, if provided (e.g., `{user_id = 123}`).
-    - `level_name`, `level_no`, `logger_name`, `timestamp`, `filename`,
-      `lineno`, `source_logger_name`.
-  - Should return a single string: the formatted log message.
-
-## Leaning More:
-
-<TK> to come , don't hcange it
-
-## Running Tests
-
-The library uses Busted for testing. To run the tests:
-
-1.  Ensure Busted is installed (e.g., `luarocks install busted`).
-2.  Navigate to the root directory of the `lual` project.
-3.  Run the command: `busted`
+- `lual.debug`, `lual.info`, `lual.warn`, `lual.error`, `lual.critical`
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit issues or pull requests.
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
-`lual` is released under the MIT License.
-
-```
-
-```
+MIT License - see LICENSE file for details.
