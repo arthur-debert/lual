@@ -5,7 +5,8 @@ cd "$SCRIPT_DIR/.."
 #    "lua >= 5.1",
 #    "dkjson >= 2.5",
 #    "luasocket >= 3.0rc1-2",
-#    "busted >= 2.0.0"
+#    "busted >= 2.0.0",
+#    "luv >= 1.51.0-1"
 # Find all rockspecs
 MAIN_ROCKSPEC=$(find . -maxdepth 1 -name "lual-*.rockspec" | grep -v "lualextras" | head -1)
 

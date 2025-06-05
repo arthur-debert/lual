@@ -31,50 +31,19 @@ describe("libuv Backend", function()
         }
     end)
 
-    -- Fast stop method that doesn't call flush with 5-second timeout
-    local function fast_stop(self)
-        if not self.is_running then
-            return
+    -- Helper function to wait for async operations with timeout
+    local function wait_for_condition(condition_func, timeout_ms, check_interval_ms)
+        timeout_ms = timeout_ms or 1000
+        check_interval_ms = check_interval_ms or 10
+        local start_time = uv.hrtime()
+
+        while (uv.hrtime() - start_time) < (timeout_ms * 1e6) do
+            if condition_func() then
+                return true
+            end
+            uv.sleep(check_interval_ms)
         end
-
-        self.shutdown_requested = true
-
-        -- Process any remaining work immediately without timeout
-        if self.queue and not self.queue:is_empty() then
-            self.flush_requested = true
-            self:process_queue()
-        end
-
-        -- Stop and close handles
-        if self.timer_handle then
-            self.timer_handle:stop()
-            self.timer_handle:close()
-            self.timer_handle = nil
-        end
-
-        if self.idle_handle then
-            self.idle_handle:stop()
-            self.idle_handle:close()
-            self.idle_handle = nil
-        end
-
-        self.worker_status = "not_started"
-        self.is_running = false
-    end
-
-    -- Fast flush method that doesn't use real timeouts
-    local function fast_flush(self, timeout)
-        self.flush_requested = true
-
-        -- Process queue immediately without event loops or timeouts
-        if self.queue and not self.queue:is_empty() then
-            self:process_queue()
-        end
-
-        self.flush_requested = false
-
-        -- Return success if queue is empty
-        return not self.queue or self.queue:is_empty()
+        return false
     end
 
     describe("Backend Creation", function()
@@ -112,15 +81,11 @@ describe("libuv Backend", function()
         before_each(function()
             backend = libuv_backend.new({
                 batch_size = 3,
-                flush_interval = 0.1,
+                flush_interval = 0.05, -- Shorter interval for faster tests
                 queue = queue,
                 stats = stats,
                 error_callback = function(msg) end
             })
-
-            -- Use fast methods
-            backend.stop = fast_stop
-            backend.flush = fast_flush
         end)
 
         after_each(function()
@@ -164,15 +129,11 @@ describe("libuv Backend", function()
 
             backend = libuv_backend.new({
                 batch_size = 3,
-                flush_interval = 0.1,
+                flush_interval = 0.05, -- Shorter interval for faster tests
                 queue = queue,
                 stats = stats,
                 error_callback = function(msg) end
             })
-
-            -- Use fast methods
-            backend.stop = fast_stop
-            backend.flush = fast_flush
 
             local dispatch_func = function(logger, record)
                 table.insert(processed_items, {
@@ -188,6 +149,8 @@ describe("libuv Backend", function()
             backend:stop()
         end)
 
+        -- note : this test is very slow, taking 1 second to run
+        -- which is about 100 slower then the median. for now, let's leave it like tht
         it("should submit work items successfully", function()
             local work_item = {
                 logger = "test_logger",
@@ -225,7 +188,7 @@ describe("libuv Backend", function()
             assert.equals("test message 1", processed_items[1].record.message)
         end)
 
-        it("should flush all pending work quickly", function()
+        it("should flush all pending work", function()
             -- Temporarily increase batch size to prevent auto-processing
             backend.batch_size = 10
 
@@ -245,8 +208,8 @@ describe("libuv Backend", function()
             assert.equals(5, queue:size())
             assert.equals(0, #processed_items)
 
-            -- Flush should process all items quickly
-            local success = backend:flush(0.001)
+            -- Flush should process all items with reasonable timeout
+            local success = backend:flush(1.0)
 
             assert.is_true(success)
             assert.equals(0, queue:size())
@@ -263,17 +226,13 @@ describe("libuv Backend", function()
 
             backend = libuv_backend.new({
                 batch_size = 2,
-                flush_interval = 0.1,
+                flush_interval = 0.05, -- Shorter interval for faster tests
                 queue = queue,
                 stats = stats,
                 error_callback = function(msg)
                     table.insert(error_messages, msg)
                 end
             })
-
-            -- Use fast methods
-            backend.stop = fast_stop
-            backend.flush = fast_flush
         end)
 
         after_each(function()
@@ -328,15 +287,11 @@ describe("libuv Backend", function()
         before_each(function()
             backend = libuv_backend.new({
                 batch_size = 5,
-                flush_interval = 0.2,
+                flush_interval = 0.05, -- Shorter interval for faster tests
                 queue = queue,
                 stats = stats,
                 error_callback = function(msg) end
             })
-
-            -- Use fast methods
-            backend.stop = fast_stop
-            backend.flush = fast_flush
         end)
 
         after_each(function()
@@ -351,7 +306,7 @@ describe("libuv Backend", function()
             assert.equals("running", backend_stats.worker_status)
             assert.equals(0, backend_stats.worker_restarts)
             assert.equals(5, backend_stats.batch_size)
-            assert.equals(0.2, backend_stats.flush_interval)
+            assert.equals(0.05, backend_stats.flush_interval)
             assert.is_true(backend_stats.is_running)
             assert.is_string(backend_stats.libuv_version)
         end)

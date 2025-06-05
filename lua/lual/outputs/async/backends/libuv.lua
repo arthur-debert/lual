@@ -75,8 +75,18 @@ function M:submit(work_item)
     end
 
     -- Trigger immediate processing if we have work
-    if success and self.idle_handle then
-        self.idle_handle:start(function() self:process_queue() end)
+    if success and self.idle_handle and not self.idle_handle:is_active() then
+        local ok, err = pcall(function()
+            self.idle_handle:start(function()
+                local process_ok, process_err = pcall(self.process_queue, self)
+                if not process_ok then
+                    self.error_callback("Idle callback error: " .. tostring(process_err))
+                end
+            end)
+        end)
+        if not ok then
+            self.error_callback("Failed to start idle handle: " .. tostring(err))
+        end
     end
 
     return success
@@ -86,45 +96,46 @@ end
 -- @param timeout number Timeout in seconds
 -- @return boolean True if flushed successfully
 function M:flush(timeout)
-    self.flush_requested = true
-    local start_time = get_time()
-    local initial_queue_size = self.queue and self.queue:size() or 0
-
-    -- Run the event loop until queue is empty or timeout
-    local timeout_timer = uv.new_timer()
-    local timeout_reached = false
-
-    timeout_timer:start(math.floor(timeout * 1000), 0, function()
-        timeout_reached = true
-        timeout_timer:stop()
-        timeout_timer:close()
-        uv.stop() -- Stop the run loop
-    end)
-
-    -- Process until queue is empty or timeout
-    while self.queue and not self.queue:is_empty() and not timeout_reached do
-        -- Process any pending work
-        self:process_queue()
-
-        -- Run event loop for a short time
-        uv.run("nowait")
-
-        -- Small yield to prevent tight loop
-        if self.queue and not self.queue:is_empty() then
-            uv.sleep(1) -- Sleep 1ms
-        end
+    if not self.queue then
+        return true
     end
 
-    -- Clean up timeout timer if it hasn't fired
-    if not timeout_reached then
-        timeout_timer:stop()
-        timeout_timer:close()
+    self.flush_requested = true
+    local start_time = get_time()
+    local initial_queue_size = self.queue:size()
+
+    -- If queue is already empty, return immediately
+    if initial_queue_size == 0 then
+        self.flush_requested = false
+        return true
+    end
+
+    -- Process all pending work immediately
+    while not self.queue:is_empty() do
+        -- Check timeout
+        if (get_time() - start_time) >= timeout then
+            self.error_callback(string.format(
+                "Flush timeout after %.2fs: %d of %d messages remain in queue",
+                timeout, self.queue:size(), initial_queue_size))
+            break
+        end
+
+        -- Process the queue
+        self:process_queue()
+
+        -- If queue is still not empty after processing, something is wrong
+        if not self.queue:is_empty() then
+            -- Small delay to prevent tight loop, but much shorter than before
+            if uv.sleep then
+                uv.sleep(1) -- 1ms delay
+            end
+        end
     end
 
     self.flush_requested = false
 
     -- Report final status
-    if self.queue and not self.queue:is_empty() then
+    if not self.queue:is_empty() then
         self.error_callback(string.format(
             "Flush completed with %d messages remaining", self.queue:size()))
         return false
@@ -148,18 +159,32 @@ function M:start(dispatch_func)
 
     -- Create timer for periodic batch processing
     self.timer_handle = uv.new_timer()
-    self.timer_handle:start(
-        math.floor(self.flush_interval * 1000), -- Initial delay in ms
-        math.floor(self.flush_interval * 1000), -- Repeat interval in ms
-        function()
-            if not self.shutdown_requested then
-                self:process_queue()
-            end
+    if self.timer_handle then
+        local ok, err = pcall(function()
+            self.timer_handle:start(
+                math.floor(self.flush_interval * 1000), -- Initial delay in ms
+                math.floor(self.flush_interval * 1000), -- Repeat interval in ms
+                function()
+                    if not self.shutdown_requested then
+                        local process_ok, process_err = pcall(self.process_queue, self)
+                        if not process_ok then
+                            self.error_callback("Timer callback error: " .. tostring(process_err))
+                        end
+                    end
+                end
+            )
+        end)
+        if not ok then
+            self.error_callback("Failed to start timer: " .. tostring(err))
+            self.timer_handle = nil
         end
-    )
+    end
 
     -- Create idle handle for immediate processing when work arrives
     self.idle_handle = uv.new_idle()
+    if not self.idle_handle then
+        self.error_callback("Failed to create idle handle")
+    end
     -- Note: idle handle is started on demand in submit()
 end
 
@@ -171,19 +196,31 @@ function M:stop()
 
     self.shutdown_requested = true
 
-    -- Flush remaining work with timeout
-    self:flush(5.0)
+    -- Flush remaining work with timeout (balanced for responsiveness and robustness)
+    self:flush(1.0)
 
     -- Stop and close handles
     if self.timer_handle then
-        self.timer_handle:stop()
-        self.timer_handle:close()
+        local ok, err = pcall(self.timer_handle.stop, self.timer_handle)
+        if not ok then
+            self.error_callback("Failed to stop timer: " .. tostring(err))
+        end
+        ok, err = pcall(self.timer_handle.close, self.timer_handle)
+        if not ok then
+            self.error_callback("Failed to close timer: " .. tostring(err))
+        end
         self.timer_handle = nil
     end
 
     if self.idle_handle then
-        self.idle_handle:stop()
-        self.idle_handle:close()
+        local ok, err = pcall(self.idle_handle.stop, self.idle_handle)
+        if not ok then
+            self.error_callback("Failed to stop idle handle: " .. tostring(err))
+        end
+        ok, err = pcall(self.idle_handle.close, self.idle_handle)
+        if not ok then
+            self.error_callback("Failed to close idle handle: " .. tostring(err))
+        end
         self.idle_handle = nil
     end
 
@@ -219,8 +256,11 @@ end
 function M:process_queue()
     if not self.queue or self.queue:is_empty() or self.shutdown_requested then
         -- Stop idle handle if no work
-        if self.idle_handle then
-            self.idle_handle:stop()
+        if self.idle_handle and self.idle_handle:is_active() then
+            local ok, err = pcall(self.idle_handle.stop, self.idle_handle)
+            if not ok then
+                self.error_callback("Failed to stop idle handle: " .. tostring(err))
+            end
         end
         return
     end
@@ -263,12 +303,25 @@ function M:process_queue()
     end
 
     -- Continue processing if there's more work
-    if not self.queue:is_empty() and self.idle_handle then
-        -- Keep idle handle running for continuous processing
-        self.idle_handle:start(function() self:process_queue() end)
-    elseif self.idle_handle then
+    if not self.queue:is_empty() and self.idle_handle and not self.idle_handle:is_active() then
+        -- Start idle handle for continuous processing
+        local ok, err = pcall(function()
+            self.idle_handle:start(function()
+                local process_ok, process_err = pcall(self.process_queue, self)
+                if not process_ok then
+                    self.error_callback("Idle callback error: " .. tostring(process_err))
+                end
+            end)
+        end)
+        if not ok then
+            self.error_callback("Failed to start idle handle: " .. tostring(err))
+        end
+    elseif self.queue:is_empty() and self.idle_handle and self.idle_handle:is_active() then
         -- Stop idle handle when done
-        self.idle_handle:stop()
+        local ok, err = pcall(self.idle_handle.stop, self.idle_handle)
+        if not ok then
+            self.error_callback("Failed to stop idle handle: " .. tostring(err))
+        end
     end
 end
 
