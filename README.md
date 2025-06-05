@@ -32,6 +32,7 @@ lual.config({
 - **Built-in Components**: Write to the console, files, or syslog; format as JSON, plain text, or colored terminal output.
 - **Hierarchical Loggers**: Dot-separated logger names create automatic parent-child relationships with propagation.
 - **Performance**: Efficient level filtering and lazy evaluation minimize overhead.
+- **AsyncIO**:  [Async I/O Guide](docs/guide/async-io.md)  in experimental mode
 
 ## Lean and Dependency-Free
 
@@ -71,11 +72,10 @@ Currently, lual has two primary limitations that might be important for your use
 
 2.  **Blocking I/O**
 
-    All logging operations in lual, from event dispatch to the final output write, are blocking. This can be a critical limitation for high-throughput systems where logging performance and application responsiveness are paramount.
+    By default, all logging operations in lual are blocking. For high-throughput systems where logging performance and application responsiveness are critical, lual provides async I/O with pluggable backends.
 
-    Improving this aspect is an area for potential future development. Feedback or suggestions on non-blocking I/O approaches suitable for the Lua ecosystem are welcome.
 
-    Async-io is under planning no the async-io branch
+    New: in beta testing:  [Async I/O Guide](docs/guide/async-io.md) for configuration and backend options. The coroutine backend offers significant performance improvements for most use cases, with true non-blocking backends planned.
 
 
 ## Contributing
