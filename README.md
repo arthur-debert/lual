@@ -1,4 +1,4 @@
-# lual - logging made easy
+# lual - Powerful Logging Withough the Hassle
 
 lual is logging library for lua. Modeled after Python's standard lib, with a leaner API making good usage of Lua idioms, such as using functions over classes. The API is design to scale from a simple personal project to more complex deployments with hierarchical configurations and multiple pipelines.
 
@@ -38,31 +38,14 @@ lual.config({
 lual aims to be a good fit for demanding deployments where performance, file size, and dependencies matter. The core library is small and has good performance characteristics.
 
 The base install has no dependencies. If you use these specific components, then you must have their dependencies installed:
+
 - JSON presenter requires dkjson
 - Syslog output requires luasocket
+
+[See if lual is not a good fit for your deployment for more details.](#who-lual-is-not-for)
 
 ## Installation
 
 Install via LuaRocks:
 
-```bash
-luarocks install lual
 ```
-
-## Documentation
-
-- **[Getting Started Guide](docs/getting-started/)** - Quick introduction and basic concepts
-- **[User Guide](docs/guide/)** - Configuration, hierarchy, and common patterns
-- **[Deep Dives](docs/deep-dives/)** - Advanced topics and internals
-- **[API Reference](docs/reference/)** - Complete API documentation
-
-## Contributing
-
-Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-## License
-
-MIT License - see LICENSE file for details.
-
-
-Made with ❤️ for the Lua community
