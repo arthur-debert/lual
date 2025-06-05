@@ -385,9 +385,9 @@ local function validate_config(config_table)
                         return false, "async.overflow_strategy must be 'drop_oldest', 'drop_newest', or 'block'"
                     end
                 elseif async_key == "backend" then
-                    local valid_backends = { coroutines = true }
+                    local valid_backends = { coroutines = true, libuv = true }
                     if not valid_backends[async_value] then
-                        return false, "async.backend must be 'coroutines'"
+                        return false, "async.backend must be 'coroutines' or 'libuv'"
                     end
                 end
             end
