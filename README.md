@@ -42,10 +42,45 @@ The base install has no dependencies. If you use these specific components, then
 - JSON presenter requires dkjson
 - Syslog output requires luasocket
 
-[See if lual is not a good fit for your deployment for more details.](#who-lual-is-not-for)
+See [if lual is not a good fit for your deployment for more](#who-lual-is-not-for)
 
 ## Installation
 
 Install via LuaRocks:
 
+```bash
+luarocks install lual
 ```
+
+## Documentation
+
+- **[Getting Started Guide](docs/getting-started/)** - Quick introduction and basic concepts
+- **[User Guide](docs/guide/)** - Configuration, hierarchy, and common patterns
+- **[Deep Dives](docs/deep-dives/)** - Advanced topics and internals
+- **[API Reference](docs/reference/)** - Complete API documentation
+
+## Who lual is not for
+
+Currently, lual has two primary limitations that might be important for your use case:
+
+1.  **Limited Variety of Built-in Output Writers**
+
+    For simpler applications or those with basic logging needs, lual's built-in output writers (like console and file) are generally sufficient. However, larger or more complex applications often require logging to diverse systems, each with unique protocols, formats, and performance considerations.
+
+    In many scenarios, logging to files or syslog provides a good baseline, as these can often be integrated with other systems via adapters. But, if you require direct integration with specialized output targets and cannot use file/syslog adapters, you would need to implement custom output writers.
+
+2.  **Blocking I/O**
+
+    All logging operations in lual, from event dispatch to the final output write, are blocking. This can be a critical limitation for high-throughput systems where logging performance and application responsiveness are paramount.
+
+    Improving this aspect is an area for potential future development. Feedback or suggestions on non-blocking I/O approaches suitable for the Lua ecosystem are welcome.
+
+## Contributing
+
+Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## License
+
+MIT License - see LICENSE file for details.
+
+Made with ❤️ for the Lua community
