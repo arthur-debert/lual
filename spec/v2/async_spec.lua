@@ -496,6 +496,106 @@ describe("Async I/O", function()
             stats = async_writer.get_stats()
             assert.equals(0, stats.queue_size)
         end)
+
+        it("should include memory protection stats", function()
+            lual.config({
+                async_enabled = true,
+                max_queue_size = 500,
+                overflow_strategy = "drop_newest"
+            })
+
+            local stats = async_writer.get_stats()
+            assert.equals(500, stats.max_queue_size)
+            assert.equals("drop_newest", stats.overflow_strategy)
+            assert.equals(0, stats.queue_overflows)
+            assert.equals(0, stats.worker_restarts)
+        end)
+    end)
+
+    describe("Memory protection", function()
+        before_each(function()
+            lual.config({
+                async_enabled = true,
+                async_batch_size = 100, -- Large batch to prevent auto-processing
+                max_queue_size = 5,     -- Small queue for testing
+                overflow_strategy = "drop_oldest",
+                level = lual.debug,
+                pipelines = {
+                    {
+                        level = lual.debug,
+                        outputs = { test_output_func },
+                        presenter = lual.text()
+                    }
+                }
+            })
+        end)
+
+        it("should handle queue overflow with drop_oldest strategy", function()
+            local logger = lual.logger("test")
+
+            -- Fill the queue to the limit
+            for i = 1, 5 do
+                logger:info("Message " .. i)
+            end
+
+            local stats = async_writer.get_stats()
+            assert.equals(5, stats.queue_size)
+
+            -- This should trigger overflow and drop the oldest
+            logger:info("Message 6")
+
+            stats = async_writer.get_stats()
+            assert.equals(5, stats.queue_size)      -- Still at limit
+            assert.equals(1, stats.queue_overflows) -- One overflow occurred
+
+            -- Verify we have dropped the oldest and kept the newest
+            lual.flush()
+            assert.equals(5, #captured_output)
+            assert.equals("Message 2", captured_output[1].message) -- Message 1 was dropped
+            assert.equals("Message 6", captured_output[5].message) -- New message added
+        end)
+
+        it("should handle queue overflow with drop_newest strategy", function()
+            lual.config({
+                async_enabled = true,
+                async_batch_size = 100,
+                max_queue_size = 3,
+                overflow_strategy = "drop_newest",
+                level = lual.debug,
+                pipelines = {
+                    {
+                        level = lual.debug,
+                        outputs = { test_output_func },
+                        presenter = lual.text()
+                    }
+                }
+            })
+
+            local logger = lual.logger("test")
+
+            -- Fill the queue to the limit
+            logger:info("Message 1")
+            logger:info("Message 2")
+            logger:info("Message 3")
+
+            local stats = async_writer.get_stats()
+            assert.equals(3, stats.queue_size)
+
+            -- This should be dropped
+            logger:info("Message 4")
+
+            stats = async_writer.get_stats()
+            assert.equals(3, stats.queue_size)      -- Still at limit
+            assert.equals(1, stats.queue_overflows) -- One overflow occurred
+
+            -- Verify the newest message was dropped
+            lual.flush()
+            assert.equals(3, #captured_output)
+            assert.equals("Message 1", captured_output[1].message)
+            assert.equals("Message 2", captured_output[2].message)
+            assert.equals("Message 3", captured_output[3].message)
+            -- Message 4 should not be present
+        end)
     end)
 
     describe("Integration with existing features", function()

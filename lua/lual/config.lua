@@ -69,7 +69,9 @@ local VALID_CONFIG_KEYS = {
     custom_levels = { type = "table", description = "Custom log levels as name = value pairs" },
     async_enabled = { type = "boolean", description = "Enable asynchronous logging mode" },
     async_batch_size = { type = "number", description = "Number of messages to batch before writing" },
-    async_flush_interval = { type = "number", description = "Time interval (seconds) to force flush batches" }
+    async_flush_interval = { type = "number", description = "Time interval (seconds) to force flush batches" },
+    max_queue_size = { type = "number", description = "Maximum number of messages in async queue before overflow handling" },
+    overflow_strategy = { type = "string", description = "Queue overflow strategy: 'drop_oldest', 'drop_newest', or 'block'" }
 }
 
 -- Table of valid pipeline keys and their expected types/descriptions
@@ -344,6 +346,15 @@ local function validate_config(config_table)
             if value <= 0 then
                 return false, "async_flush_interval must be greater than 0"
             end
+        elseif key == "max_queue_size" then
+            if value <= 0 then
+                return false, "max_queue_size must be greater than 0"
+            end
+        elseif key == "overflow_strategy" then
+            local valid_strategies = { drop_oldest = true, drop_newest = true, block = true }
+            if not valid_strategies[value] then
+                return false, "overflow_strategy must be 'drop_oldest', 'drop_newest', or 'block'"
+            end
         end
 
         ::continue::
@@ -417,7 +428,9 @@ function M.config(config_table)
             local async_config = {
                 async_enabled = _root_logger_config.async_enabled,
                 async_batch_size = _root_logger_config.async_batch_size or 50,
-                async_flush_interval = _root_logger_config.async_flush_interval or 1.0
+                async_flush_interval = _root_logger_config.async_flush_interval or 1.0,
+                max_queue_size = _root_logger_config.max_queue_size or 10000,
+                overflow_strategy = _root_logger_config.overflow_strategy or "drop_oldest"
             }
             async_writer.start(async_config, nil)
             -- Setup the dispatch function in pipeline module

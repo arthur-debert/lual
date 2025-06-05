@@ -33,6 +33,11 @@ local _max_restarts = 5
 local _last_restart_time = 0
 local _restart_backoff = 1.0 -- Seconds between restarts
 
+-- Memory protection
+local _max_queue_size = 10000            -- Configurable limit
+local _queue_overflows = 0
+local _overflow_strategy = "drop_oldest" -- "drop_oldest", "drop_newest", "block"
+
 --- Sets the error handler function for async errors
 -- @param handler function Function to call when async errors occur
 function M.set_error_handler(handler)
@@ -97,6 +102,29 @@ local function restart_worker()
     return true
 end
 
+--- Handles queue overflow using the configured strategy
+-- @return boolean True if the new message should be added to the queue
+local function handle_queue_overflow()
+    _queue_overflows = _queue_overflows + 1
+
+    if _overflow_strategy == "drop_oldest" then
+        local dropped = table.remove(_log_queue, 1)
+        report_async_error(string.format(
+            "Queue overflow: dropped oldest message (level=%s, logger=%s)",
+            dropped.record.level_name, dropped.logger.name))
+    elseif _overflow_strategy == "drop_newest" then
+        -- Don't add the new message
+        report_async_error("Queue overflow: dropped newest message")
+        return false -- Signal not to add
+    elseif _overflow_strategy == "block" then
+        -- Force immediate flush to make room
+        report_async_error("Queue overflow: forcing immediate flush")
+        M.flush()
+    end
+
+    return true
+end
+
 --- Worker coroutine function
 local function worker_function()
     while true do
@@ -154,6 +182,8 @@ function M.start(config, dispatch_func)
     _async_enabled = config.async_enabled ~= false -- Default to true if not specified
     _async_batch_size = config.async_batch_size or 50
     _async_flush_interval = config.async_flush_interval or 1.0
+    _max_queue_size = config.max_queue_size or 10000
+    _overflow_strategy = config.overflow_strategy or "drop_oldest"
     _dispatch_function = dispatch_func
 
     if _async_enabled then
@@ -209,6 +239,13 @@ function M.queue_log_event(logger, log_record)
                 end
             end
             return
+        end
+    end
+
+    -- Check queue size limit
+    if #_log_queue >= _max_queue_size then
+        if not handle_queue_overflow() then
+            return -- Message dropped
         end
     end
 
@@ -322,7 +359,11 @@ function M.get_stats()
         batch_size = _async_batch_size,
         flush_interval = _async_flush_interval,
         worker_status = _worker_status,
-        last_flush_time = _last_flush_time
+        last_flush_time = _last_flush_time,
+        max_queue_size = _max_queue_size,
+        overflow_strategy = _overflow_strategy,
+        queue_overflows = _queue_overflows,
+        worker_restarts = _worker_restarts
     }
 end
 
@@ -343,6 +384,11 @@ function M.reset()
     -- Reset worker recovery state
     _worker_restarts = 0
     _last_restart_time = 0
+
+    -- Reset memory protection state
+    _max_queue_size = 10000
+    _queue_overflows = 0
+    _overflow_strategy = "drop_oldest"
 end
 
 return M
