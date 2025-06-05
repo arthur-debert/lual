@@ -1,124 +1,165 @@
-lual Logging Components: Transformers, Presenters & outputs
+lual Logging Components: Pipelines, Transformers, Presenters & Outputs
 
 1.  Overview: The Log Record Flow
 
-    In lual, when you call `logger:info("message")`, your log event flows through a precise pipeline:
+    In lual, when you call `logger:info("message")`, your log event flows through pipelines:
 
     ```
-    Logger Emit → Log Record Creation → Transformers → Presenter → output → Output
+    Logger Emit → Log Record Creation → Pipeline Processing → Transformers → Presenter → Outputs → Destinations
     ```
 
     Each component has a specific role:
+    - **Pipelines**: Define complete processing chains with level thresholds, transformers, presenters, and outputs
     - **Transformers**: Modify log record data (add/change fields)
     - **Presenters**: Format the record into a string (text, JSON, colors)
-    - **outputs**: Send the formatted string to an output destination (console, file, syslog)
+    - **Outputs**: Send the formatted string to destinations (console, file, syslog)
 
+2. Pipelines: The Foundation
 
-2. Transformers: Data Modification
+    2.1 What They Are
 
-    2.1 What They Do
+        Pipelines are the core configuration unit in lual. Each pipeline combines:
+        - A level threshold (when to activate the pipeline)
+        - One or more outputs (where to send the log)
+        - A presenter (how to format the log)
+        - Optional transformers (how to modify the log data)
 
-        Transformers are functions that receive a log record and return a modified version. They sit between the logger and presenter, allowing you to:
+        Pipelines replace the previous dispatcher/output system, providing cleaner separation of concerns.
+
+    2.2 Configuration Structure
+
+        lual.config({
+            level = lual.DEBUG, -- Root level is DEBUG
+            pipelines = {
+                {
+                    level = lual.DEBUG,  -- Pipeline processes DEBUG and above
+                    outputs = {
+                        lual.file
+                    },
+                    presenter = lual.json(),
+                    transformers = {
+                        lual.noop
+                    }
+                },
+                {
+                    level = lual.WARNING,  -- Pipeline processes WARNING and above
+                    outputs = {
+                        lual.console
+                    },
+                    presenter = lual.text()
+                }
+            }
+        })
+
+    2.3 Pipeline Processing
+
+        When a log event occurs:
+        1. Each pipeline checks its level threshold against the event level
+        2. If the threshold is met, the pipeline processes the event through:
+           - Transformers (sequentially, if any)
+           - Presenter (formats the record)
+           - Outputs (sends to all configured destinations)
+        3. Each pipeline operates independently - one pipeline failure doesn't affect others
+
+3. Transformers: Data Modification
+
+    3.1 What They Do
+
+        Transformers are functions that receive a log record and return a modified version. They sit at the beginning of pipeline processing, allowing you to:
 
         - Add metadata fields
         - Modify existing data
         - Enrich records with contextual information
         - Filter or transform field values
 
-    2.2 Structure & Factory Pattern
+    3.2 Structure & Factory Pattern
+        
         Transformers follow a factory pattern that returns callable tables with schemas:
 
-        ```lua
-        local function custom_transformer_factory(config)
-            config = config or {}
-            
-            local function transformer_func(record)
-                -- Create a copy to avoid mutating the original
-                local transformed_record = {}
-                for k, v in pairs(record) do
-                    transformed_record[k] = v
+            local function custom_transformer_factory(config)
+                config = config or {}
+                
+                local function transformer_func(record)
+                    -- Create a copy to avoid mutating the original
+                    local transformed_record = {}
+                    for k, v in pairs(record) do
+                        transformed_record[k] = v
+                    end
+                    
+                    -- Your modifications here
+                    transformed_record.custom_field = "added_value"
+                    
+                    return transformed_record
                 end
                 
-                -- Your modifications here
-                transformed_record.custom_field = "added_value"
+                local transformer_with_schema = {
+                    schema = { /* config validation schema */ }
+                }
                 
-                return transformed_record
+                setmetatable(transformer_with_schema, {
+                    __call = function(_, record)
+                        return transformer_func(record)
+                    end
+                })
+                
+                return transformer_with_schema
             end
-            
-            local transformer_with_schema = {
-                schema = { /* config validation schema */ }
-            }
-            
-            setmetatable(transformer_with_schema, {
-                __call = function(_, record)
-                    return transformer_func(record)
-                end
-            })
-            
-            return transformer_with_schema
-        end
-        ```
 
-        ### Configuration
-        ```lua
-        local logger = lual.logger({
-            outputs = {
-                {
-                    type = lual.console,
-                    presenter = lual.text,
-                    transformers = {
-                        { type = lual.noop },
-                        { type = lual.custom, prefix = "[APP] " }
+    3.3 Pipeline Configuration
+
+            lual.config({
+                pipelines = {
+                    {
+                        level = lual.DEBUG,
+                        outputs = { lual.console },
+                        presenter = lual.text(),
+                        transformers = {
+                            lual.noop,
+                            { func = custom_transformer_factory, config = { prefix = "[APP] " } }
+                        }
                     }
                 }
-            }
-        })
-        ```
+            })
 
         Transformers are applied sequentially - each transformer receives the output of the previous one.
 
-3.  Presenters: Data Formatting
+4.  Presenters: Data Formatting
 
-    3.1  What They Do
-    Presenters convert log records into formatted strings ready for output. They handle:
-
-    - Message formatting with arguments
-    - Timestamp formatting (with timezone support)
-    - Output format (plain text, JSON, colored terminal output)
-    - Field arrangement and styling
-
-    3.2 Built-in Presenters
-
+    4.1  What They Do
     
-        3.2.1 Text Presenter
+        Presenters convert log records into formatted strings ready for output. They handle:
+
+        - Message formatting with arguments
+        - Timestamp formatting (with timezone support)
+        - Output format (plain text, JSON, colored terminal output)
+        - Field arrangement and styling
+
+    4.2 Built-in Presenters
+
+        4.2.1 Text Presenter
                 
                 -- Creates: "2023-03-15 10:00:00 INFO [app.module] User john logged in"
-                    local text_presenter = lual.presenters.text({ timezone = lual.utc })
-                -- lua
+                local text_presenter = lual.text({ timezone = lual.utc })
 
-
-        3.2.2 JSON Presenter
+        4.2.2 JSON Presenter
             
             -- Creates structured JSON output: 
-                local json_presenter = lual.presenters.json({ 
+                local json_presenter = lual.json({ 
                     pretty = true,
                     timezone = lual.local_time 
                 })
-            --- lua
 
-        
-        3.2.3 Color Presenter
+        4.2.3 Color Presenter
                 
                 -- Creates colorized terminal output
-                    local color_presenter = lual.presenters.color({
-                        level_colors = {
-                            ERROR = "red",
-                            WARNING = "yellow"
-                        }
-                    })
-                --- lua
+                local color_presenter = lual.color({
+                    level_colors = {
+                        ERROR = "red",
+                        WARNING = "yellow"
+                    }
+                })
 
-    3.3 Log Record Structure
+    4.3 Log Record Structure
     
         Presenters receive log records with this structure:
 
@@ -133,10 +174,8 @@ lual Logging Components: Transformers, Presenters & outputs
                     filename = "app.lua",          -- Source filename
                     lineno = 42,                   -- Source line number
                 }
-            
-            --- lua
 
-    3.4 Factory Pattern
+    4.4 Factory Pattern
         
         Like transformers, presenters use factories:
 
@@ -166,23 +205,21 @@ lual Logging Components: Transformers, Presenters & outputs
                 
                 return presenter_with_schema
             end
-        
-        --- lua
 
-4. outputs: Output Delivery
+5. Outputs: Destination Delivery
 
-    4.1 What They Do
+    5.1 What They Do
         
-        outputs are the final step - they take formatted messages from presenters and send them to output destinations. They're simpler than transformers/presenters and handle:
+        Outputs are the final step in pipelines - they take formatted messages from presenters and send them to destinations. They handle:
 
         - Writing to streams (stdout, stderr, files)
         - Network delivery (syslog)
         - Error handling for output failures
         - Buffering and flushing
 
-    4.2 Built-in outputs
+    5.2 Built-in Outputs
 
-        4.2.1 Console output
+        5.2.1 Console Output
             
             -- Writes to stdout by default
                 local function console_output(record, config)
@@ -191,29 +228,23 @@ lual Logging Components: Transformers, Presenters & outputs
                     stream:write("\n")
                     stream:flush()
                 end
-            
-            --- lua
 
-        4.2.2 File output
+        5.2.2 File Output
             
             -- Writes to rotating log files
-                local file_disp = lual.outputs.file_output({ 
+                local file_output = lual.file({ 
                     path = "/var/log/app.log" 
                 })
-            
-            --- lua
 
-        4.2.3 Syslog output
+        5.2.3 Syslog Output
             
             -- Sends to system log
-                local syslog_disp = lual.outputs.syslog_output({
+                local syslog_output = lual.outputs.syslog_output({
                     facility = "local0",
                     hostname = "myserver"
                 })
-            
-            --- lua
 
-    4.3 Simple Function Pattern
+    5.3 Simple Function Pattern
         
         Unlike transformers/presenters, outputs are simpler functions:
 
@@ -229,80 +260,71 @@ lual Logging Components: Transformers, Presenters & outputs
                     io.stderr:write("Failed to open log file\n")
                 end
             end
-        
-        --- lua
 
-5. Configuration & Integration
+6. Configuration & Integration
 
-    5.1 Single output Setup
+    6.1 Root Logger Configuration
         
-            local logger = lual.logger({
-                name = "app",
+            lual.config({
                 level = lual.info,
-                output = lual.console,    -- output constant
-                presenter = lual.text,        -- Presenter constant
-                timezone = lual.utc          -- Time constant
-            })
-        
-        --- lua
-
-    5.2 Multiple outputs with Full Configuration
-        
-            local logger = lual.logger({
-                name = "app",
-                level = lual.debug,
-                outputs = {
+                pipelines = {
                     {
-                        type = lual.console,
-                        presenter = lual.color,
-                        timezone = lual.local_time,
-                        transformers = {
-                            { type = lual.noop }
-                        }
+                        outputs = { lual.console },
+                        presenter = lual.text()
+                    }
+                }
+            })
+
+    6.2 Logger-Specific Pipelines
+        
+            local logger = lual.logger("app", {
+                level = lual.debug,
+                pipelines = {
+                    {
+                        level = lual.debug,
+                        outputs = { lual.console },
+                        presenter = lual.color(),
+                        transformers = { lual.noop }
                     },
                     {
-                        type = lual.file,
-                        path = "app.log",
-                        presenter = lual.json,
-                        timezone = lual.utc,
+                        level = lual.info,
+                        outputs = { lual.file },
+                        presenter = lual.json(),
                         transformers = {
-                            { type = lual.audit, include_source = true }
+                            { func = audit_transformer, config = { include_source = true } }
                         }
                     }
                 }
             })
-        
-        --- lua
 
-    5.3 Imperative API
+    6.3 Imperative API
         
             local logger = lual.logger("app")
-            logger:add_output(
-                lual.outputs.console_output(),
-                lual.presenters.text({ timezone = lual.utc })
-            )
+            logger:add_pipeline({
+                outputs = { lual.console },
+                presenter = lual.text({ timezone = lual.utc })
+            })
+
+7. Key Relationships
+
+    7.1 Component Dependencies
         
-        --- lua
+        - Pipelines are independent: Each pipeline processes events separately
+        - Components are pipeline-specific: Each pipeline has its own transformer chain, presenter, and outputs
+        - Level checking is dual: Logger level and pipeline level both matter
+        - Error isolation: If a component fails, the pipeline continues with original record or stops gracefully
+        - Sequential transformers: Transformers run in order within a pipeline
 
-6. Key Relationships
+8. Best Practices
 
-    6.1 Component Dependencies
+    8.1 Development Guidelines
         
-        - Transformers are output-specific: Each output can have its own transformer chain
-        - Presenters are output-specific: Each output uses exactly one presenter
-        - Configuration flows down: Timezone and other settings can be configured at the output level
-        - Error isolation: If a transformer fails, logging continues with the original record
-        - Sequential processing: Transformers run in order, but outputs run independently
-
-7. Best Practices
-
-    7.1 Development Guidelines
-        
+        - Design specific pipelines: Create pipelines for different purposes (debug to console, errors to file)
         - Keep transformers simple: Each should do one thing well
         - Always copy records: Don't mutate the original in transformers
         - Handle missing fields: Check for field existence before using
         - Use appropriate presenters: JSON for structured logs, text for human reading, color for development
-        - Configure timezone consistently: Especially important for multi-output setups
+        - Configure levels thoughtfully: Use pipeline levels for granular control
         - Test error conditions: Ensure components handle edge cases gracefully
 
-    This architecture provides flexibility while maintaining clear separation of concerns - transformers handle data, presenters handle formatting, and outputs handle delivery.
+    This pipeline architecture provides flexibility while maintaining clear separation of concerns - pipelines organize processing, transformers handle data modification, presenters handle formatting, and outputs handle delivery.

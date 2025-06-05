@@ -13,18 +13,18 @@ EXAMPLES
     logger.error("This is an error!")       -- Logged to console
     ```
 
-    *   `_root` exists with level `lual.WARN` and a console output.
-    *   `logger` ("myApp") has `level = lual.NOTSET`, no outputs, `propagate = true`.
+    *   `_root` exists with level `lual.WARN` and a default console pipeline.
+    *   `logger` ("myApp") has `level = lual.NOTSET`, no pipelines, `propagate = true`.
     *   `logger.debug`:
         - Effective level for "myApp" is `WARN` (from `_root`).
-        - `DEBUG < WARN`. No match. "myApp" does not output.
-        - Propagates to `_root`. `DEBUG < _root.level (WARN)`. No match. `_root` does not output.
+        - `DEBUG < WARN`. No match. "myApp" does not process.
+        - Propagates to `_root`. `DEBUG < _root.level (WARN)`. No match. `_root` does not process.
     *   `logger.warn`:
         - Effective level for "myApp" is `WARN`.
-        - `WARN >= WARN`. Match! "myApp" has no outputs, so it logs nothing itself.
+        - `WARN >= WARN`. Match! "myApp" has no pipelines, so it processes nothing itself.
         - Propagates to `_root`. `WARN >= _root.level (WARN)`. Match! `_root` uses its
-          console output. Output: "This is a warning." (formatted by
-          `_root`'s default presenter).
+          default console pipeline. Output: "This is a warning." (formatted by
+          `_root`'s default text presenter).
 
 2.  User Configures Root Logger:
 
@@ -33,11 +33,10 @@ EXAMPLES
     local lual = require("lual")
     lual.config({
         level = lual.DEBUG,
-        outputs = {
+        pipelines = {
             {
-                type = lual.file,
-                path = "/var/log/my_app.log",
-                presenter = { type = lual.json } -- Example: JSON presenter
+                outputs = { lual.file },
+                presenter = lual.json() -- JSON presenter
             }
         }
     })
@@ -50,15 +49,15 @@ EXAMPLES
 
     *   `lual.config` reconfigures `_root`:
         - `_root.level` is now `lual.DEBUG`.
-        - `_root.outputs` now contains only the file output writing JSON.
-    *   `mod_logger` ("myApp.moduleA"): `level = lual.NOTSET`, no outputs, `propagate = true`.
+        - `_root.pipelines` now contains only the file pipeline with JSON presenter.
+    *   `mod_logger` ("myApp.moduleA"): `level = lual.NOTSET`, no pipelines, `propagate = true`.
     *   `mod_logger.debug`:
         - Effective level for "myApp.moduleA" is `DEBUG` (from `_root`).
-        - `DEBUG >= DEBUG`. Match! "myApp.moduleA" has no outputs.
+        - `DEBUG >= DEBUG`. Match! "myApp.moduleA" has no pipelines.
         - Propagates to "myApp" (if it exists, otherwise directly to `_root`).
-          Assume "myApp" also has `level = lual.NOTSET` and no outputs.
+          Assume "myApp" also has `level = lual.NOTSET` and no pipelines.
         - Propagates to `_root`. `DEBUG >= _root.level (DEBUG)`. Match! `_root` uses
-          its file/JSON output. Output to `/var/log/my_app.log`.
+          its file/JSON pipeline. Output to file as JSON.
 
 3.  Logger-Specific Configuration with Root Config:
 
@@ -67,16 +66,22 @@ EXAMPLES
     local lual = require("lual")
     lual.config({
         level = lual.INFO, -- Root level is INFO
-        outputs = {
-            { type = lual.file, path = "app.log", presenter = { type = lual.text } }
+        pipelines = {
+            { 
+                outputs = { lual.file }, 
+                presenter = lual.text() 
+            }
         }
     })
 
     -- in feature_x.lua
     local feature_logger = lual.logger("app.featureX", {
         level = lual.DEBUG, -- This logger is more verbose
-        outputs = {
-            { type = lual.console, presenter = { type = lual.color } }
+        pipelines = {
+            { 
+                outputs = { lual.console }, 
+                presenter = lual.color() 
+            }
         },
         propagate = true -- Explicitly true, could be false
     })
@@ -90,55 +95,89 @@ EXAMPLES
     -- Output: To app.log (text) by _root logger.
     ```
 
-    *   `_root` level: `lual.INFO`, file output.
+    *   `_root` level: `lual.INFO`, file pipeline.
     *   `feature_logger` ("app.featureX"):
         - Level: `lual.DEBUG` (explicitly set).
-        - outputs: Its own console/color output.
+        - Pipelines: Its own console/color pipeline.
         - Propagate: `true`.
     *   `feature_logger.debug("A detailed debug message...")`:
         - `feature_logger` effective level is `DEBUG`. `DEBUG >= DEBUG`. Match!
-        - `feature_logger` outputes to its console/color output.
+        - `feature_logger` processes through its console/color pipeline.
         - Propagates to `_root`. `_root` level is `INFO`. `DEBUG < INFO`. No match.
-          `_root` does not output.
+          `_root` does not process.
     *   `feature_logger.warn("A warning from Feature X.")`:
         - `feature_logger` effective level is `DEBUG`. `WARN >= DEBUG`. Match!
-        - `feature_logger` outputes to its console/color output.
+        - `feature_logger` processes through its console/color pipeline.
         - Propagates to `_root`. `_root` level is `INFO`. `WARN >= INFO`. Match!
-        - `_root` outputes to its file/text output.
+        - `_root` processes through its file/text pipeline.
 
 This design ensures that loggers only act based on their own configurations
-(or inherited level if `NOTSET`) and explicitly defined outputs.
+(or inherited level if `NOTSET`) and explicitly defined pipelines.
 Propagation allows higher-level loggers to also process the event if desired,
-without complex merging of output behaviors.
+without complex merging of pipeline behaviors.
 
+4. Pipeline-Specific Levels:
 
-4. output-Specific Levels: 
+    Pipelines can be configured with their own levels for granular control.
+    During pipeline processing, each pipeline checks its level threshold
+    against the event level. This occurs after the logger's own level check,
+    so a pipeline's level set lower (more verbose) than the logger's will
+    never activate.
 
+    By default, pipeline levels are `NOTSET`, meaning they use the logger's
+    effective level.
 
-    outputs can be (optionally) be configured with their own levels. During
-    the output loop, once a logger iterates over it's outputs, it does a
-    level check against the outputs. Note that this ocurs after the logger's
-    own , hence a output's level set to lower (more verbose) then the loggers 
-    will never output.
+    This allows for fine-grained control over which events are processed by
+    each pipeline:
 
-    By default, outputs levels are `NOTSET`, meaning they will be evaluated
-    to the logger's effective level. 
+    ```lua
+    local lual = require("lual")
 
-    This allows for more granular control over which events are sent to each
-    output, for example: 
-
-    ``lua
-
-        local lual = require("lual")
-
-        lual.config({
-            level = lual.DEBUG, -- Root level is INFO
-            outputs = {
-                { level = lual.DEBUG, type = lual.file, path = "app.log", presenter = { type = lual.json } }
-                { level = lual.WARN, type = lual.console, presenter = { type = lual.text } }
+    lual.config({
+        level = lual.DEBUG, -- Root level is DEBUG
+        pipelines = {
+            { 
+                level = lual.DEBUG, 
+                outputs = { lual.file }, 
+                presenter = lual.json() 
+            },
+            { 
+                level = lual.WARN, 
+                outputs = { lual.console }, 
+                presenter = lual.text() 
             }
-        })
+        }
+    })
+    ```
 
-    ````
+    With this configuration:
+    - DEBUG and INFO events go to file as JSON only
+    - WARN, ERROR, and CRITICAL events go to both file (JSON) and console (text)
+
+5. Multiple Outputs in a Pipeline:
+
+    A single pipeline can send logs to multiple destinations:
+
+    ```lua
+    local feature_logger = lual.logger("app.feature", {
+        pipelines = {
+            {
+                level = lual.ERROR,
+                outputs = { 
+                    lual.console,
+                    lual.file,
+                    lual.outputs.syslog_output({ facility = "local0" })
+                },
+                presenter = lual.text(),
+                transformers = {
+                    { func = audit_transformer, config = { include_stack = true } }
+                }
+            }
+        }
+    })
+    ```
+
+    ERROR events will be transformed, formatted as text, and sent to console,
+    file, and syslog simultaneously.
 
 

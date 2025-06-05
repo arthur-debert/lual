@@ -15,13 +15,12 @@ CORE PRINCIPLES
     *   Library Defaults: On first use (e.g., when `lual` is required), `_root`
         is automatically created and configured with library defaults:
         -   Level: `lual.WARN`
-        -   outputs: A single console output (e.g., to stdout).
-        -   Presenter: A default presenter (e.g., text-based, colorized, using
-            local time).
+        -   Pipelines: A single default pipeline with console output, text presenter,
+            and local time.
         -   Propagate: `true` (though propagation from `_root` has no further effect).
     *   User Configuration: The primary way to modify `_root`'s behavior is via
         `lual.config(config_table)`. This function applies the settings from
-        `config_table` (level, outputs, etc.) directly to `_root`,
+        `config_table` (level, pipelines, etc.) directly to `_root`,
         overriding the library defaults for the specified keys.
 
 2.  User Loggers (Non-Root):
@@ -33,23 +32,26 @@ CORE PRINCIPLES
         -   Level: `lual.NOTSET`. This special value means the logger's
             effective level will be determined by its closest ancestor (parent,
             grandparent, etc., up to `_root`) that has an explicit level set.
-        -   outputs: An empty list (`{}`). Loggers do not have outputs
-            by default.
+        -   Pipelines: An empty list (`{}`). Loggers have no pipelines by default.
         -   Propagate: `true`. This flag determines if an event, after being
             processed by this logger, should be passed to its parent logger.
             This is configurable per logger.
 
-3.  Output Decision (for any logger `L` processing an event):
+3.  Pipeline Processing (for any logger `L` processing an event):
     *   Effective Level Calculation:
         1. If `L.level` is not `lual.NOTSET`, its effective level is `L.level`.
         2. If `L.level` is `lual.NOTSET`, its effective level is taken from
            `L.parent.effective_level` (this is a recursive lookup until an
            explicit level is found, ultimately resolving to `_root.level`).
     *   Level Match: An event is processed by `L` if `event_level >= L.effective_level`.
-    *   Outputing: If the level matches, `L` passes the event to each of its
-        *own* outputs (those in `L.outputs`). Each output uses its
-        own associated presenter and configuration (e.g., file path, time format).
-        outputs are NOT inherited or merged from ancestors.
+    *   Pipeline Processing: If the level matches, `L` processes the event through
+        each of its *own* pipelines. Each pipeline:
+        - Checks its own level threshold against the event level
+        - If the pipeline threshold is met, processes the event through:
+          * Transformers (optional, sequential)
+          * Presenter (formats the record)
+          * Outputs (sends to all configured destinations)
+        Pipelines are NOT inherited or merged from ancestors.
     *   Propagation: If `L.propagate` is `true` and `L` is not `_root`, the
         original event is then passed to `L.parent` for processing.
 
@@ -57,12 +59,16 @@ CORE PRINCIPLES
     *   `name`: An identifier, not a configurable property within a logger's
         settings table.
     *   `level`: The threshold for this logger. Can be `lual.NOTSET`.
-    *   `outputs`: A list of output tables specific to this logger.
+    *   `pipelines`: A list of pipeline configurations specific to this logger.
+        Each pipeline contains:
+        - `level`: Optional threshold for this specific pipeline
+        - `outputs`: List of output functions (console, file, syslog, etc.)
+        - `presenter`: Formatting function (text, JSON, color)
+        - `transformers`: Optional list of data transformation functions
     *   `propagate`: Boolean, defaults to `true` for user loggers.
     *   `time`: Time-related settings (e.g., UTC/local, format string) are
-        properties of a *presenter*, which is, in turn, part of a
-        *output's* configuration. Loggers themselves do not have a
-        top-level `time` property.
+        properties of a *presenter*, which is part of a *pipeline's*
+        configuration. Loggers themselves do not have a top-level `time` property.
 
 HOW IT WORKS: EVENT FLOW
 ------------------------
@@ -78,10 +84,13 @@ When `some_logger.info("message")` is called:
         becomes `lual.INFO`. This continues up to `_root`.
 4.  Level Check: `lual.INFO` (event) >= `some_logger.effective_level`?
 5.  If true (level matches):
-    *   `some_logger` iterates through its *own* `outputs` list.
-    *   For each output, the event is formatted by the output's
-        presenter and sent to the output's target (console, file, etc.).
-    *   If `some_logger` has no outputs, it outputs nothing itself.
+    *   `some_logger` iterates through its *own* `pipelines` list.
+    *   For each pipeline:
+        - Check if `event_level >= pipeline.level` (if pipeline level is set)
+        - If pipeline level matches, process through transformers (if any)
+        - Format the event with the pipeline's presenter
+        - Send to all outputs in the pipeline
+    *   If `some_logger` has no pipelines, it performs no processing itself.
 6.  If `some_logger.propagate` is `true` (and `some_logger` is not `_root`):
     *   The original event is passed to `some_logger.parent`.
     *   The parent logger repeats steps 3-6.
