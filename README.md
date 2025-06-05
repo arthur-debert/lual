@@ -1,74 +1,45 @@
-# lual - A Hierarchical Logging Library for Lua
+# lual - logging made easy
 
-lual is a powerful yet simple logging library for Lua, inspired by Python's standard library logging. It provides hierarchical loggers, flexible configuration, and a clean component-based architecture.
+lual is logging library for lua. Modeled after Python's standard lib, with a leaner API making good usage of Lua idioms, such as using functions over classes. The API is design to scale from a simple personal project to more complex deployments with hierarchical configurations and multiple pipelines.
 
 ## Quick Start
 
 ```lua
 local lual = require("lual")
+local logger = lual.logger()
+-- Use format strings
+logger:info("Application started, init took %f", init_time)      
+-- Structured logs when you need them
+logger:info("Init complete", {plugins_installed = plugins, os = os_name, version = app_version})
 
--- Simple logging with auto-configuration
-local logger = lual.logger("myapp")
 
-logger:info("Application started")      -- Logged to console
-logger:debug("Debug info")             -- Not logged (default level is WARN)
-logger:error("Something went wrong!")   -- Logged to console
+-- Centralized configuration
+lual.config({
+    level = lual.debug,
+    pipelines = {
+        { level = lual.warn, outputs = { lual.console }, presenters = { lual.color } },
+        { level = lual.debug, outputs = { lual.file, path = "app.log" }, presenter = { lual.json() } }
+    }
+})
 ```
 
 ## Key Features
 
-- **Hierarchical Loggers**: Dot-separated logger names create automatic parent-child relationships
-- **Flexible Configuration**: Simple configs for basic use, powerful options for complex scenarios  
-- **Component Pipeline**: Modular transformers, presenters, and outputs
-- **Built-in Components**: Console, file, JSON, text, and colored output
-- **Propagation**: Log events automatically flow up the logger hierarchy
-- **Performance**: Efficient level filtering and lazy evaluation
+- **Flexible Logging**: Format strings, structured logs - choose what works best for your needs.
+- **Leveled Configuration**: From "set the level and go" to centralized configuration to complex hierarchical logger configurations.
+- **Pluggable Log Pipeline**: For processing, formatting, and outputting logs. Use the built-in components or write custom functions.
+- **Built-in Components**: Write to the console, files, or syslog; format as JSON, plain text, or colored terminal output.
+- **Hierarchical Loggers**: Dot-separated logger names create automatic parent-child relationships with propagation.
+- **Performance**: Efficient level filtering and lazy evaluation minimize overhead.
 
-## Common Usage Patterns
-## Common Usage Patterns
+## Lean and Dependency-Free
 
-### 1. Out-of-the-box Logging
+lual aims to be a good fit for demanding deployments where performance, file size, and dependencies matter. The core library is small and has good performance characteristics.
 
-```lua
-local lual = require("lual")
-local logger = lual.logger("myapp")
+The base install has no dependencies. If you use these specific components, then you must have their dependencies installed:
+- JSON presenter requires dkjson
+- Syslog output requires luasocket
 
-logger:warn("This appears in console")   -- Uses built-in root logger
-logger:debug("This doesn't")             -- Below default WARN level
-```
-
-### 2. Configure Root Logger
-
-```lua
-local lual = require("lual")
-
--- Configure global logging behavior
-lual.config({
-    level = lual.debug,
-    outputs = {
-        { lual.console, presenter = lual.color() },
-        { lual.file, path = "app.log", presenter = lual.json() }
-    }
-})
-
-local logger = lual.logger("myapp.database")
-logger:debug("Now debug messages appear everywhere")
-```
-
-### 3. Logger-Specific Configuration
-
-```lua
--- Create a logger with its own outputs
-local db_logger = lual.logger("myapp.database", {
-    level = lual.debug,
-    outputs = {
-        { lual.file, path = "database.log", presenter = lual.text() }
-    }
-})
-
-db_logger:debug("Database query executed")  -- Goes to database.log
-db_logger:error("Connection failed")        -- Goes to database.log AND root logger outputs
-```
 ## Installation
 
 Install via LuaRocks:
@@ -77,31 +48,12 @@ Install via LuaRocks:
 luarocks install lual
 ```
 
-Or download and require the library directly.
-
 ## Documentation
 
 - **[Getting Started Guide](docs/getting-started/)** - Quick introduction and basic concepts
 - **[User Guide](docs/guide/)** - Configuration, hierarchy, and common patterns
 - **[Deep Dives](docs/deep-dives/)** - Advanced topics and internals
 - **[API Reference](docs/reference/)** - Complete API documentation
-
-## Built-in Components
-
-**Outputs:**
-
-- `lual.console` - Write to stdout/stderr
-- `lual.file` - Write to files with rotation support
-
-**Presenters:**
-
-- `lual.text()` - Plain text format with timestamps
-- `lual.json()` - Structured JSON output
-- `lual.color()` - ANSI colored text for terminals
-
-**Levels:**
-
-- `lual.debug`, `lual.info`, `lual.warn`, `lual.error`, `lual.critical`
 
 ## Contributing
 
@@ -110,3 +62,6 @@ Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 ## License
 
 MIT License - see LICENSE file for details.
+
+
+Made with ❤️ for the Lua community
