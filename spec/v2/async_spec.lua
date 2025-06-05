@@ -332,6 +332,36 @@ describe("Async I/O", function()
             assert.equals(1, #captured_output)
             assert.equals("Test message", captured_output[1].message)
         end)
+
+        it("should handle worker recovery gracefully", function()
+            -- Test that worker recovery mechanisms don't break normal operation
+            -- Reconfigure to use successful output instead of error output
+            lual.config({
+                async_enabled = true,
+                async_batch_size = 2,
+                level = lual.debug,
+                pipelines = {
+                    {
+                        level = lual.debug,
+                        outputs = { test_output_func },
+                        presenter = lual.text()
+                    }
+                }
+            })
+
+            local logger = lual.logger("test")
+
+            logger:info("Test message 1")
+            logger:info("Test message 2") -- Reach batch size of 2
+
+            -- Manually trigger processing by resuming worker (like other tests do)
+            async_writer.resume_worker()
+
+            -- Verify messages were processed
+            assert.equals(2, #captured_output)
+            assert.equals("Test message 1", captured_output[1].message)
+            assert.equals("Test message 2", captured_output[2].message)
+        end)
     end)
 
     describe("Synchronous fallback", function()

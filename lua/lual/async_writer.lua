@@ -27,6 +27,12 @@ local _error_handler = nil
 local _last_flush_time = 0
 local _dispatch_function = nil
 
+-- Worker recovery state
+local _worker_restarts = 0
+local _max_restarts = 5
+local _last_restart_time = 0
+local _restart_backoff = 1.0 -- Seconds between restarts
+
 --- Sets the error handler function for async errors
 -- @param handler function Function to call when async errors occur
 function M.set_error_handler(handler)
@@ -45,6 +51,50 @@ local function report_async_error(error_message)
     else
         io.stderr:write(string.format("LUAL ASYNC ERROR: %s\n", error_message))
     end
+end
+
+--- Checks if the worker coroutine is healthy
+-- @return boolean True if worker is in a good state
+local function is_worker_healthy()
+    if not _worker_coroutine then
+        return false
+    end
+
+    local status = coroutine.status(_worker_coroutine)
+    return status == "suspended" or status == "running"
+end
+
+--- Restarts the worker coroutine with backoff and limits
+-- @return boolean True if restart succeeded
+local function restart_worker()
+    local current_time = get_time()
+
+    -- Implement restart backoff to prevent rapid restart loops
+    if (current_time - _last_restart_time) < _restart_backoff then
+        report_async_error("Worker restart too soon, backing off")
+        return false
+    end
+
+    -- Check restart limits
+    if _worker_restarts >= _max_restarts then
+        report_async_error(string.format(
+            "Worker restart limit reached (%d), disabling async logging",
+            _max_restarts))
+        _async_enabled = false
+        return false
+    end
+
+    -- Create new worker
+    _worker_coroutine = coroutine.create(worker_function)
+    _worker_status = "running"
+    _last_flush_time = current_time
+    _worker_restarts = _worker_restarts + 1
+    _last_restart_time = current_time
+
+    report_async_error(string.format(
+        "Worker coroutine restarted (restart #%d)", _worker_restarts))
+
+    return true
 end
 
 --- Worker coroutine function
@@ -147,6 +197,21 @@ function M.queue_log_event(logger, log_record)
         error("Async writer is not enabled")
     end
 
+    -- Health check and auto-recovery
+    if not is_worker_healthy() then
+        if not restart_worker() then
+            -- Fallback to synchronous processing
+            report_async_error("Falling back to synchronous processing for this message")
+            if _dispatch_function then
+                local ok, err = pcall(_dispatch_function, logger, log_record)
+                if not ok then
+                    report_async_error("Synchronous fallback failed: " .. tostring(err))
+                end
+            end
+            return
+        end
+    end
+
     -- Add to queue
     table.insert(_log_queue, {
         logger = logger,
@@ -161,19 +226,38 @@ end
 
 --- Resumes the worker coroutine
 function M.resume_worker()
-    if _worker_coroutine and coroutine.status(_worker_coroutine) == "suspended" then
-        local ok, err = coroutine.resume(_worker_coroutine)
-        if not ok then
-            _worker_status = "error"
-            report_async_error("Worker coroutine error: " .. tostring(err))
-        else
-            if coroutine.status(_worker_coroutine) == "suspended" then
-                _worker_status = "yielded"
-            else
-                _worker_status = "finished"
-            end
-        end
+    if not _worker_coroutine then
+        return false
     end
+
+    local status = coroutine.status(_worker_coroutine)
+    if status ~= "suspended" then
+        if status == "dead" then
+            report_async_error("Attempted to resume dead worker")
+            restart_worker()
+        end
+        return false
+    end
+
+    local ok, err = coroutine.resume(_worker_coroutine)
+    if not ok then
+        _worker_status = "error"
+        report_async_error("Worker coroutine error: " .. tostring(err))
+        restart_worker()
+        return false
+    end
+
+    -- Update status based on coroutine state
+    local new_status = coroutine.status(_worker_coroutine)
+    if new_status == "suspended" then
+        _worker_status = "yielded"
+    elseif new_status == "dead" then
+        _worker_status = "finished"
+        report_async_error("Worker coroutine finished unexpectedly")
+        restart_worker()
+    end
+
+    return true
 end
 
 --- Flushes all queued log events immediately
@@ -255,6 +339,10 @@ function M.reset()
     _error_handler = nil
     _last_flush_time = 0
     _dispatch_function = nil
+
+    -- Reset worker recovery state
+    _worker_restarts = 0
+    _last_restart_time = 0
 end
 
 return M
