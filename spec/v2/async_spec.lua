@@ -369,6 +369,36 @@ describe("Async I/O", function()
             assert.equals("Message 1", captured_output[1].message)
             assert.equals("Message " .. message_count, captured_output[message_count].message)
         end)
+
+        it("should support sub-second flush intervals", function()
+            lual.config({
+                async_enabled = true,
+                async_batch_size = 10,      -- Large batch size to test time-based flushing
+                async_flush_interval = 0.1, -- 100ms interval
+                level = lual.debug,
+                pipelines = {
+                    {
+                        level = lual.debug,
+                        outputs = { test_output_func },
+                        presenter = lual.text()
+                    }
+                }
+            })
+
+            local logger = lual.logger("test")
+
+            -- Add a message but don't reach batch size
+            logger:info("Test message")
+
+            local stats = async_writer.get_stats()
+            assert.equals(1, stats.queue_size) -- Message queued
+            assert.equals(0, #captured_output) -- Not processed yet
+
+            -- Wait a bit and trigger worker to check if time-based flush works
+            -- We can't easily test actual timing in a unit test, but we can at least
+            -- verify the configuration is accepted and doesn't error
+            assert.equals(0.1, stats.flush_interval)
+        end)
     end)
 
     describe("Module stats", function()

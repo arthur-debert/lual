@@ -4,6 +4,17 @@
 
 local M = {}
 
+-- High-precision timing
+local socket_ok, socket = pcall(require, "socket")
+local function get_time()
+    if socket_ok and socket.gettime then
+        return socket.gettime() -- Returns microsecond precision (e.g., 1703123456.789)
+    else
+        -- Fallback for environments without LuaSocket
+        return os.time() -- Still works for >= 1 second intervals
+    end
+end
+
 -- Internal state
 local _async_enabled = false
 local _async_batch_size = 50
@@ -39,7 +50,7 @@ end
 --- Worker coroutine function
 local function worker_function()
     while true do
-        local current_time = os.time()
+        local current_time = get_time() -- Now has sub-second precision
         local should_process = false
 
         -- Determine if we should process the queue
@@ -76,7 +87,7 @@ local function worker_function()
                 end
             end
 
-            _last_flush_time = current_time
+            _last_flush_time = current_time -- Update with precise time
         end
 
         -- Yield control back to the application
@@ -99,7 +110,7 @@ function M.start(config, dispatch_func)
         _log_queue = {}
         _worker_coroutine = coroutine.create(worker_function)
         _worker_status = "running"
-        _last_flush_time = os.time()
+        _last_flush_time = get_time() -- Initialize with precise time
     end
 end
 
