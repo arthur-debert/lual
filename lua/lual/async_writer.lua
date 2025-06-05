@@ -39,17 +39,9 @@ function M.start(config, dispatch_func)
         _writer_instance:stop()
     end
 
-    -- Convert config to new format and create writer
-    local async_config = {
-        backend = "coroutines", -- Default to coroutines backend
-        async_batch_size = config.async_batch_size,
-        async_flush_interval = config.async_flush_interval,
-        async_enabled = config.async_enabled,
-        max_queue_size = config.max_queue_size,
-        overflow_strategy = config.overflow_strategy
-    }
-
-    _writer_instance = async.new(async_config)
+    -- The config is now passed directly to the generic async interface
+    -- which handles both old and new config formats
+    _writer_instance = async.new(config)
 
     -- Start the writer
     if _writer_instance:is_enabled() then

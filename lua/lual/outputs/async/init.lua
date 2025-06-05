@@ -18,8 +18,16 @@ local BACKENDS = {
 function M.new(config)
     config = config or {}
 
+    -- Extract async configuration with defaults
+    local async_config = config.async or {}
+    local enabled = async_config.enabled or false
+    local backend_name = async_config.backend or "coroutines"
+    local batch_size = async_config.batch_size or 50
+    local flush_interval = async_config.flush_interval or 1.0
+    local max_queue_size = async_config.max_queue_size or 10000
+    local overflow_strategy = async_config.overflow_strategy or "drop_oldest"
+
     -- Select backend
-    local backend_name = config.backend or "coroutines"
     local backend_module_path = BACKENDS[backend_name]
 
     if not backend_module_path then
@@ -38,17 +46,17 @@ function M.new(config)
     local writer = {
         -- Configuration
         backend_name = backend_name,
-        batch_size = config.async_batch_size or 50,
-        flush_interval = config.async_flush_interval or 1.0,
-        enabled = config.async_enabled ~= false,
+        batch_size = batch_size,
+        flush_interval = flush_interval,
+        enabled = enabled,
 
         -- Backend instance
         backend = nil,
 
         -- Shared queue for all backends
         queue = queue_module.new({
-            max_size = config.max_queue_size or 10000,
-            overflow_strategy = config.overflow_strategy or "drop_oldest",
+            max_size = max_queue_size,
+            overflow_strategy = overflow_strategy,
             error_callback = function(msg)
                 M._report_error("Queue: " .. msg)
             end

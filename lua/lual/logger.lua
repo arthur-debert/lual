@@ -553,6 +553,32 @@ log.utc = "utc"
 -- Transformer constants
 log.noop = all_transformers.noop_transformer
 
+-- Async constants
+log.async = {
+  -- Backend constants
+  coroutines = "coroutines",
+
+  -- Overflow strategy constants
+  drop_oldest = "drop_oldest",
+  drop_newest = "drop_newest",
+  block = "block",
+
+  -- Default configuration
+  defaults = {
+    enabled = false,
+    backend = "coroutines",
+    batch_size = 50,
+    flush_interval = 1.0,
+    max_queue_size = 10000,
+    overflow_strategy = "drop_oldest"
+  },
+
+  -- Statistics function
+  get_stats = function()
+    return async_writer.get_stats()
+  end
+}
+
 -- Add LEVELS mapping for external validation and use
 log.LEVELS = {
   notset = core_levels.definition.NOTSET,

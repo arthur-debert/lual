@@ -24,14 +24,39 @@ Future backends: libuv, lanes, native threads.
 
 ```lua
 lual.config({
-    async_enabled = true,
-    backend = "coroutines",          -- Optional, defaults to "coroutines"
-    async_batch_size = 50,           -- Messages per batch
-    async_flush_interval = 1.0,      -- Seconds
-    max_queue_size = 10000,          -- Memory protection
-    overflow_strategy = "drop_oldest", -- "drop_newest", "block"
+    async = {
+        enabled = true,
+        backend = lual.async.coroutines,      -- Optional, defaults to lual.async.coroutines
+        batch_size = 50,                      -- Messages per batch
+        flush_interval = 1.0,                 -- Seconds
+        max_queue_size = 10000,               -- Memory protection
+        overflow_strategy = lual.async.drop_oldest, -- lual.async.drop_newest, lual.async.block
+    },
     -- ... other config
 })
+```
+
+### Minimal Configuration
+
+```lua
+lual.config({
+    async = { enabled = true },  -- Use all defaults
+    -- ... other config
+})
+```
+
+### Default Configuration
+
+```lua
+-- Equivalent to lual.async.defaults
+{
+    enabled = false,
+    backend = lual.async.coroutines,
+    batch_size = 50,
+    flush_interval = 1.0,
+    max_queue_size = 10000,
+    overflow_strategy = lual.async.drop_oldest
+}
 ```
 
 ## Core Interface
@@ -149,6 +174,41 @@ Run tests with: `busted spec/your_backend_spec.lua`
 - **Error costs** - Failed dispatches trigger recovery mechanisms
 
 Monitor via `lual.async.get_stats()` for operational metrics.
+
+## Complete Example
+
+```lua
+local lual = require("lual.logger")
+
+-- Configure with new async API
+lual.config({
+    level = lual.debug,
+    async = {
+        enabled = true,
+        backend = lual.async.coroutines,
+        batch_size = 25,
+        flush_interval = 0.5,
+        max_queue_size = 5000,
+        overflow_strategy = lual.async.drop_oldest
+    },
+    pipelines = {
+        { level = lual.warn, outputs = { lual.console }, presenter = lual.color },
+        { level = lual.debug, outputs = { lual.file, path = "app.log" }, presenter = lual.json() }
+    }
+})
+
+-- All outputs (console and file) are now async
+local logger = lual.logger("myapp")
+logger:info("This message is processed asynchronously")
+
+-- Force immediate processing
+lual.flush()
+
+-- Monitor performance
+local stats = lual.async.get_stats()
+print("Messages submitted:", stats.messages_submitted)
+print("Queue size:", stats.queue_size)
+```
 
 ## Integration
 
