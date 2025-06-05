@@ -67,11 +67,7 @@ local VALID_CONFIG_KEYS = {
     pipelines = { type = "table", description = "Array of pipeline configurations" },
     propagate = { type = "boolean", description = "Whether to propagate messages (always true for root)" },
     custom_levels = { type = "table", description = "Custom log levels as name = value pairs" },
-    async_enabled = { type = "boolean", description = "Enable asynchronous logging mode" },
-    async_batch_size = { type = "number", description = "Number of messages to batch before writing" },
-    async_flush_interval = { type = "number", description = "Time interval (seconds) to force flush batches" },
-    max_queue_size = { type = "number", description = "Maximum number of messages in async queue before overflow handling" },
-    overflow_strategy = { type = "string", description = "Queue overflow strategy: 'drop_oldest', 'drop_newest', or 'block'" }
+    async = { type = "table", description = "Async configuration { enabled, backend, batch_size, flush_interval, max_queue_size, overflow_strategy }" }
 }
 
 -- Table of valid pipeline keys and their expected types/descriptions
@@ -338,22 +334,62 @@ local function validate_config(config_table)
             if value == core_levels.definition.NOTSET then
                 return false, "Root logger level cannot be set to NOTSET"
             end
-        elseif key == "async_batch_size" then
-            if value <= 0 then
-                return false, "async_batch_size must be greater than 0"
+        elseif key == "async" then
+            -- Validate async configuration structure
+            local valid_async_keys = {
+                enabled = { type = "boolean", description = "Enable asynchronous logging mode" },
+                backend = { type = "string", description = "Async backend ('coroutines', etc.)" },
+                batch_size = { type = "number", description = "Number of messages to batch before writing" },
+                flush_interval = { type = "number", description = "Time interval (seconds) to force flush batches" },
+                max_queue_size = { type = "number", description = "Maximum number of messages in async queue" },
+                overflow_strategy = { type = "string", description = "Queue overflow strategy" }
+            }
+
+            local key_diff = table_utils.key_diff(valid_async_keys, value)
+            if #key_diff.added_keys > 0 then
+                local valid_keys = {}
+                for valid_key, _ in pairs(valid_async_keys) do
+                    table.insert(valid_keys, valid_key)
+                end
+                table.sort(valid_keys)
+                return false, string.format(
+                    "Unknown async configuration key '%s'. Valid keys are: %s",
+                    tostring(key_diff.added_keys[1]),
+                    table.concat(valid_keys, ", ")
+                )
             end
-        elseif key == "async_flush_interval" then
-            if value <= 0 then
-                return false, "async_flush_interval must be greater than 0"
-            end
-        elseif key == "max_queue_size" then
-            if value <= 0 then
-                return false, "max_queue_size must be greater than 0"
-            end
-        elseif key == "overflow_strategy" then
-            local valid_strategies = { drop_oldest = true, drop_newest = true, block = true }
-            if not valid_strategies[value] then
-                return false, "overflow_strategy must be 'drop_oldest', 'drop_newest', or 'block'"
+
+            -- Validate async sub-keys
+            for async_key, async_value in pairs(value) do
+                local expected_spec = valid_async_keys[async_key]
+                if expected_spec and expected_spec.type and type(async_value) ~= expected_spec.type then
+                    return false, string.format(
+                        "Invalid type for async.%s: expected %s, got %s. %s",
+                        async_key,
+                        expected_spec.type,
+                        type(async_value),
+                        expected_spec.description
+                    )
+                end
+
+                -- Additional validation for specific async keys
+                if async_key == "batch_size" and async_value <= 0 then
+                    return false, "async.batch_size must be greater than 0"
+                elseif async_key == "flush_interval" and async_value <= 0 then
+                    return false, "async.flush_interval must be greater than 0"
+                elseif async_key == "max_queue_size" and async_value <= 0 then
+                    return false, "async.max_queue_size must be greater than 0"
+                elseif async_key == "overflow_strategy" then
+                    local valid_strategies = { drop_oldest = true, drop_newest = true, block = true }
+                    if not valid_strategies[async_value] then
+                        return false, "async.overflow_strategy must be 'drop_oldest', 'drop_newest', or 'block'"
+                    end
+                elseif async_key == "backend" then
+                    local valid_backends = { coroutines = true }
+                    if not valid_backends[async_value] then
+                        return false, "async.backend must be 'coroutines'"
+                    end
+                end
             end
         end
 
@@ -422,17 +458,9 @@ function M.config(config_table)
     end
 
     -- Handle async configuration - start/stop async writer as needed
-    if config_table.async_enabled ~= nil then
-        if config_table.async_enabled then
-            -- Start async writer with current config
-            local async_config = {
-                async_enabled = _root_logger_config.async_enabled,
-                async_batch_size = _root_logger_config.async_batch_size or 50,
-                async_flush_interval = _root_logger_config.async_flush_interval or 1.0,
-                max_queue_size = _root_logger_config.max_queue_size or 10000,
-                overflow_strategy = _root_logger_config.overflow_strategy or "drop_oldest"
-            }
-            async_writer.start(async_config, nil)
+    if config_table.async and config_table.async.enabled ~= nil then
+        if config_table.async.enabled then
+            async_writer.start(config_table, nil)
             -- Setup the dispatch function in pipeline module
             local pipeline_module = require("lual.pipeline")
             pipeline_module.setup_async_writer()

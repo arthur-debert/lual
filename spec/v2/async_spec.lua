@@ -41,9 +41,11 @@ describe("Async I/O", function()
     describe("Configuration", function()
         it("should accept async configuration options", function()
             local config = {
-                async_enabled = true,
-                async_batch_size = 25,
-                async_flush_interval = 0.5,
+                async = {
+                    enabled = true,
+                    batch_size = 25,
+                    flush_interval = 0.5
+                },
                 level = lual.debug,
                 pipelines = {
                     {
@@ -64,81 +66,97 @@ describe("Async I/O", function()
             assert.equals(0.5, stats.flush_interval)
         end)
 
-        it("should validate async_batch_size", function()
+        it("should validate async batch_size", function()
             assert.has_error(function()
                 lual.config({
-                    async_enabled = true,
-                    async_batch_size = 0
+                    async = {
+                        enabled = true,
+                        batch_size = 0
+                    }
                 })
-            end, "Invalid configuration: async_batch_size must be greater than 0")
+            end, "Invalid configuration: async.batch_size must be greater than 0")
 
             assert.has_error(function()
                 lual.config({
-                    async_enabled = true,
-                    async_batch_size = -5
+                    async = {
+                        enabled = true,
+                        batch_size = -5
+                    }
                 })
-            end, "Invalid configuration: async_batch_size must be greater than 0")
+            end, "Invalid configuration: async.batch_size must be greater than 0")
         end)
 
-        it("should validate async_flush_interval", function()
+        it("should validate async flush_interval", function()
             assert.has_error(function()
                 lual.config({
-                    async_enabled = true,
-                    async_flush_interval = 0
+                    async = {
+                        enabled = true,
+                        flush_interval = 0
+                    }
                 })
-            end, "Invalid configuration: async_flush_interval must be greater than 0")
+            end, "Invalid configuration: async.flush_interval must be greater than 0")
 
             assert.has_error(function()
                 lual.config({
-                    async_enabled = true,
-                    async_flush_interval = -1.5
+                    async = {
+                        enabled = true,
+                        flush_interval = -1.5
+                    }
                 })
-            end, "Invalid configuration: async_flush_interval must be greater than 0")
+            end, "Invalid configuration: async.flush_interval must be greater than 0")
         end)
 
         it("should validate max_queue_size", function()
             assert.has_error(function()
                 lual.config({
-                    async_enabled = true,
-                    max_queue_size = 0
+                    async = {
+                        enabled = true,
+                        max_queue_size = 0
+                    }
                 })
-            end, "Invalid configuration: max_queue_size must be greater than 0")
+            end, "Invalid configuration: async.max_queue_size must be greater than 0")
 
             assert.has_error(function()
                 lual.config({
-                    async_enabled = true,
-                    max_queue_size = -10
+                    async = {
+                        enabled = true,
+                        max_queue_size = -10
+                    }
                 })
-            end, "Invalid configuration: max_queue_size must be greater than 0")
+            end, "Invalid configuration: async.max_queue_size must be greater than 0")
         end)
 
         it("should validate overflow_strategy", function()
             assert.has_error(function()
                 lual.config({
-                    async_enabled = true,
-                    overflow_strategy = "invalid_strategy"
+                    async = {
+                        enabled = true,
+                        overflow_strategy = "invalid_strategy"
+                    }
                 })
-            end, "Invalid configuration: overflow_strategy must be 'drop_oldest', 'drop_newest', or 'block'")
+            end, "Invalid configuration: async.overflow_strategy must be 'drop_oldest', 'drop_newest', or 'block'")
         end)
 
         it("should validate relationships between config values", function()
-            -- Test that max_queue_size must be >= async_batch_size
+            -- Test that max_queue_size must be >= batch_size
             -- Note: This validation happens in async_writer.start(), so we need to trigger it
             -- The config validation in config.lua doesn't check relationships
             -- We can't easily test this without modifying the validation flow
             -- Let's just verify the individual validations work
             assert.has_no.errors(function()
                 lual.config({
-                    async_enabled = true,
-                    async_batch_size = 50,
-                    max_queue_size = 100 -- Valid: max > batch
+                    async = {
+                        enabled = true,
+                        batch_size = 50,
+                        max_queue_size = 100 -- Valid: max > batch
+                    }
                 })
             end)
         end)
 
-        it("should start async writer when async_enabled is true", function()
+        it("should start async writer when async.enabled is true", function()
             lual.config({
-                async_enabled = true,
+                async = { enabled = true },
                 level = lual.debug,
                 pipelines = {
                     {
@@ -152,13 +170,13 @@ describe("Async I/O", function()
             assert.is_true(async_writer.is_enabled())
         end)
 
-        it("should stop async writer when async_enabled is false", function()
+        it("should stop async writer when async.enabled is false", function()
             -- First enable it
-            lual.config({ async_enabled = true })
+            lual.config({ async = { enabled = true } })
             assert.is_true(async_writer.is_enabled())
 
             -- Then disable it
-            lual.config({ async_enabled = false })
+            lual.config({ async = { enabled = false } })
             assert.is_false(async_writer.is_enabled())
         end)
     end)
@@ -166,8 +184,10 @@ describe("Async I/O", function()
     describe("Async logging", function()
         before_each(function()
             lual.config({
-                async_enabled = true,
-                async_batch_size = 3,
+                async = {
+                    enabled = true,
+                    batch_size = 3
+                },
                 level = lual.debug,
                 pipelines = {
                     {
@@ -244,8 +264,10 @@ describe("Async I/O", function()
     describe("Flush functionality", function()
         before_each(function()
             lual.config({
-                async_enabled = true,
-                async_batch_size = 10, -- Large batch size so it won't auto-trigger
+                async = {
+                    enabled = true,
+                    batch_size = 10 -- Large batch size so it won't auto-trigger
+                },
                 level = lual.debug,
                 pipelines = {
                     {
@@ -281,7 +303,7 @@ describe("Async I/O", function()
         end)
 
         it("should not error when flushing with async disabled", function()
-            lual.config({ async_enabled = false })
+            lual.config({ async = { enabled = false } })
 
             assert.has_no.errors(function()
                 lual.flush()
@@ -316,8 +338,10 @@ describe("Async I/O", function()
             end
 
             lual.config({
-                async_enabled = true,
-                async_batch_size = 2,
+                async = {
+                    enabled = true,
+                    batch_size = 2
+                },
                 level = lual.debug,
                 pipelines = {
                     {
@@ -351,8 +375,10 @@ describe("Async I/O", function()
             }
 
             lual.config({
-                async_enabled = true,
-                async_batch_size = 1,
+                async = {
+                    enabled = true,
+                    batch_size = 1
+                },
                 level = lual.debug,
                 pipelines = {
                     {
@@ -377,8 +403,10 @@ describe("Async I/O", function()
             -- Test that worker recovery mechanisms don't break normal operation
             -- Reconfigure to use successful output instead of error output
             lual.config({
-                async_enabled = true,
-                async_batch_size = 2,
+                async = {
+                    enabled = true,
+                    batch_size = 2
+                },
                 level = lual.debug,
                 pipelines = {
                     {
@@ -407,7 +435,7 @@ describe("Async I/O", function()
     describe("Synchronous fallback", function()
         it("should process messages synchronously when async is disabled", function()
             lual.config({
-                async_enabled = false,
+                async = { enabled = false },
                 level = lual.debug,
                 pipelines = {
                     {
@@ -430,8 +458,10 @@ describe("Async I/O", function()
     describe("Performance characteristics", function()
         it("should handle large numbers of messages efficiently", function()
             lual.config({
-                async_enabled = true,
-                async_batch_size = 100,
+                async = {
+                    enabled = true,
+                    batch_size = 100
+                },
                 level = lual.debug,
                 pipelines = {
                     {
@@ -460,9 +490,11 @@ describe("Async I/O", function()
 
         it("should support sub-second flush intervals", function()
             lual.config({
-                async_enabled = true,
-                async_batch_size = 10,      -- Large batch size to test time-based flushing
-                async_flush_interval = 0.1, -- 100ms interval
+                async = {
+                    enabled = true,
+                    batch_size = 10,     -- Large batch size to test time-based flushing
+                    flush_interval = 0.1 -- 100ms interval
+                },
                 level = lual.debug,
                 pipelines = {
                     {
@@ -492,9 +524,11 @@ describe("Async I/O", function()
     describe("Module stats", function()
         it("should provide accurate statistics", function()
             lual.config({
-                async_enabled = true,
-                async_batch_size = 5,
-                async_flush_interval = 2.0
+                async = {
+                    enabled = true,
+                    batch_size = 5,
+                    flush_interval = 2.0
+                }
             })
 
             local stats = async_writer.get_stats()
@@ -507,8 +541,10 @@ describe("Async I/O", function()
 
         it("should update queue size correctly", function()
             lual.config({
-                async_enabled = true,
-                async_batch_size = 10,
+                async = {
+                    enabled = true,
+                    batch_size = 10
+                },
                 level = lual.debug,
                 pipelines = {
                     {
@@ -539,9 +575,11 @@ describe("Async I/O", function()
 
         it("should include memory protection stats", function()
             lual.config({
-                async_enabled = true,
-                max_queue_size = 500,
-                overflow_strategy = "drop_newest"
+                async = {
+                    enabled = true,
+                    max_queue_size = 500,
+                    overflow_strategy = "drop_newest"
+                }
             })
 
             local stats = async_writer.get_stats()
@@ -555,10 +593,12 @@ describe("Async I/O", function()
     describe("Memory protection", function()
         before_each(function()
             lual.config({
-                async_enabled = true,
-                async_batch_size = 5, -- Small batch to work with small queue
-                max_queue_size = 5,   -- Small queue for testing
-                overflow_strategy = "drop_oldest",
+                async = {
+                    enabled = true,
+                    batch_size = 5,     -- Small batch to work with small queue
+                    max_queue_size = 5, -- Small queue for testing
+                    overflow_strategy = "drop_oldest"
+                },
                 level = lual.debug,
                 pipelines = {
                     {
@@ -597,10 +637,12 @@ describe("Async I/O", function()
 
         it("should handle queue overflow with drop_newest strategy", function()
             lual.config({
-                async_enabled = true,
-                async_batch_size = 3,
-                max_queue_size = 3,
-                overflow_strategy = "drop_newest",
+                async = {
+                    enabled = true,
+                    batch_size = 3,
+                    max_queue_size = 3,
+                    overflow_strategy = "drop_newest"
+                },
                 level = lual.debug,
                 pipelines = {
                     {
@@ -647,8 +689,10 @@ describe("Async I/O", function()
 
             -- Then configure with async and pipelines
             lual.config({
-                async_enabled = true,
-                async_batch_size = 2,
+                async = {
+                    enabled = true,
+                    batch_size = 2
+                },
                 level = 15, -- verbose level
                 pipelines = {
                     {
@@ -677,8 +721,10 @@ describe("Async I/O", function()
             end
 
             lual.config({
-                async_enabled = true,
-                async_batch_size = 1,
+                async = {
+                    enabled = true,
+                    batch_size = 1
+                },
                 level = lual.debug,
                 pipelines = {
                     {
@@ -719,8 +765,10 @@ describe("Async I/O", function()
             end
 
             lual.config({
-                async_enabled = true,
-                async_batch_size = 1,
+                async = {
+                    enabled = true,
+                    batch_size = 1
+                },
                 level = lual.debug,
                 pipelines = {
                     {
