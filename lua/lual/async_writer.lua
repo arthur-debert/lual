@@ -4,6 +4,9 @@
 
 local M = {}
 
+-- Import the queue module
+local queue_module = require("lual.utils.queue")
+
 -- High-precision timing
 local socket_ok, socket = pcall(require, "socket")
 local function get_time()
@@ -19,7 +22,7 @@ end
 local _async_enabled = false
 local _async_batch_size = 50
 local _async_flush_interval = 1.0
-local _log_queue = {}
+local _log_queue = nil               -- Will be a queue instance
 local _worker_coroutine = nil
 local _worker_status = "not_started" -- "not_started", "running", "yielded", "finished", "error"
 local _flush_requested = false
@@ -32,15 +35,6 @@ local _worker_restarts = 0
 local _max_restarts = 5
 local _last_restart_time = 0
 local _restart_backoff = 1.0 -- Seconds between restarts
-
--- Memory protection
-local _max_queue_size = 10000            -- Configurable limit
-local _queue_overflows = 0
-local _overflow_strategy = "drop_oldest" -- "drop_oldest", "drop_newest", "block"
-
--- Circular buffer for performance
-local _queue_start = 1
-local _queue_end = 0
 
 --- Sets the error handler function for async errors
 -- @param handler function Function to call when async errors occur
@@ -106,64 +100,7 @@ local function restart_worker()
     return true
 end
 
---- Gets the current queue size (circular buffer)
--- @return number Current number of items in queue
-local function get_queue_size()
-    return _queue_end - _queue_start + 1
-end
 
---- Checks if the queue is empty
--- @return boolean True if queue is empty
-local function is_queue_empty()
-    return _queue_start > _queue_end
-end
-
---- Extracts a batch from the circular buffer efficiently
--- @return table Array of log events
-local function extract_batch_circular()
-    local available = get_queue_size()
-    local batch_size = math.min(available, _async_batch_size)
-    local batch = {}
-
-    for i = 1, batch_size do
-        table.insert(batch, _log_queue[_queue_start])
-        _log_queue[_queue_start] = nil -- Allow GC
-        _queue_start = _queue_start + 1
-    end
-
-    -- Reset indices when queue is empty
-    if _queue_start > _queue_end then
-        _queue_start = 1
-        _queue_end = 0
-    end
-
-    return batch
-end
-
---- Handles queue overflow using the configured strategy
--- @return boolean True if the new message should be added to the queue
-local function handle_queue_overflow()
-    _queue_overflows = _queue_overflows + 1
-
-    if _overflow_strategy == "drop_oldest" then
-        local dropped = _log_queue[_queue_start]
-        _log_queue[_queue_start] = nil -- Allow GC
-        _queue_start = _queue_start + 1
-        report_async_error(string.format(
-            "Queue overflow: dropped oldest message (level=%s, logger=%s)",
-            dropped.record.level_name, dropped.logger.name))
-    elseif _overflow_strategy == "drop_newest" then
-        -- Don't add the new message
-        report_async_error("Queue overflow: dropped newest message")
-        return false -- Signal not to add
-    elseif _overflow_strategy == "block" then
-        -- Force immediate flush to make room
-        report_async_error("Queue overflow: forcing immediate flush")
-        M.flush()
-    end
-
-    return true
-end
 
 --- Worker coroutine function
 local function worker_function()
@@ -175,15 +112,15 @@ local function worker_function()
         if _flush_requested then
             should_process = true
             _flush_requested = false
-        elseif get_queue_size() >= _async_batch_size then
+        elseif _log_queue and _log_queue:size() >= _async_batch_size then
             should_process = true
-        elseif get_queue_size() > 0 and (current_time - _last_flush_time) >= _async_flush_interval then
+        elseif _log_queue and _log_queue:size() > 0 and (current_time - _last_flush_time) >= _async_flush_interval then
             should_process = true
         end
 
-        if should_process and not is_queue_empty() then
-            -- Process batch using circular buffer
-            local batch = extract_batch_circular()
+        if should_process and _log_queue and not _log_queue:is_empty() then
+            -- Process batch using queue module
+            local batch = _log_queue:extract_batch(_async_batch_size)
 
             -- Process each record in the batch
             for _, log_data in ipairs(batch) do
@@ -259,14 +196,28 @@ function M.start(config, dispatch_func)
     _async_enabled = config.async_enabled ~= false -- Default to true if not specified
     _async_batch_size = batch_size
     _async_flush_interval = flush_interval
-    _max_queue_size = max_queue
-    _overflow_strategy = overflow_strategy
     _dispatch_function = dispatch_func
 
     if _async_enabled then
-        _log_queue = {}
-        _queue_start = 1
-        _queue_end = 0
+        -- Create queue with configuration
+        _log_queue = queue_module.new({
+            max_size = max_queue,
+            overflow_strategy = overflow_strategy,
+            error_callback = function(msg)
+                -- Enhance error message for async context
+                if overflow_strategy == "drop_oldest" and msg:match("dropped oldest") then
+                    report_async_error("Queue overflow: dropped oldest log message")
+                elseif overflow_strategy == "drop_newest" and msg:match("dropped newest") then
+                    report_async_error("Queue overflow: dropped newest log message")
+                elseif overflow_strategy == "block" and msg:match("blocking") then
+                    report_async_error("Queue overflow: blocking strategy triggered")
+                    M.flush() -- Implement blocking by forcing flush
+                else
+                    report_async_error(msg)
+                end
+            end
+        })
+
         _worker_coroutine = coroutine.create(worker_function)
         _worker_status = "running"
         _last_flush_time = get_time() -- Initialize with precise time
@@ -288,7 +239,7 @@ function M.stop()
         _async_enabled = false
         _worker_coroutine = nil
         _worker_status = "not_started"
-        _log_queue = {}
+        _log_queue = nil
     end
 end
 
@@ -321,19 +272,13 @@ function M.queue_log_event(logger, log_record)
         end
     end
 
-    -- Check queue size limit
-    if get_queue_size() >= _max_queue_size then
-        if not handle_queue_overflow() then
-            return -- Message dropped
-        end
+    -- Add to queue (overflow handled by queue module)
+    if _log_queue then
+        _log_queue:enqueue({
+            logger = logger,
+            record = log_record
+        })
     end
-
-    -- Add to circular buffer
-    _queue_end = _queue_end + 1
-    _log_queue[_queue_end] = {
-        logger = logger,
-        record = log_record
-    }
 
     -- Resume worker if it's yielded
     if _worker_coroutine and _worker_status == "yielded" then
@@ -386,32 +331,33 @@ function M.flush()
     _flush_requested = true
     local timeout = 5.0 -- Configurable timeout
     local start_time = get_time()
-    local initial_queue_size = get_queue_size()
+    local initial_queue_size = _log_queue and _log_queue:size() or 0
     local last_queue_size = initial_queue_size
     local stall_count = 0
 
     -- Keep resuming the worker until all messages are processed
-    while not is_queue_empty() and _worker_coroutine and
+    while _log_queue and not _log_queue:is_empty() and _worker_coroutine and
         coroutine.status(_worker_coroutine) == "suspended" do
         -- Check for overall timeout
         if (get_time() - start_time) >= timeout then
             report_async_error(string.format(
                 "Flush timeout after %.2fs: %d of %d messages remain in queue",
-                timeout, get_queue_size(), initial_queue_size))
+                timeout, _log_queue:size(), initial_queue_size))
             break
         end
 
         -- Check for progress stall (queue not shrinking)
-        if get_queue_size() == last_queue_size then
+        local current_queue_size = _log_queue:size()
+        if current_queue_size == last_queue_size then
             stall_count = stall_count + 1
             if stall_count >= 10 then -- 10 attempts without progress
                 report_async_error(string.format(
-                    "Flush stalled: queue size stuck at %d messages", get_queue_size()))
+                    "Flush stalled: queue size stuck at %d messages", current_queue_size))
                 break
             end
         else
             stall_count = 0 -- Reset on progress
-            last_queue_size = get_queue_size()
+            last_queue_size = current_queue_size
         end
 
         local ok, err = pcall(M.resume_worker)
@@ -424,25 +370,32 @@ function M.flush()
     _flush_requested = false
 
     -- Report final status
-    if not is_queue_empty() then
+    if _log_queue and not _log_queue:is_empty() then
         report_async_error(string.format(
-            "Flush completed with %d messages remaining", get_queue_size()))
+            "Flush completed with %d messages remaining", _log_queue:size()))
     end
 end
 
 --- Gets current queue statistics
 -- @return table Statistics about the async queue
 function M.get_stats()
+    local queue_stats = _log_queue and _log_queue:stats() or {
+        size = 0,
+        max_size = 0,
+        overflow_strategy = "unknown",
+        overflows = 0
+    }
+
     return {
         enabled = _async_enabled,
-        queue_size = get_queue_size(),
+        queue_size = queue_stats.size,
         batch_size = _async_batch_size,
         flush_interval = _async_flush_interval,
         worker_status = _worker_status,
         last_flush_time = _last_flush_time,
-        max_queue_size = _max_queue_size,
-        overflow_strategy = _overflow_strategy,
-        queue_overflows = _queue_overflows,
+        max_queue_size = queue_stats.max_size,
+        overflow_strategy = queue_stats.overflow_strategy,
+        queue_overflows = queue_stats.overflows,
         worker_restarts = _worker_restarts
     }
 end
@@ -453,7 +406,7 @@ function M.reset()
     _async_enabled = false
     _async_batch_size = 50
     _async_flush_interval = 1.0
-    _log_queue = {}
+    _log_queue = nil
     _worker_coroutine = nil
     _worker_status = "not_started"
     _flush_requested = false
@@ -464,15 +417,6 @@ function M.reset()
     -- Reset worker recovery state
     _worker_restarts = 0
     _last_restart_time = 0
-
-    -- Reset memory protection state
-    _max_queue_size = 10000
-    _queue_overflows = 0
-    _overflow_strategy = "drop_oldest"
-
-    -- Reset circular buffer state
-    _queue_start = 1
-    _queue_end = 0
 end
 
 return M
