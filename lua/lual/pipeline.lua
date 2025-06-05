@@ -39,6 +39,7 @@ local core_levels = require("lua.lual.levels")
 local all_presenters = require("lual.presenters.init")
 local all_transformers = require("lual.transformers.init")
 local component_utils = require("lual.utils.component")
+local async_writer = require("lual.async_writer")
 
 local M = {}
 
@@ -224,11 +225,10 @@ local function process_pipeline(log_record, pipeline, logger)
     end
 end
 
---- Implements the pipeline dispatch logic
--- This is the core of event processing for each logger L in the hierarchy
+--- Synchronous dispatch function (used by async worker)
 -- @param source_logger table The logger that originated the log event
 -- @param log_record table The log record to process
-function M.dispatch_log_event(source_logger, log_record)
+local function dispatch_log_event_sync(source_logger, log_record)
     local current_logger = source_logger
 
     -- Process through the hierarchy (from source up to _root)
@@ -260,6 +260,29 @@ function M.dispatch_log_event(source_logger, log_record)
         -- Step 5: Continue to parent
         current_logger = current_logger.parent
     end
+end
+
+--- Implements the pipeline dispatch logic
+-- This is the core of event processing for each logger L in the hierarchy
+-- @param source_logger table The logger that originated the log event
+-- @param log_record table The log record to process
+function M.dispatch_log_event(source_logger, log_record)
+    -- Check if async mode is enabled
+    if async_writer.is_enabled() then
+        -- Queue the event for async processing
+        async_writer.queue_log_event(source_logger, log_record)
+        return
+    end
+
+    -- Synchronous processing
+    dispatch_log_event_sync(source_logger, log_record)
+end
+
+--- Sets up the async writer with the dispatch function
+-- This is called when async mode is enabled to provide the dispatch function
+function M.setup_async_writer()
+    -- Set the dispatch function for async processing
+    async_writer.set_dispatch_function(dispatch_log_event_sync)
 end
 
 --- Formats arguments for logging
