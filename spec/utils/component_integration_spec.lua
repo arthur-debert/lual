@@ -2,25 +2,25 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 
 local component_utils = require("lual.utils.component")
-local all_dispatchers = require("lual.dispatchers.init")
+local all_outputs = require("lual.outputs.init")
 local all_presenters = require("lual.presenters.init")
 local all_transformers = require("lual.transformers.init")
 
 describe("Component Utils Integration", function()
-    describe("with real dispatchers", function()
-        it("should normalize console_dispatcher function", function()
-            local result = component_utils.normalize_component(all_dispatchers.console_dispatcher,
+    describe("with real outputs", function()
+        it("should normalize console_output function", function()
+            local result = component_utils.normalize_component(all_outputs.console_output,
                 component_utils.DISPATCHER_DEFAULTS)
 
             assert.is_table(result)
-            assert.are.equal(all_dispatchers.console_dispatcher, result.func)
+            assert.are.equal(all_outputs.console_output, result.func)
             assert.is_table(result.config)
             assert.are.equal("local", result.config.timezone)
         end)
 
-        it("should normalize console dispatcher with config", function()
+        it("should normalize console output with config", function()
             local input = {
-                all_dispatchers.console_dispatcher,
+                all_outputs.console_output,
                 level = 30, -- ERROR level
                 stream = io.stderr
             }
@@ -28,24 +28,24 @@ describe("Component Utils Integration", function()
             local result = component_utils.normalize_component(input, component_utils.DISPATCHER_DEFAULTS)
 
             assert.is_table(result)
-            assert.are.equal(all_dispatchers.console_dispatcher, result.func)
+            assert.are.equal(all_outputs.console_output, result.func)
             assert.is_table(result.config)
             assert.are.equal(30, result.config.level)
             assert.are.equal(io.stderr, result.config.stream)
             assert.are.equal("local", result.config.timezone) -- Default preserved
         end)
 
-        it("should normalize multiple dispatchers", function()
+        it("should normalize multiple outputs", function()
             local input = {
-                all_dispatchers.console_dispatcher,
-                { all_dispatchers.file_dispatcher, path = "/var/log/app.log", level = 20 }
+                all_outputs.console_output,
+                { all_outputs.file_output, path = "/var/log/app.log", level = 20 }
             }
 
             local result = component_utils.normalize_components(input, component_utils.DISPATCHER_DEFAULTS)
 
             assert.are.equal(2, #result)
-            assert.are.equal(all_dispatchers.console_dispatcher, result[1].func)
-            assert.are.equal(all_dispatchers.file_dispatcher, result[2].func)
+            assert.are.equal(all_outputs.console_output, result[1].func)
+            assert.are.equal(all_outputs.file_output, result[2].func)
             assert.are.equal("/var/log/app.log", result[2].config.path)
             assert.are.equal(20, result[2].config.level)
         end)
@@ -109,13 +109,13 @@ describe("Component Utils Integration", function()
 
     describe("integration across all component types", function()
         it("should build a complete logger configuration with normalized components", function()
-            local console_disp = all_dispatchers.console_dispatcher
-            local file_disp = all_dispatchers.file_dispatcher
+            local console_disp = all_outputs.console_output
+            local file_disp = all_outputs.file_output
             local text_presenter = all_presenters.text()
             local json_presenter = all_presenters.json()
             local noop_transformer = all_transformers.noop_transformer()
 
-            local dispatchers = component_utils.normalize_components({
+            local outputs = component_utils.normalize_components({
                 console_disp,
                 { file_disp, path = "/var/log/app.log", level = 20 }
             }, component_utils.DISPATCHER_DEFAULTS)
@@ -130,18 +130,18 @@ describe("Component Utils Integration", function()
             }, component_utils.TRANSFORMER_DEFAULTS)
 
             -- Now we can use these normalized components in a logger config
-            assert.are.equal(2, #dispatchers)
+            assert.are.equal(2, #outputs)
             assert.are.equal(2, #presenters)
             assert.are.equal(1, #transformers)
 
-            -- Verify first dispatcher
-            assert.are.equal(console_disp, dispatchers[1].func)
-            assert.are.equal("local", dispatchers[1].config.timezone)
+            -- Verify first output
+            assert.are.equal(console_disp, outputs[1].func)
+            assert.are.equal("local", outputs[1].config.timezone)
 
-            -- Verify second dispatcher
-            assert.are.equal(file_disp, dispatchers[2].func)
-            assert.are.equal("/var/log/app.log", dispatchers[2].config.path)
-            assert.are.equal(20, dispatchers[2].config.level)
+            -- Verify second output
+            assert.are.equal(file_disp, outputs[2].func)
+            assert.are.equal("/var/log/app.log", outputs[2].config.path)
+            assert.are.equal(20, outputs[2].config.level)
 
             -- Verify presenters
             assert.are.equal(text_presenter, presenters[1].func)

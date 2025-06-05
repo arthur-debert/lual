@@ -1,7 +1,7 @@
---- Generic component processing utilities for dispatchers, transformers, and presenters
+--- Generic component processing utilities for outputs, transformers, and presenters
 -- This module provides unified normalization and configuration merging for all pipeline components
 --
--- The component system standardizes how dispatchers, transformers, and presenters are handled
+-- The component system standardizes how outputs, transformers, and presenters are handled
 -- by normalizing them to a standard format early in the processing pipeline.
 --
 -- Components can be provided in only two formats:
@@ -12,7 +12,7 @@
 -- {
 --   func = function_reference,  -- The actual component function
 --   config = {                  -- Configuration table with merged defaults
---     level = level_value,      -- Optional level for dispatchers
+--     level = level_value,      -- Optional level for outputs
 --     ... other config values
 --   }
 -- }
@@ -32,6 +32,10 @@ M.PRESENTER_DEFAULTS = {
     timezone = "local"
 }
 
+M.PIPELINE_DEFAULTS = {
+    level = 0 -- NOTSET by default
+}
+
 -- Helper function to check if an object is callable (function or table with __call metafunction)
 local function is_callable(obj)
     if type(obj) == "function" then
@@ -48,11 +52,11 @@ end
 -- Expose the is_callable function
 M.is_callable = is_callable
 
--- Special case handling for dispatcher_func and non-standard formats
+-- Special case handling for output_func and non-standard formats
 local function try_extract_function(item)
-    -- If we have a dispatcher_func property (legacy compatibility)
-    if type(item) == "table" and type(item.dispatcher_func) == "function" then
-        return item.dispatcher_func
+    -- If we have a output_func property (legacy compatibility)
+    if type(item) == "table" and type(item.output_func) == "function" then
+        return item.output_func
     end
 
     -- If we have a func property directly
@@ -93,7 +97,7 @@ function M.normalize_component(item, defaults)
             }
         end
 
-        -- Check for special dispatcher_func or func properties
+        -- Check for special output_func or func properties
         local extracted_func = try_extract_function(item)
         if extracted_func then
             -- Create a merged config that preserves existing configuration
@@ -108,7 +112,7 @@ function M.normalize_component(item, defaults)
 
             -- Also look for direct config keys in the item itself (like level)
             for k, v in pairs(item) do
-                if k ~= "func" and k ~= "dispatcher_func" and k ~= "config" then
+                if k ~= "func" and k ~= "output_func" and k ~= "config" then
                     merged_config[k] = v
                 end
             end

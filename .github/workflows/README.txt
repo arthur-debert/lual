@@ -57,7 +57,7 @@
    - Cache compression happens automatically
 
 5. Validate cache effectiveness
-   - Check cache-hit dispatcher: `${{ steps.cache-step-id.dispatchers.cache-hit }}`
+   - Check cache-hit output: `${{ steps.cache-step-id.outputs.cache-hit }}`
    - Monitor workflow execution time with and without cache
 
 2. Common Pitfalls
@@ -72,7 +72,7 @@
 
 3. Not handling cache misses
    - Always implement proper workflow logic for when cache misses occur
-   - Example: `if: steps.cache-step.dispatchers.cache-hit != 'true'`
+   - Example: `if: steps.cache-step.outputs.cache-hit != 'true'`
 
 4. Overly-specific cache keys
    - If keys are too specific, you'll rarely get cache hits

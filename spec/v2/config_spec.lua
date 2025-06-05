@@ -5,8 +5,8 @@ local lual = require("lual.logger")
 local core_levels = require("lua.lual.levels")
 
 --- Tests that assert() correctly returns the raw function for backwards compatibility,
--- but does not return the same dispatcher table to preserve immutability
-local function assert_dispatcher_is_function(result, expected_func)
+-- but does not return the same output table to preserve immutability
+local function assert_output_is_function(result, expected_func)
     assert.is_table(result) -- We're now returning the normalized form
     assert.are.equal(expected_func, result.func)
 end
@@ -26,11 +26,13 @@ describe("lual.config() API", function()
 
             assert.are.equal(core_levels.definition.DEBUG, result.level)
 
-            -- Default dispatcher should be preserved
-            local dispatchers = result.dispatchers
-            assert.is_table(dispatchers)
-            assert.are.equal(1, #dispatchers)
-            assert_dispatcher_is_function(dispatchers[1], lual.dispatchers.console_dispatcher)
+            -- Default pipeline should be preserved
+            local pipelines = result.pipelines
+            assert.is_table(pipelines)
+            assert.are.equal(1, #pipelines)
+            assert.is_table(pipelines[1].outputs)
+            assert.are.equal(1, #pipelines[1].outputs)
+            assert_output_is_function(pipelines[1].outputs[1], lual.outputs.console_output)
         end)
 
         it("should preserve existing configuration for unspecified keys", function()
@@ -48,24 +50,33 @@ describe("lual.config() API", function()
             assert.are.equal(core_levels.definition.INFO, result.level)
             assert.is_false(result.propagate)
 
-            -- Default dispatcher should still be there
-            local dispatchers = result.dispatchers
-            assert.is_table(dispatchers)
-            assert.are.equal(1, #dispatchers)
-            assert_dispatcher_is_function(dispatchers[1], lual.dispatchers.console_dispatcher)
+            -- Default pipeline should still be there
+            local pipelines = result.pipelines
+            assert.is_table(pipelines)
+            assert.are.equal(1, #pipelines)
+            assert.is_table(pipelines[1].outputs)
+            assert.are.equal(1, #pipelines[1].outputs)
+            assert_output_is_function(pipelines[1].outputs[1], lual.outputs.console_output)
         end)
 
-        it("should allow updating dispatchers", function()
-            local custom_dispatcher = function() end
+        it("should allow updating pipelines", function()
+            local custom_output = function() end
 
             local result = lual.config({
-                dispatchers = { custom_dispatcher }
+                pipelines = {
+                    {
+                        outputs = { custom_output },
+                        presenter = lual.text()
+                    }
+                }
             })
 
-            local dispatchers = result.dispatchers
-            assert.is_table(dispatchers)
-            assert.are.equal(1, #dispatchers)
-            assert_dispatcher_is_function(dispatchers[1], custom_dispatcher)
+            local pipelines = result.pipelines
+            assert.is_table(pipelines)
+            assert.are.equal(1, #pipelines)
+            assert.is_table(pipelines[1].outputs)
+            assert.are.equal(1, #pipelines[1].outputs)
+            assert_output_is_function(pipelines[1].outputs[1], custom_output)
         end)
 
         it("should allow updating propagate", function()
@@ -75,29 +86,38 @@ describe("lual.config() API", function()
 
             assert.is_false(result.propagate)
 
-            -- Default dispatcher should still be there
-            local dispatchers = result.dispatchers
-            assert.is_table(dispatchers)
-            assert.are.equal(1, #dispatchers)
-            assert_dispatcher_is_function(dispatchers[1], lual.dispatchers.console_dispatcher)
+            -- Default pipeline should still be there
+            local pipelines = result.pipelines
+            assert.is_table(pipelines)
+            assert.are.equal(1, #pipelines)
+            assert.is_table(pipelines[1].outputs)
+            assert.are.equal(1, #pipelines[1].outputs)
+            assert_output_is_function(pipelines[1].outputs[1], lual.outputs.console_output)
         end)
 
         it("should allow updating multiple keys at once", function()
-            local custom_dispatcher = function() end
+            local custom_output = function() end
 
             local result = lual.config({
                 level = core_levels.definition.ERROR,
                 propagate = false,
-                dispatchers = { custom_dispatcher }
+                pipelines = {
+                    {
+                        outputs = { custom_output },
+                        presenter = lual.text()
+                    }
+                }
             })
 
             assert.are.equal(core_levels.definition.ERROR, result.level)
             assert.is_false(result.propagate)
 
-            local dispatchers = result.dispatchers
-            assert.is_table(dispatchers)
-            assert.are.equal(1, #dispatchers)
-            assert_dispatcher_is_function(dispatchers[1], custom_dispatcher)
+            local pipelines = result.pipelines
+            assert.is_table(pipelines)
+            assert.are.equal(1, #pipelines)
+            assert.is_table(pipelines[1].outputs)
+            assert.are.equal(1, #pipelines[1].outputs)
+            assert_output_is_function(pipelines[1].outputs[1], custom_output)
         end)
     end)
 
@@ -109,7 +129,7 @@ describe("lual.config() API", function()
                         unknown_key = "value"
                     })
                 end,
-                "Invalid configuration: Unknown configuration key 'unknown_key'. Valid keys are: dispatchers, level, propagate")
+                "Invalid configuration: Unknown configuration key 'unknown_key'")
         end)
 
         it("should reject multiple unknown keys with helpful message", function()
@@ -136,7 +156,7 @@ describe("lual.config() API", function()
                         unknown_key = "value"
                     })
                 end,
-                "Invalid configuration: Unknown configuration key 'unknown_key'. Valid keys are: dispatchers, level, propagate")
+                "Invalid configuration: Unknown configuration key 'unknown_key'")
         end)
 
         it("should reject invalid level type", function()
@@ -176,27 +196,26 @@ describe("lual.config() API", function()
                 "Invalid configuration: Invalid type for 'propagate': expected boolean, got string. Whether to propagate messages (always true for root)")
         end)
 
-        it("should reject invalid dispatchers type", function()
+        it("should reject outputs configuration", function()
             assert.has_error(function()
                     lual.config({
-                        dispatchers = "not_an_array"
+                        outputs = { function() end }
                     })
                 end,
-                "Invalid configuration: Invalid type for 'dispatchers': expected table, got string. Array of dispatcher functions or configuration tables")
+                "Invalid configuration: 'outputs' is no longer supported. Use 'pipelines' instead.")
         end)
 
-        it("should reject dispatchers containing non-functions", function()
+        it("should reject outputs containing non-functions", function()
             assert.has_error(function()
                     lual.config({
-                        dispatchers = { "not_a_dispatcher" }
+                        outputs = { "not_a_output" }
                     })
                 end,
-                "Invalid configuration: dispatchers[1] must be a function or a table with function as first element, got string")
+                "Invalid configuration: 'outputs' is no longer supported. Use 'pipelines' instead.")
         end)
 
         it("should accept all valid level values", function()
             local valid_levels = {
-                core_levels.definition.NOTSET,
                 core_levels.definition.DEBUG,
                 core_levels.definition.INFO,
                 core_levels.definition.WARNING,
@@ -221,30 +240,34 @@ describe("lual.config() API", function()
                 "Invalid configuration: Invalid type for 'propagate': expected boolean, got number. Whether to propagate messages (always true for root)")
         end)
 
-        it("should reject invalid dispatchers type", function()
+        it("should reject invalid outputs type", function()
             assert.has_error(function()
                     lual.config({
-                        dispatchers = 123
+                        outputs = 123
                     })
                 end,
-                "Invalid configuration: Invalid type for 'dispatchers': expected table, got number. Array of dispatcher functions or configuration tables")
+                "Invalid configuration: 'outputs' is no longer supported. Use 'pipelines' instead.")
         end)
 
-        it("should accept empty dispatchers array", function()
+        it("should accept empty pipelines array", function()
             assert.has_no_error(function()
                 lual.config({
-                    dispatchers = {}
+                    pipelines = {}
                 })
             end)
         end)
 
-        it("should accept valid dispatchers array", function()
-            local mock_dispatcher1 = function() end
-            local mock_dispatcher2 = function() end
+        it("should accept valid pipelines array", function()
+            local mock_output = function() end
 
             assert.has_no_error(function()
                 lual.config({
-                    dispatchers = { mock_dispatcher1, mock_dispatcher2 }
+                    pipelines = {
+                        {
+                            outputs = { mock_output },
+                            presenter = lual.text()
+                        }
+                    }
                 })
             end)
         end)
@@ -253,11 +276,16 @@ describe("lual.config() API", function()
     describe("get_config() functionality", function()
         it("should return current configuration", function()
             -- Set up a custom configuration
-            local custom_dispatcher = function() end
+            local custom_output = function() end
 
             lual.config({
                 level = core_levels.definition.DEBUG,
-                dispatchers = { custom_dispatcher },
+                pipelines = {
+                    {
+                        outputs = { custom_output },
+                        presenter = lual.text()
+                    }
+                },
                 propagate = false
             })
 
@@ -268,10 +296,12 @@ describe("lual.config() API", function()
             assert.are.equal(core_levels.definition.DEBUG, config.level)
             assert.is_false(config.propagate)
 
-            -- Verify dispatchers
-            assert.is_table(config.dispatchers)
-            assert.are.equal(1, #config.dispatchers)
-            assert_dispatcher_is_function(config.dispatchers[1], custom_dispatcher)
+            -- Verify pipelines
+            assert.is_table(config.pipelines)
+            assert.are.equal(1, #config.pipelines)
+            assert.is_table(config.pipelines[1].outputs)
+            assert.are.equal(1, #config.pipelines[1].outputs)
+            assert_output_is_function(config.pipelines[1].outputs[1], custom_output)
 
             -- Verify that modifying the returned config doesn't affect the internal state
             config.level = core_levels.definition.ERROR
@@ -287,21 +317,28 @@ describe("lual.config() API", function()
             assert.are.equal(core_levels.definition.WARNING, config.level)
             assert.is_true(config.propagate)
 
-            -- Verify default dispatcher
-            assert.is_table(config.dispatchers)
-            assert.are.equal(1, #config.dispatchers)
-            assert_dispatcher_is_function(config.dispatchers[1], lual.dispatchers.console_dispatcher)
+            -- Verify default pipeline
+            assert.is_table(config.pipelines)
+            assert.are.equal(1, #config.pipelines)
+            assert.is_table(config.pipelines[1].outputs)
+            assert.are.equal(1, #config.pipelines[1].outputs)
+            assert_output_is_function(config.pipelines[1].outputs[1], lual.outputs.console_output)
         end)
     end)
 
     describe("reset_config() functionality", function()
         it("should reset configuration to defaults", function()
             -- First set a custom configuration
-            local custom_dispatcher = function() end
+            local custom_output = function() end
 
             lual.config({
                 level = core_levels.definition.DEBUG,
-                dispatchers = { custom_dispatcher },
+                pipelines = {
+                    {
+                        outputs = { custom_output },
+                        presenter = lual.text()
+                    }
+                },
                 propagate = false
             })
 
@@ -309,9 +346,11 @@ describe("lual.config() API", function()
             local before_reset = lual.get_config()
             assert.are.equal(core_levels.definition.DEBUG, before_reset.level)
             assert.is_false(before_reset.propagate)
-            assert.is_table(before_reset.dispatchers)
-            assert.are.equal(1, #before_reset.dispatchers)
-            assert_dispatcher_is_function(before_reset.dispatchers[1], custom_dispatcher)
+            assert.is_table(before_reset.pipelines)
+            assert.are.equal(1, #before_reset.pipelines)
+            assert.is_table(before_reset.pipelines[1].outputs)
+            assert.are.equal(1, #before_reset.pipelines[1].outputs)
+            assert_output_is_function(before_reset.pipelines[1].outputs[1], custom_output)
 
             -- Reset the configuration
             lual.reset_config()
@@ -320,9 +359,11 @@ describe("lual.config() API", function()
             local after_reset = lual.get_config()
             assert.are.equal(core_levels.definition.WARNING, after_reset.level)
             assert.is_true(after_reset.propagate)
-            assert.is_table(after_reset.dispatchers)
-            assert.are.equal(1, #after_reset.dispatchers)
-            assert_dispatcher_is_function(after_reset.dispatchers[1], lual.dispatchers.console_dispatcher)
+            assert.is_table(after_reset.pipelines)
+            assert.are.equal(1, #after_reset.pipelines)
+            assert.is_table(after_reset.pipelines[1].outputs)
+            assert.are.equal(1, #after_reset.pipelines[1].outputs)
+            assert_output_is_function(after_reset.pipelines[1].outputs[1], lual.outputs.console_output)
         end)
     end)
 

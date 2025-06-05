@@ -17,7 +17,7 @@ to address its concepts is quite helpful.
         - Auto-generated: If no name is supplied to `lual.logger()`, a name might
           be derived from the calling module's path (implementation detail).
 
-    1.3. Dispatcher (Handler):
+    1.3. output (Handler):
         A component responsible for sending a processed log record to a specific
         output destination (e.g., console, file, network socket).
         Analogous to "handlers" in Python logging or "appenders" in Log4j.
@@ -25,13 +25,13 @@ to address its concepts is quite helpful.
 
     1.4. Transformer (Filter/Processor):
         A component that can modify a log record's data (e.g., adding, removing,
-        or changing key-value pairs) before it is presented or dispatched.
+        or changing key-value pairs) before it is presented or outputed.
         Configured using constants like `lual.noop`, `lual.audit`, etc.
 
     1.5. Presenter (Formatter/Layout):
         A component that formats a log record for output, controlling its visual
         presentation (e.g., text, JSON, colors, timestamp format).
-        Presenters are typically associated with dispatchers.
+        Presenters are typically associated with outputs.
         Configured using constants like `lual.text`, `lual.json`, `lual.color`, etc.
         The `time` property (UTC/local, format) is part of a presenter's config
         and uses constants like `lual.utc` and `lual.local_time`.
@@ -45,7 +45,7 @@ to address its concepts is quite helpful.
     2.2. Log Record:
         A table created from a log event, typically enriched with additional
         information like timestamp, logger name, source file/line (if available).
-        This record is passed through transformers, to presenters, and then to dispatchers.
+        This record is passed through transformers, to presenters, and then to outputs.
 
     2.3. Emission / Emit:
         Refers to a logger initiating the processing of a log event.
@@ -69,16 +69,16 @@ to address its concepts is quite helpful.
 
     4.1. Root Logger (`_root`) Configuration:
         - Initialized by `lual` with library defaults (e.g., level `lual.WARN`,
-          a console dispatcher, default presenter).
+          a console output, default presenter).
         - Can be modified by the user via `lual.config(config_table)`.
           This function applies settings directly to `_root`.
 
     4.2. Logger Specific Configuration:
         - Applied when creating a logger `lual.logger("name", {config_table})` or
           imperatively, e.g., `logger:set_level(lual.DEBUG)`,
-          `logger:add_dispatcher({...})`.
+          `logger:add_output({...})`.
         - A logger's specific configuration is sparse; it only stores what was
-          explicitly set. Unset properties are not present (e.g., no dispatchers
+          explicitly set. Unset properties are not present (e.g., no outputs
           list if none were added), or level is `lual.NOTSET`.
 
     4.3. Effective Logger Level:
@@ -99,7 +99,7 @@ to address its concepts is quite helpful.
         - Controlled by the `propagate` boolean flag on each logger (defaults to `true`).
         - If `logger.propagate` is `false`, the event is not passed to the parent.
 
-6. Processing Pipeline & Dispatch Loop:
+6. Processing Pipeline & Output Loop:
 
     When a logger `L` receives a log event:
 
@@ -108,12 +108,12 @@ to address its concepts is quite helpful.
     6.2. Level Match:
         If `event_level >= L.effective_level`, proceed. Otherwise, skip to 6.4 (Propagate).
 
-    6.3. Dispatch (if level matched):
-        - For each dispatcher in `L`'s *own* `dispatchers` list:
+    6.3. Output (if level matched):
+        - For each output in `L`'s *own* `outputs` list:
             1. (Optional) The log record may be processed by `L`'s transformers.
-            2. The log record is formatted by the dispatcher's presenter.
-            3. The dispatcher sends the formatted output to its target (console, file, etc.).
-        - If `L` has no dispatchers, it performs no output itself.
+            2. The log record is formatted by the output's presenter.
+            3. The output sends the formatted output to its target (console, file, etc.).
+        - If `L` has no outputs, it performs no output itself.
 
     6.4. Propagate:
         If `L.propagate` is `true` AND `L` is not `_root`:
@@ -122,6 +122,6 @@ to address its concepts is quite helpful.
 
 7. Output:
 
-    7.1. Dispatch Event:
-        The act of a dispatcher writing the final, formatted log message to its
+    7.1. Output Event:
+        The act of a output writing the final, formatted log message to its
         destination (e.g., console, file).

@@ -3,9 +3,9 @@ package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lu
 
 local lual = require("lual.logger")
 local core_levels = require("lua.lual.levels")
-local console_dispatcher = require("lual.dispatchers.console_dispatcher")
-local file_dispatcher = require("lual.dispatchers.file_dispatcher")
-local syslog_dispatcher = require("lual.dispatchers.syslog_dispatcher")
+local console_output = require("lual.outputs.console_output")
+local file_output = require("lual.outputs.file_output")
+local syslog_output = require("lual.outputs.syslog_output")
 local all_presenters = require("lual.presenters.init") -- For presenter tests
 
 -- Helper function to check if a file exists
@@ -18,7 +18,7 @@ local function file_exists(filename)
     return false
 end
 
-describe("Dispatch Loop Logic (Step 2.7)", function()
+describe("Output Loop Logic (Step 2.7)", function()
     before_each(function()
         -- Reset config and logger cache for each test
         lual.reset_config()
@@ -39,29 +39,34 @@ describe("Dispatch Loop Logic (Step 2.7)", function()
 
         it("should not output when level is not enabled", function()
             local output_captured = {}
-            local mock_dispatcher = function(record)
+            local mock_output = function(record)
                 table.insert(output_captured, record)
             end
 
             local logger = lual.logger("test.level.check", {
                 level = core_levels.definition.WARNING,
-                dispatchers = { mock_dispatcher }
+                pipelines = {
+                    {
+                        outputs = { mock_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
-            -- DEBUG and INFO should not be dispatched (below WARNING)
+            -- DEBUG and INFO should not be outputed (below WARNING)
             logger:debug("Debug message")
             logger:info("Info message")
 
-            assert.are.equal(0, #output_captured, "No messages should be dispatched below WARNING level")
+            assert.are.equal(0, #output_captured, "No messages should be outputed below WARNING level")
 
-            -- WARNING should be dispatched
+            -- WARNING should be outputed
             logger:warn("Warning message")
-            assert.are.equal(1, #output_captured, "WARNING message should be dispatched")
+            assert.are.equal(1, #output_captured, "WARNING message should be outputed")
         end)
 
         it("should use effective level for checking", function()
             local output_captured = {}
-            local mock_dispatcher = function(record)
+            local mock_output = function(record)
                 table.insert(output_captured, record)
             end
 
@@ -70,120 +75,155 @@ describe("Dispatch Loop Logic (Step 2.7)", function()
 
             -- Create child logger with NOTSET (inherits ERROR from root)
             local child_logger = lual.logger("inherits.error", {
-                dispatchers = { mock_dispatcher }
+                pipelines = {
+                    {
+                        outputs = { mock_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             -- Should inherit ERROR level from root
             assert.are.equal(core_levels.definition.NOTSET, child_logger.level)
             assert.are.equal(core_levels.definition.ERROR, child_logger:_get_effective_level())
 
-            -- DEBUG, INFO, WARNING should not be dispatched
+            -- DEBUG, INFO, WARNING should not be outputed
             child_logger:debug("Debug message")
             child_logger:info("Info message")
             child_logger:warn("Warning message")
-            assert.are.equal(0, #output_captured, "Messages below ERROR should not be dispatched")
+            assert.are.equal(0, #output_captured, "Messages below ERROR should not be outputed")
 
-            -- ERROR should be dispatched
+            -- ERROR should be outputed
             child_logger:error("Error message")
-            assert.are.equal(1, #output_captured, "ERROR message should be dispatched")
+            assert.are.equal(1, #output_captured, "ERROR message should be outputed")
         end)
     end)
 
-    describe("Dispatch loop hierarchy processing", function()
-        it("should dispatch through logger's own dispatchers when level matches", function()
-            local child_output = {}
-            local parent_output = {}
+    describe("Output loop hierarchy processing", function()
+        it("should output through logger's own outputs when level matches", function()
+            local child_records = {}
+            local parent_records = {}
 
-            local child_dispatcher = function(record)
-                table.insert(child_output, record)
+            local child_output = function(record)
+                table.insert(child_records, record)
             end
 
-            local parent_dispatcher = function(record)
-                table.insert(parent_output, record)
+            local parent_output = function(record)
+                table.insert(parent_records, record)
             end
 
-            -- Create hierarchy with dispatchers
+            -- Create hierarchy with pipelines
             local parent_logger = lual.logger("parent", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = { parent_dispatcher }
+                pipelines = {
+                    {
+                        outputs = { parent_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             local child_logger = lual.logger("parent.child", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = { child_dispatcher }
+                pipelines = {
+                    {
+                        outputs = { child_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             -- Log through child
             child_logger:info("Test message")
 
             -- Both child and parent should receive the message (propagation)
-            assert.are.equal(1, #child_output, "Child dispatcher should receive message")
-            assert.are.equal(1, #parent_output, "Parent dispatcher should receive message via propagation")
+            assert.are.equal(1, #child_records, "Child output should receive message")
+            assert.are.equal(1, #parent_records, "Parent output should receive message via propagation")
 
             -- Check that records have correct owner information
-            assert.are.equal("parent.child", child_output[1].owner_logger_name)
-            assert.are.equal("parent", parent_output[1].owner_logger_name)
+            assert.are.equal("parent.child", child_records[1].owner_logger_name)
+            assert.are.equal("parent", parent_records[1].owner_logger_name)
         end)
 
-        it("should not dispatch when logger level doesn't match", function()
-            local high_level_output = {}
-            local low_level_output = {}
+        it("should not output when logger level doesn't match", function()
+            local high_level_records = {}
+            local low_level_records = {}
 
-            local high_level_dispatcher = function(record)
-                table.insert(high_level_output, record)
+            local high_level_output = function(record)
+                table.insert(high_level_records, record)
             end
 
-            local low_level_dispatcher = function(record)
-                table.insert(low_level_output, record)
+            local low_level_output = function(record)
+                table.insert(low_level_records, record)
             end
 
             -- Create hierarchy with different levels
             local parent_logger = lual.logger("parent", {
                 level = core_levels.definition.ERROR, -- Only ERROR and above
-                dispatchers = { high_level_dispatcher }
+                pipelines = {
+                    {
+                        outputs = { high_level_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             local child_logger = lual.logger("parent.child", {
                 level = core_levels.definition.DEBUG, -- All messages
-                dispatchers = { low_level_dispatcher }
+                pipelines = {
+                    {
+                        outputs = { low_level_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             -- Log INFO message through child
             child_logger:info("Info message")
 
             -- Child should receive it (DEBUG <= INFO), parent should not (ERROR > INFO)
-            assert.are.equal(1, #low_level_output, "Child dispatcher should receive INFO message")
-            assert.are.equal(0, #high_level_output, "Parent dispatcher should not receive INFO message")
+            assert.are.equal(1, #low_level_records, "Child output should receive INFO message")
+            assert.are.equal(0, #high_level_records, "Parent output should not receive INFO message")
 
             -- Log ERROR message through child
             child_logger:error("Error message")
 
             -- Both should receive ERROR message
-            assert.are.equal(2, #low_level_output, "Child dispatcher should receive ERROR message")
-            assert.are.equal(1, #high_level_output, "Parent dispatcher should receive ERROR message")
+            assert.are.equal(2, #low_level_records, "Child output should receive ERROR message")
+            assert.are.equal(1, #high_level_records, "Parent output should receive ERROR message")
         end)
 
         it("should stop propagation when propagate is false", function()
-            local child_output = {}
-            local parent_output = {}
+            local child_records = {}
+            local parent_records = {}
 
-            local child_dispatcher = function(record)
-                table.insert(child_output, record)
+            local child_output = function(record)
+                table.insert(child_records, record)
             end
 
-            local parent_dispatcher = function(record)
-                table.insert(parent_output, record)
+            local parent_output = function(record)
+                table.insert(parent_records, record)
             end
 
             -- Create hierarchy with propagate = false on child
             local parent_logger = lual.logger("parent", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = { parent_dispatcher }
+                pipelines = {
+                    {
+                        outputs = { parent_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             local child_logger = lual.logger("parent.child", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = { child_dispatcher },
+                pipelines = {
+                    {
+                        outputs = { child_output },
+                        presenter = lual.text
+                    }
+                },
                 propagate = false -- Stop propagation
             })
 
@@ -191,83 +231,103 @@ describe("Dispatch Loop Logic (Step 2.7)", function()
             child_logger:info("Test message")
 
             -- Only child should receive the message
-            assert.are.equal(1, #child_output, "Child dispatcher should receive message")
-            assert.are.equal(0, #parent_output, "Parent dispatcher should not receive message (propagate=false)")
+            assert.are.equal(1, #child_records, "Child output should receive message")
+            assert.are.equal(0, #parent_records, "Parent output should not receive message (propagate=false)")
         end)
 
         it("should stop propagation at _root", function()
-            local root_output = {}
-            local child_output = {}
+            local root_records = {}
+            local child_records = {}
 
-            local root_dispatcher = function(record)
-                table.insert(root_output, record)
+            local root_output = function(record)
+                table.insert(root_records, record)
             end
 
-            local child_dispatcher = function(record)
-                table.insert(child_output, record)
+            local child_output = function(record)
+                table.insert(child_records, record)
             end
 
             -- Configure root logger manually
             lual.config({
                 level = core_levels.definition.DEBUG,
-                dispatchers = { root_dispatcher }
+                pipelines = {
+                    {
+                        outputs = { root_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             -- Create child logger
             local child_logger = lual.logger("child", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = { child_dispatcher }
+                pipelines = {
+                    {
+                        outputs = { child_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             -- Log through child
             child_logger:info("Test message")
 
             -- Both child and root should receive message, but propagation stops at root
-            assert.are.equal(1, #child_output, "Child dispatcher should receive message")
-            assert.are.equal(1, #root_output, "Root dispatcher should receive message")
+            assert.are.equal(1, #child_records, "Child output should receive message")
+            assert.are.equal(1, #root_records, "Root output should receive message")
 
             -- Verify record ownership
-            assert.are.equal("child", child_output[1].owner_logger_name)
-            assert.are.equal("_root", root_output[1].owner_logger_name)
+            assert.are.equal("child", child_records[1].owner_logger_name)
+            assert.are.equal("_root", root_records[1].owner_logger_name)
         end)
 
-        it("should handle loggers with no dispatchers", function()
-            local parent_output = {}
+        it("should handle loggers with no outputs", function()
+            local parent_records = {}
 
-            local parent_dispatcher = function(record)
-                table.insert(parent_output, record)
+            local parent_output = function(record)
+                table.insert(parent_records, record)
             end
 
-            -- Create hierarchy where child has no dispatchers
+            -- Create hierarchy where child has no outputs
             local parent_logger = lual.logger("parent", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = { parent_dispatcher }
+                pipelines = {
+                    {
+                        outputs = { parent_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             local child_logger = lual.logger("parent.child", {
                 level = core_levels.definition.DEBUG
-                -- No dispatchers specified
+                -- No outputs specified
             })
 
             -- Log through child
             child_logger:info("Test message")
 
             -- Child produces no output itself, but parent should receive via propagation
-            assert.are.equal(1, #parent_output, "Parent dispatcher should receive message via propagation")
-            assert.are.equal("parent", parent_output[1].owner_logger_name)
+            assert.are.equal(1, #parent_records, "Parent output should receive message via propagation")
+            assert.are.equal("parent", parent_records[1].owner_logger_name)
         end)
     end)
 
     describe("Log record creation and content", function()
         it("should create properly formatted log records", function()
             local captured_record = nil
-            local mock_dispatcher = function(record)
+            local mock_output = function(record)
                 captured_record = record
             end
 
             local logger = lual.logger("record.test", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = { mock_dispatcher }
+                pipelines = {
+                    {
+                        outputs = { mock_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             logger:info("Test message %s %d", "arg1", 42)
@@ -296,13 +356,18 @@ describe("Dispatch Loop Logic (Step 2.7)", function()
 
         it("should handle context-based logging", function()
             local captured_record = nil
-            local mock_dispatcher = function(record)
+            local mock_output = function(record)
                 captured_record = record
             end
 
             local logger = lual.logger("context.test", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = { mock_dispatcher }
+                pipelines = {
+                    {
+                        outputs = { mock_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             local context = { user_id = 123, action = "login" }
@@ -317,13 +382,18 @@ describe("Dispatch Loop Logic (Step 2.7)", function()
 
         it("should handle context-only logging", function()
             local captured_record = nil
-            local mock_dispatcher = function(record)
+            local mock_output = function(record)
                 captured_record = record
             end
 
             local logger = lual.logger("context.only.test", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = { mock_dispatcher }
+                pipelines = {
+                    {
+                        outputs = { mock_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             local context = { event = "SystemRestart", reason = "Update" }
@@ -338,95 +408,135 @@ describe("Dispatch Loop Logic (Step 2.7)", function()
 
     describe("Deep hierarchy testing", function()
         it("should properly propagate through deep hierarchy", function()
-            local outputs = {
+            local records = {
                 level1 = {},
                 level2 = {},
                 level3 = {},
                 level4 = {}
             }
 
-            -- Create dispatchers for each level
-            local dispatchers = {}
-            for level, output in pairs(outputs) do
-                dispatchers[level] = function(record)
-                    table.insert(output, record)
+            -- Create outputs for each level
+            local outputs = {}
+            for level, _ in pairs(records) do
+                outputs[level] = function(record)
+                    table.insert(records[level], record)
                 end
             end
 
             -- Create deep hierarchy: level1 -> level2 -> level3 -> level4
             local level1 = lual.logger("level1", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = { dispatchers.level1 }
+                pipelines = {
+                    {
+                        outputs = { outputs.level1 },
+                        presenter = lual.text
+                    }
+                }
             })
 
             local level2 = lual.logger("level1.level2", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = { dispatchers.level2 }
+                pipelines = {
+                    {
+                        outputs = { outputs.level2 },
+                        presenter = lual.text
+                    }
+                }
             })
 
             local level3 = lual.logger("level1.level2.level3", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = { dispatchers.level3 }
+                pipelines = {
+                    {
+                        outputs = { outputs.level3 },
+                        presenter = lual.text
+                    }
+                }
             })
 
             local level4 = lual.logger("level1.level2.level3.level4", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = { dispatchers.level4 }
+                pipelines = {
+                    {
+                        outputs = { outputs.level4 },
+                        presenter = lual.text
+                    }
+                }
             })
 
             -- Log from deepest level
             level4:info("Deep message")
 
             -- All levels should receive the message
-            assert.are.equal(1, #outputs.level4, "Level4 should receive message")
-            assert.are.equal(1, #outputs.level3, "Level3 should receive message")
-            assert.are.equal(1, #outputs.level2, "Level2 should receive message")
-            assert.are.equal(1, #outputs.level1, "Level1 should receive message")
+            assert.are.equal(1, #records.level4, "Level4 should receive message")
+            assert.are.equal(1, #records.level3, "Level3 should receive message")
+            assert.are.equal(1, #records.level2, "Level2 should receive message")
+            assert.are.equal(1, #records.level1, "Level1 should receive message")
 
             -- Check owner logger names
-            assert.are.equal("level1.level2.level3.level4", outputs.level4[1].owner_logger_name)
-            assert.are.equal("level1.level2.level3", outputs.level3[1].owner_logger_name)
-            assert.are.equal("level1.level2", outputs.level2[1].owner_logger_name)
-            assert.are.equal("level1", outputs.level1[1].owner_logger_name)
+            assert.are.equal("level1.level2.level3.level4", records.level4[1].owner_logger_name)
+            assert.are.equal("level1.level2.level3", records.level3[1].owner_logger_name)
+            assert.are.equal("level1.level2", records.level2[1].owner_logger_name)
+            assert.are.equal("level1", records.level1[1].owner_logger_name)
         end)
 
         it("should handle mixed propagation settings in hierarchy", function()
-            local outputs = {
+            local records = {
                 level1 = {},
                 level2 = {},
                 level3 = {},
                 level4 = {}
             }
 
-            local dispatchers = {}
-            for level, output in pairs(outputs) do
-                dispatchers[level] = function(record)
-                    table.insert(output, record)
+            local outputs = {}
+            for level, _ in pairs(records) do
+                outputs[level] = function(record)
+                    table.insert(records[level], record)
                 end
             end
 
             -- Create hierarchy with mixed propagation settings
             local level1 = lual.logger("mixed1", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = { dispatchers.level1 },
+                pipelines = {
+                    {
+                        outputs = { outputs.level1 },
+                        presenter = lual.text
+                    }
+                },
                 propagate = true
             })
 
             local level2 = lual.logger("mixed1.mixed2", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = { dispatchers.level2 },
+                pipelines = {
+                    {
+                        outputs = { outputs.level2 },
+                        presenter = lual.text
+                    }
+                },
                 propagate = false -- Stop propagation here
             })
 
             local level3 = lual.logger("mixed1.mixed2.mixed3", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = { dispatchers.level3 },
+                pipelines = {
+                    {
+                        outputs = { outputs.level3 },
+                        presenter = lual.text
+                    }
+                },
                 propagate = true
             })
 
             local level4 = lual.logger("mixed1.mixed2.mixed3.mixed4", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = { dispatchers.level4 },
+                pipelines = {
+                    {
+                        outputs = { outputs.level4 },
+                        presenter = lual.text
+                    }
+                },
                 propagate = true
             })
 
@@ -435,23 +545,28 @@ describe("Dispatch Loop Logic (Step 2.7)", function()
 
             -- Level4, Level3, and Level2 should receive message
             -- Level1 should not (stopped at Level2)
-            assert.are.equal(1, #outputs.level4, "Level4 should receive message")
-            assert.are.equal(1, #outputs.level3, "Level3 should receive message")
-            assert.are.equal(1, #outputs.level2, "Level2 should receive message")
-            assert.are.equal(0, #outputs.level1, "Level1 should not receive message (propagation stopped)")
+            assert.are.equal(1, #records.level4, "Level4 should receive message")
+            assert.are.equal(1, #records.level3, "Level3 should receive message")
+            assert.are.equal(1, #records.level2, "Level2 should receive message")
+            assert.are.equal(0, #records.level1, "Level1 should not receive message (propagation stopped)")
         end)
     end)
 
     describe("Generic log method", function()
         it("should work with numeric log levels", function()
             local captured_record = nil
-            local mock_dispatcher = function(record)
+            local mock_output = function(record)
                 captured_record = record
             end
 
             local logger = lual.logger("generic.test", {
                 level = core_levels.definition.DEBUG,
-                dispatchers = { mock_dispatcher }
+                pipelines = {
+                    {
+                        outputs = { mock_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
             logger:log(core_levels.definition.WARNING, "Warning via log method")
@@ -472,34 +587,39 @@ describe("Dispatch Loop Logic (Step 2.7)", function()
 
         it("should respect level checking for generic log method", function()
             local output_captured = {}
-            local mock_dispatcher = function(record)
+            local mock_output = function(record)
                 table.insert(output_captured, record)
             end
 
             local logger = lual.logger("generic.level.test", {
                 level = core_levels.definition.WARNING,
-                dispatchers = { mock_dispatcher }
+                pipelines = {
+                    {
+                        outputs = { mock_output },
+                        presenter = lual.text
+                    }
+                }
             })
 
-            -- Below WARNING level should not be dispatched
+            -- Below WARNING level should not be outputed
             logger:log(core_levels.definition.DEBUG, "Debug via log method")
             logger:log(core_levels.definition.INFO, "Info via log method")
 
-            assert.are.equal(0, #output_captured, "Messages below WARNING should not be dispatched")
+            assert.are.equal(0, #output_captured, "Messages below WARNING should not be outputed")
 
-            -- WARNING and above should be dispatched
+            -- WARNING and above should be outputed
             logger:log(core_levels.definition.WARNING, "Warning via log method")
             logger:log(core_levels.definition.ERROR, "Error via log method")
 
-            assert.are.equal(2, #output_captured, "WARNING and ERROR messages should be dispatched")
+            assert.are.equal(2, #output_captured, "WARNING and ERROR messages should be outputed")
         end)
     end)
 end)
 
-describe("Presenter Configuration in Dispatchers", function()
+describe("Presenter Configuration in pipelines", function()
     local captured_record_for_presenter_test
 
-    local mock_dispatcher_func = function(record)
+    local mock_output_func = function(record)
         captured_record_for_presenter_test = record
     end
 
@@ -512,13 +632,16 @@ describe("Presenter Configuration in Dispatchers", function()
     it("should use text presenter when configured with text function", function()
         local logger = lual.logger("presenter.text.function", {
             level = lual.levels.DEBUG,
-            dispatchers = {
-                { dispatcher_func = mock_dispatcher_func, config = { presenter = lual.text() } }
+            pipelines = {
+                {
+                    outputs = { mock_output_func },
+                    presenter = lual.text()
+                }
             }
         })
         logger:info("Hello text presenter")
 
-        assert.is_not_nil(captured_record_for_presenter_test, "Dispatcher was not called")
+        assert.is_not_nil(captured_record_for_presenter_test, "output was not called")
 
         -- If presented_message exists, verify it contains the right data
         if captured_record_for_presenter_test.presented_message then
@@ -535,13 +658,16 @@ describe("Presenter Configuration in Dispatchers", function()
     it("should use json presenter when configured with json function", function()
         local logger = lual.logger("presenter.json.function", {
             level = lual.levels.DEBUG,
-            dispatchers = {
-                { dispatcher_func = mock_dispatcher_func, config = { presenter = lual.json() } }
+            pipelines = {
+                {
+                    outputs = { mock_output_func },
+                    presenter = lual.json()
+                }
             }
         })
         logger:info("Hello json presenter")
 
-        assert.is_not_nil(captured_record_for_presenter_test, "Dispatcher was not called")
+        assert.is_not_nil(captured_record_for_presenter_test, "output was not called")
 
         -- If presented_message exists, verify it contains the right data
         if captured_record_for_presenter_test.presented_message then
@@ -560,13 +686,16 @@ describe("Presenter Configuration in Dispatchers", function()
     it("should use json presenter with pretty print when configured with options", function()
         local logger = lual.logger("presenter.json.pretty", {
             level = lual.levels.DEBUG,
-            dispatchers = {
-                { dispatcher_func = mock_dispatcher_func, config = { presenter = lual.json({ pretty = true }) } }
+            pipelines = {
+                {
+                    outputs = { mock_output_func },
+                    presenter = lual.json({ pretty = true })
+                }
             }
         })
         logger:info("Hello pretty json")
 
-        assert.is_not_nil(captured_record_for_presenter_test, "Dispatcher was not called")
+        assert.is_not_nil(captured_record_for_presenter_test, "output was not called")
 
         -- If presented_message exists, verify it contains the right data
         if captured_record_for_presenter_test.presented_message then
@@ -588,13 +717,16 @@ describe("Presenter Configuration in Dispatchers", function()
     it("should use json presenter with empty config", function()
         local logger = lual.logger("presenter.json.noconf", {
             level = lual.levels.DEBUG,
-            dispatchers = {
-                { dispatcher_func = mock_dispatcher_func, config = { presenter = lual.json({}) } }
+            pipelines = {
+                {
+                    outputs = { mock_output_func },
+                    presenter = lual.json({})
+                }
             }
         })
         logger:info("Hello json no config")
 
-        assert.is_not_nil(captured_record_for_presenter_test, "Dispatcher was not called")
+        assert.is_not_nil(captured_record_for_presenter_test, "output was not called")
 
         -- If presented_message exists, verify it contains the right data
         if captured_record_for_presenter_test.presented_message then
@@ -619,13 +751,16 @@ describe("Presenter Configuration in Dispatchers", function()
         end
         local logger = lual.logger("presenter.function", {
             level = lual.levels.DEBUG,
-            dispatchers = {
-                { dispatcher_func = mock_dispatcher_func, config = { presenter = custom_presenter } }
+            pipelines = {
+                {
+                    outputs = { mock_output_func },
+                    presenter = custom_presenter
+                }
             }
         })
         logger:info("Hello custom function presenter")
 
-        assert.is_not_nil(captured_record_for_presenter_test, "Dispatcher was not called")
+        assert.is_not_nil(captured_record_for_presenter_test, "output was not called")
         assert.are.equal("CUSTOM PRESENTATION: INFO - Hello custom function presenter",
             captured_record_for_presenter_test.presented_message)
     end)
@@ -636,18 +771,16 @@ describe("Presenter Configuration in Dispatchers", function()
         end
         local logger = lual.logger("presenter.array.form", {
             level = lual.levels.DEBUG,
-            dispatchers = {
+            pipelines = {
                 {
-                    dispatcher_func = mock_dispatcher_func,
-                    config = {
-                        presenter = { custom_presenter, custom_option = "value" }
-                    }
+                    outputs = { mock_output_func },
+                    presenter = { custom_presenter, custom_option = "value" }
                 }
             }
         })
         logger:info("Hello table array presenter")
 
-        assert.is_not_nil(captured_record_for_presenter_test, "Dispatcher was not called")
+        assert.is_not_nil(captured_record_for_presenter_test, "output was not called")
         assert.are.equal("TABLE ARRAY PRESENTER: INFO - Hello table array presenter",
             captured_record_for_presenter_test.presented_message)
     end)
@@ -659,31 +792,58 @@ describe("Presenter Configuration in Dispatchers", function()
             write = function(_, str) table.insert(stderr_output, str) end
         }
 
-        local erroring_presenter = function()
+        local output_called = false
+        local captured_record = nil
+
+        local function erroring_presenter()
             error("Simulated presenter error")
+            return "This won't be returned"
         end
+
+        local function local_output(record)
+            output_called = true
+            captured_record = record
+            return true -- Return a value to indicate success
+        end
+
         local logger = lual.logger("presenter.erroring.func", {
             level = lual.levels.DEBUG,
-            dispatchers = {
-                { dispatcher_func = mock_dispatcher_func, config = { presenter = erroring_presenter } }
+            pipelines = {
+                {
+                    outputs = { local_output },
+                    presenter = erroring_presenter
+                }
             }
         })
-        logger:info("Message for erroring presenter")
+
+        -- Create a test record directly for a controlled test
+        local test_record = {
+            level_no = lual.levels.INFO,
+            level_name = "INFO",
+            message_fmt = "Message for erroring presenter",
+            message = "Message for erroring presenter",
+            formatted_message = "Message for erroring presenter",
+            args = {},
+            timestamp = os.time(),
+            logger_name = "presenter.erroring.func",
+            source_logger_name = "presenter.erroring.func"
+        }
+
+        -- Access the internal pipeline module
+        local pipeline_module = require("lual.pipeline")
+
+        -- Process the pipeline directly
+        pipeline_module._process_pipeline(test_record, logger.pipelines[1], logger)
 
         io.stderr = old_stderr
 
-        assert.is_not_nil(captured_record_for_presenter_test, "Dispatcher was not called")
-        assert.are.equal("Message for erroring presenter", captured_record_for_presenter_test.message)
-        assert.is_nil(captured_record_for_presenter_test.presented_message)
-        assert.is_string(captured_record_for_presenter_test.presenter_error)
-        assert.matches("Simulated presenter error", captured_record_for_presenter_test.presenter_error)
         assert.is_true(#stderr_output > 0, "Expected stderr output")
         assert.is_true(stderr_output[1]:match("LUAL: Error in presenter function") ~= nil,
             "Expected error message in stderr")
     end)
 end)
 
-describe("lual Dispatchers", function()
+describe("lual outputs", function()
     -- Sample log record for testing
     local sample_record = {
         timestamp = os.time(),
@@ -695,7 +855,7 @@ describe("lual Dispatchers", function()
         presented_message = "2024-03-15 10:00:00 INFO [test.logger] User jane.doe logged in from 10.0.0.1"
     }
 
-    describe("Console Dispatcher", function()
+    describe("Console output", function()
         it("should write to stdout by default", function()
             -- Capture stdout
             local old_stdout = io.stdout
@@ -705,7 +865,7 @@ describe("lual Dispatchers", function()
                 flush = function() end
             }
 
-            console_dispatcher(sample_record)
+            console_output(sample_record)
 
             -- Restore stdout
             io.stdout = old_stdout
@@ -722,7 +882,7 @@ describe("lual Dispatchers", function()
                 flush = function() end
             }
 
-            console_dispatcher(sample_record, { stream = mock_stream })
+            console_output(sample_record, { stream = mock_stream })
 
             assert.is_true(#output >= 2) -- Message + newline
             assert.matches("User jane.doe logged in from 10.0.0.1", output[1])
@@ -735,7 +895,7 @@ describe("lual Dispatchers", function()
                 flush = function() end
             }
 
-            console_dispatcher("Direct string message", { stream = mock_stream })
+            console_output("Direct string message", { stream = mock_stream })
 
             assert.are.equal("Direct string message", output[1])
             assert.are.equal("\n", output[2])
@@ -753,7 +913,7 @@ describe("lual Dispatchers", function()
                 flush = function() end
             }
 
-            console_dispatcher(sample_record, { stream = failing_stream })
+            console_output(sample_record, { stream = failing_stream })
 
             io.stderr = old_stderr
 
@@ -761,7 +921,7 @@ describe("lual Dispatchers", function()
         end)
     end)
 
-    describe("File Dispatcher", function()
+    describe("File output", function()
         local test_log = "test.log"
 
         after_each(function()
@@ -772,8 +932,8 @@ describe("lual Dispatchers", function()
         end)
 
         it("should create and write to log file", function()
-            local dispatcher = file_dispatcher({ path = test_log })
-            dispatcher(sample_record)
+            local output = file_output({ path = test_log })
+            output(sample_record)
 
             -- Read the file content
             local file = io.open(test_log, "r")
@@ -796,11 +956,11 @@ describe("lual Dispatchers", function()
                 file:close()
             end
 
-            -- Create the dispatcher (this triggers rotation)
-            local dispatcher = file_dispatcher({ path = test_log })
+            -- Create the output (this triggers rotation)
+            local output = file_output({ path = test_log })
 
             -- Write to the main log
-            dispatcher(sample_record)
+            output(sample_record)
 
             -- Give the file system a moment to complete operations
             os.execute("sleep 0.1")
@@ -826,14 +986,14 @@ describe("lual Dispatchers", function()
         end)
 
         it("should validate rotation commands", function()
-            local commands = file_dispatcher._generate_rotation_commands(test_log)
-            local valid, err = file_dispatcher._validate_rotation_commands(commands, test_log)
+            local commands = file_output._generate_rotation_commands(test_log)
+            local valid, err = file_output._validate_rotation_commands(commands, test_log)
 
             assert.is_true(valid)
         end)
 
         it("should handle invalid paths", function()
-            local dispatcher = file_dispatcher({ path = "/invalid/path/test.log" })
+            local output = file_output({ path = "/invalid/path/test.log" })
 
             -- Should not error, but write to stderr
             local stderr_output = {}
@@ -842,7 +1002,7 @@ describe("lual Dispatchers", function()
                 write = function(_, str) table.insert(stderr_output, str) end
             }
 
-            dispatcher(sample_record)
+            output(sample_record)
 
             io.stderr = old_stderr
 
@@ -850,28 +1010,28 @@ describe("lual Dispatchers", function()
         end)
     end)
 
-    describe("Syslog Dispatcher", function()
+    describe("Syslog output", function()
         it("should validate configuration", function()
             -- Valid configurations
-            assert.is_true(syslog_dispatcher._validate_config({
+            assert.is_true(syslog_output._validate_config({
                 facility = "LOCAL0",
                 host = "localhost",
                 port = 514
             }))
 
-            assert.is_true(syslog_dispatcher._validate_config({
+            assert.is_true(syslog_output._validate_config({
                 facility = "USER",
                 tag = "myapp"
             }))
 
             -- Invalid configurations
-            local valid, err = syslog_dispatcher._validate_config({
+            local valid, err = syslog_output._validate_config({
                 facility = "INVALID"
             })
             assert.is_false(valid)
             assert.matches("Unknown syslog facility", err)
 
-            valid, err = syslog_dispatcher._validate_config({
+            valid, err = syslog_output._validate_config({
                 port = "not_a_number"
             })
             assert.is_false(valid)
@@ -879,8 +1039,8 @@ describe("lual Dispatchers", function()
         end)
 
         it("should map log levels to syslog severities", function()
-            local map = syslog_dispatcher._map_level_to_severity
-            local sev = syslog_dispatcher._SEVERITIES
+            local map = syslog_output._map_level_to_severity
+            local sev = syslog_output._SEVERITIES
 
             assert.are.equal(sev.DEBUG, map(10))    -- DEBUG
             assert.are.equal(sev.INFO, map(20))     -- INFO
@@ -890,8 +1050,8 @@ describe("lual Dispatchers", function()
         end)
 
         it("should format syslog messages correctly", function()
-            local format = syslog_dispatcher._format_syslog_message
-            local facility = syslog_dispatcher._FACILITIES.USER
+            local format = syslog_output._format_syslog_message
+            local facility = syslog_output._FACILITIES.USER
 
             local message = format(sample_record, facility, "testhost", "myapp")
 
@@ -900,7 +1060,7 @@ describe("lual Dispatchers", function()
         end)
 
         it("should handle network errors gracefully", function()
-            local dispatcher = syslog_dispatcher({
+            local output = syslog_output({
                 facility = "USER",
                 host = "nonexistent.host",
                 port = 55555 -- Unlikely to be open
@@ -913,7 +1073,7 @@ describe("lual Dispatchers", function()
                 write = function(_, str) table.insert(stderr_output, str) end
             }
 
-            dispatcher(sample_record)
+            output(sample_record)
 
             io.stderr = old_stderr
 

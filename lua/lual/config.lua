@@ -4,43 +4,57 @@
 local core_levels = require("lua.lual.levels")
 local table_utils = require("lual.utils.table")
 local component_utils = require("lual.utils.component")
-local all_dispatchers = require("lual.dispatchers.init")
+local all_outputs = require("lual.outputs.init")
 local all_presenters = require("lual.presenters.init")
 
 local M = {}
 
--- Helper function to create default dispatchers
-local function create_default_dispatchers()
-    -- Return a default console dispatcher with text presenter as specified in the design doc
+-- Helper function to create default pipelines
+local function create_default_pipelines()
+    -- Return a default pipeline with console output and text presenter
     return {
         {
-            func = all_dispatchers.console_dispatcher,
-            config = { presenter = all_presenters.text() }
+            level = core_levels.definition.WARNING,
+            outputs = {
+                {
+                    func = all_outputs.console_output,
+                    config = {}
+                }
+            },
+            presenter = all_presenters.text()
         }
     }
 end
 
--- Default configuration with console dispatcher
+-- Default configuration with console output pipeline
 local _root_logger_config = {
     level = core_levels.definition.WARNING,
     propagate = true,
-    dispatchers = {}
+    pipelines = {}
 }
 
--- Initialize with a default console dispatcher
+-- Initialize with a default console output pipeline
 local function initialize_default_config()
-    -- Initialize with the console dispatcher
-    local console_dispatcher = require("lual.dispatchers.console_dispatcher")
+    -- Initialize with the console output pipeline
+    local console_output = require("lual.outputs.console_output")
+    local text_presenter = require("lual.presenters.text")
     local component_utils = require("lual.utils.component")
 
-    -- Create a normalized dispatcher
-    local normalized = component_utils.normalize_component(
-        console_dispatcher,
+    -- Create a normalized output
+    local normalized_output = component_utils.normalize_component(
+        console_output,
         component_utils.DISPATCHER_DEFAULTS
     )
 
+    -- Create a default pipeline with the normalized output
+    local default_pipeline = {
+        level = core_levels.definition.WARNING,
+        outputs = { normalized_output },
+        presenter = text_presenter()
+    }
+
     -- Add it to the default config
-    _root_logger_config.dispatchers = { normalized }
+    _root_logger_config.pipelines = { default_pipeline }
 end
 
 -- Call initialization
@@ -49,9 +63,133 @@ initialize_default_config()
 -- Table of valid config keys and their expected types/descriptions
 local VALID_CONFIG_KEYS = {
     level = { type = "number", description = "Logging level (use lual.DEBUG, lual.INFO, etc.)" },
-    dispatchers = { type = "table", description = "Array of dispatcher functions or configuration tables" },
+    pipelines = { type = "table", description = "Array of pipeline configurations" },
     propagate = { type = "boolean", description = "Whether to propagate messages (always true for root)" }
 }
+
+-- Table of valid pipeline keys and their expected types/descriptions
+local VALID_PIPELINE_KEYS = {
+    level = { type = "number", description = "Pipeline level threshold (use lual.DEBUG, lual.INFO, etc.)" },
+    outputs = { type = "table", description = "Array of output functions or configuration tables", required = true },
+    presenter = { description = "Presenter function or configuration", required = true },
+    transformers = { type = "table", description = "Array of transformer functions or configuration tables" }
+}
+
+--- Validates a pipeline configuration
+-- @param pipeline table Pipeline configuration to validate
+-- @param index number Index of the pipeline in the pipelines array
+-- @return boolean, string True if valid, otherwise false and error message
+local function validate_pipeline(pipeline, index)
+    if type(pipeline) ~= "table" then
+        return false, string.format("pipelines[%d] must be a table, got %s", index, type(pipeline))
+    end
+
+    -- Check for required keys
+    for key, spec in pairs(VALID_PIPELINE_KEYS) do
+        if spec.required and pipeline[key] == nil then
+            return false, string.format("pipelines[%d] is missing required key '%s'", index, key)
+        end
+    end
+
+    -- Check for unknown keys
+    local key_diff = table_utils.key_diff(VALID_PIPELINE_KEYS, pipeline)
+    if #key_diff.added_keys > 0 then
+        local valid_keys = {}
+        for valid_key, _ in pairs(VALID_PIPELINE_KEYS) do
+            table.insert(valid_keys, valid_key)
+        end
+        table.sort(valid_keys)
+        return false, string.format(
+            "Unknown key '%s' in pipelines[%d]. Valid keys are: %s",
+            tostring(key_diff.added_keys[1]),
+            index,
+            table.concat(valid_keys, ", ")
+        )
+    end
+
+    -- Type validation for each key
+    for key, value in pairs(pipeline) do
+        local expected_spec = VALID_PIPELINE_KEYS[key]
+
+        -- Skip type validation for presenter which can be function or table
+        if key == "presenter" then
+            if type(value) ~= "function" and type(value) ~= "table" then
+                return false, string.format(
+                    "Invalid type for pipelines[%d].%s: expected function or table, got %s. %s",
+                    index,
+                    key,
+                    type(value),
+                    expected_spec.description
+                )
+            end
+        elseif expected_spec.type and type(value) ~= expected_spec.type then
+            return false, string.format(
+                "Invalid type for pipelines[%d].%s: expected %s, got %s. %s",
+                index,
+                key,
+                expected_spec.type,
+                type(value),
+                expected_spec.description
+            )
+        end
+
+        -- Additional validation for specific keys
+        if key == "level" then
+            -- Validate that level is a known level value
+            local valid_level = false
+            for _, level_value in pairs(core_levels.definition) do
+                if value == level_value then
+                    valid_level = true
+                    break
+                end
+            end
+            if not valid_level then
+                local valid_levels = {}
+                for level_name, level_value in pairs(core_levels.definition) do
+                    table.insert(valid_levels, string.format("%s(%d)", level_name, level_value))
+                end
+                table.sort(valid_levels)
+                return false, string.format(
+                    "Invalid level value %d in pipelines[%d]. Valid levels are: %s",
+                    value,
+                    index,
+                    table.concat(valid_levels, ", ")
+                )
+            end
+        elseif key == "outputs" then
+            -- Validate each output
+            if #value == 0 then
+                return false, string.format("pipelines[%d].outputs must not be empty", index)
+            end
+
+            for i, output in ipairs(value) do
+                -- Simple validation here - detailed validation happens in component.normalize_component
+                if type(output) ~= "function" and type(output) ~= "table" then
+                    return false,
+                        string.format(
+                            "pipelines[%d].outputs[%d] must be a function or a table with function as first element, got %s",
+                            index,
+                            i,
+                            type(output)
+                        )
+                end
+
+                -- Validate table format if it's a table
+                if type(output) == "table" and #output == 0 and not component_utils.is_callable(output) then
+                    return false, string.format(
+                        "pipelines[%d].outputs[%d] must be a function or a table with function as first element",
+                        index,
+                        i
+                    )
+                end
+            end
+        elseif key == "transformers" and #value == 0 then
+            return false, string.format("pipelines[%d].transformers must not be empty if specified", index)
+        end
+    end
+
+    return true
+end
 
 --- Validates the configuration structure
 -- @param config_table table Configuration to validate
@@ -65,26 +203,24 @@ local function validate_config(config_table)
         return false, "Configuration must be a table, got " .. type(config_table)
     end
 
-    -- Validate dispatchers if present
-    if config_table.dispatchers then
-        if type(config_table.dispatchers) ~= "table" then
+    -- Reject outputs key entirely - no backward compatibility
+    if config_table.outputs then
+        return false, "'outputs' is no longer supported. Use 'pipelines' instead."
+    end
+
+    -- Validate pipelines if present
+    if config_table.pipelines then
+        if type(config_table.pipelines) ~= "table" then
             return false,
-                "Invalid type for 'dispatchers': expected table, got " ..
-                type(config_table.dispatchers) .. ". Array of dispatcher functions or configuration tables"
+                "Invalid type for 'pipelines': expected table, got " ..
+                type(config_table.pipelines) .. ". Array of pipeline configurations"
         end
 
-        -- Validate each dispatcher
-        for i, disp in ipairs(config_table.dispatchers) do
-            -- Simple validation here - detailed validation happens in component.normalize_component
-            if type(disp) ~= "function" and type(disp) ~= "table" then
-                return false,
-                    "dispatchers[" ..
-                    i .. "] must be a function or a table with function as first element, got " .. type(disp)
-            end
-
-            -- Validate table format if it's a table
-            if type(disp) == "table" and #disp == 0 and not component_utils.is_callable(disp) then
-                return false, "dispatchers[" .. i .. "] must be a function or a table with function as first element"
+        -- Validate each pipeline
+        for i, pipeline in ipairs(config_table.pipelines) do
+            local valid, error_msg = validate_pipeline(pipeline, i)
+            if not valid then
+                return false, error_msg
             end
         end
     end
@@ -98,9 +234,8 @@ local function validate_config(config_table)
         end
         table.sort(valid_keys)
         return false, string.format(
-            "Unknown configuration key '%s'. Valid keys are: %s",
-            tostring(key_diff.added_keys[1]),
-            table.concat(valid_keys, ", ")
+            "Unknown configuration key '%s'",
+            tostring(key_diff.added_keys[1])
         )
     end
 
@@ -152,6 +287,36 @@ local function validate_config(config_table)
     return true
 end
 
+--- Normalizes pipelines in the configuration
+-- @param pipelines table Array of pipeline configurations
+-- @return table Array of normalized pipeline configurations
+local function normalize_pipelines(pipelines)
+    local normalized_pipelines = {}
+
+    for i, pipeline in ipairs(pipelines) do
+        local normalized_pipeline = {
+            level = pipeline.level,
+            transformers = pipeline.transformers
+        }
+
+        -- Normalize outputs
+        normalized_pipeline.outputs = component_utils.normalize_components(pipeline.outputs,
+            component_utils.DISPATCHER_DEFAULTS)
+
+        -- Handle presenter (could be function or table)
+        if type(pipeline.presenter) == "function" then
+            normalized_pipeline.presenter = pipeline.presenter
+        else
+            normalized_pipeline.presenter = pipeline.presenter
+        end
+
+        -- Add to the result
+        table.insert(normalized_pipelines, normalized_pipeline)
+    end
+
+    return normalized_pipelines
+end
+
 --- Updates the _root logger configuration with the provided settings
 -- @param config_table table Configuration updates to apply
 -- @return table The updated _root logger configuration
@@ -164,9 +329,9 @@ function M.config(config_table)
 
     -- Update _root logger configuration with provided values
     for key, value in pairs(config_table) do
-        if key == "dispatchers" then
-            -- Normalize the dispatchers using the component system
-            _root_logger_config[key] = component_utils.normalize_components(value, component_utils.DISPATCHER_DEFAULTS)
+        if key == "pipelines" then
+            -- Normalize the pipelines
+            _root_logger_config[key] = normalize_pipelines(value)
         else
             _root_logger_config[key] = value
         end
@@ -188,10 +353,10 @@ function M.reset_config()
     _root_logger_config = {
         level = core_levels.definition.WARNING,
         propagate = true,
-        dispatchers = {}
+        pipelines = {}
     }
 
-    -- Re-initialize with default dispatcher
+    -- Re-initialize with default output
     initialize_default_config()
 
     return table_utils.deepcopy(_root_logger_config)

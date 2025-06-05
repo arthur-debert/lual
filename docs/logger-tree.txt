@@ -40,9 +40,9 @@ and examples, please refer to: docs/pre-release/new-design.txt
         ```
 
         Explanation:
-        - `_root` has level `lual.WARN` and a console dispatcher.
+        - `_root` has level `lual.WARN` and a console output.
         - `logger` ("myApp") inherits effective level `WARN` from `_root` and has no
-          dispatchers of its own.
+          outputs of its own.
         - The `warn` message is processed by `_root`.
 
     2.2. User Configures Root Logger:
@@ -67,12 +67,12 @@ and examples, please refer to: docs/pre-release/new-design.txt
         ```lua
         -- in init.lua
         local lual = require("lual")
-        -- _root uses default WARN level and console dispatcher
+        -- _root uses default WARN level and console output
 
         -- in feature_x.lua
         local feature_logger = lual.logger("app.featureX", {
             level = lual.DEBUG,
-            dispatchers = { {type = lual.console} } -- Own console dispatcher
+            outputs = { {type = lual.console} } -- Own console output
         })
 
         feature_logger.debug("Feature X debug.") -- Logged to console (by feature_logger)
@@ -81,7 +81,7 @@ and examples, please refer to: docs/pre-release/new-design.txt
         ```
 
         Explanation:
-        - `feature_logger` has its own `DEBUG` level and console dispatcher.
+        - `feature_logger` has its own `DEBUG` level and console output.
         - `feature_logger.debug`: Logged by `feature_logger`. Does not propagate to `_root` to be logged again because `_root` level is `WARN` (`DEBUG < WARN`).
         - `feature_logger.warn`: Logged by `feature_logger`. Propagates to `_root` which also logs it.
 

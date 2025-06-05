@@ -1,29 +1,29 @@
---- Dispatch Module
--- This module implements the new dispatch loop logic from step 2.7
+--- Output Module
+-- This module implements the new output loop logic from step 2.7
 --
--- Dispatcher-Specific Levels:
+-- Output-Specific Levels:
 --
--- Dispatchers can optionally be configured with their own levels. During
--- the dispatch loop, once a logger has determined a log event meets its level
--- requirement, it iterates over its dispatchers and performs a second level check
--- against each dispatcher's level.
+-- Outputs can optionally be configured with their own levels. During
+-- the output loop, once a logger has determined a log event meets its level
+-- requirement, it iterates over its outputs and performs a second level check
+-- against each output's level.
 --
--- This occurs after the logger's own level check, hence a dispatcher's level
+-- This occurs after the logger's own level check, hence a output's level
 -- set to lower (more verbose) than the logger's level will never receive events
 -- because the logger will filter them first.
 --
--- By default, dispatchers have level NOTSET (0), meaning they will use the
+-- By default, outputs have level NOTSET (0), meaning they will use the
 -- logger's effective level.
 --
 -- This allows for more granular control over which events are sent to each
--- output. For example, you can configure a file dispatcher to receive all DEBUG
--- and above messages, while a console dispatcher only shows WARNING and above.
+-- output. For example, you can configure a file output to receive all DEBUG
+-- and above messages, while a console output only shows WARNING and above.
 --
 -- Usage example:
 --
 --   lual.config({
 --     level = lual.DEBUG,  -- Root level is DEBUG
---     dispatchers = {
+--     outputs = {
 --       {
 --         type = lual.file,
 --         level = lual.DEBUG,  -- File receives all logs
@@ -130,108 +130,108 @@ local function process_presenter(record, presenter)
     return result
 end
 
---- Processes a log record through a single dispatcher
+--- Processes a log record through a single output
 -- @param log_record table The log record to process
--- @param dispatcher_entry table|function The dispatcher configuration or function
--- @param logger table The logger that owns this dispatcher
-local function process_dispatcher(log_record, dispatcher_entry, logger)
-    -- Create a copy of the log record for this dispatcher
-    local dispatcher_record = {}
+-- @param output_entry table|function The output configuration or function
+-- @param logger table The logger that owns this output
+local function process_output(log_record, output_entry, logger)
+    -- Create a copy of the log record for this output
+    local output_record = {}
     for k, v in pairs(log_record) do
-        dispatcher_record[k] = v
+        output_record[k] = v
     end
 
-    -- Normalize dispatcher to standard format
-    local normalized = component_utils.normalize_component(dispatcher_entry, component_utils.DISPATCHER_DEFAULTS)
-    local dispatcher_func = normalized.func
-    local dispatcher_config = normalized.config
+    -- Normalize output to standard format
+    local normalized = component_utils.normalize_component(output_entry, component_utils.DISPATCHER_DEFAULTS)
+    local output_func = normalized.func
+    local output_config = normalized.config
 
     -- Add logger context to the record
-    dispatcher_record.owner_logger_name = logger.name
-    dispatcher_record.owner_logger_level = logger.level
-    dispatcher_record.owner_logger_propagate = logger.propagate
+    output_record.owner_logger_name = logger.name
+    output_record.owner_logger_level = logger.level
+    output_record.owner_logger_propagate = logger.propagate
 
-    -- Handle dispatcher level filtering
-    local dispatcher_level = dispatcher_config.level
+    -- Handle output level filtering
+    local output_level = output_config.level
 
     -- Apply level filtering if a level is set
-    if dispatcher_level and type(dispatcher_level) == "number" and dispatcher_level > 0 then -- Skip NOTSET (0)
-        if log_record.level_no < dispatcher_level then
-            -- Skip this dispatcher as its level is higher than the log record
+    if output_level and type(output_level) == "number" and output_level > 0 then -- Skip NOTSET (0)
+        if log_record.level_no < output_level then
+            -- Skip this output as its level is higher than the log record
             return
         end
     end
 
-    -- Add dispatcher level to the record for informational purposes
-    if dispatcher_level then
-        dispatcher_record.dispatcher_level = dispatcher_level
+    -- Add output level to the record for informational purposes
+    if output_level then
+        output_record.output_level = output_level
     else
-        dispatcher_record.dispatcher_level = core_levels.definition.NOTSET
+        output_record.output_level = core_levels.definition.NOTSET
     end
 
     -- Apply transformers array if configured
-    if dispatcher_config.transformers then
-        for _, transformer in ipairs(dispatcher_config.transformers) do
-            local transformed_record, error_msg = process_transformer(dispatcher_record, transformer)
+    if output_config.transformers then
+        for _, transformer in ipairs(output_config.transformers) do
+            local transformed_record, error_msg = process_transformer(output_record, transformer)
             if transformed_record then
-                dispatcher_record = transformed_record
+                output_record = transformed_record
             else
-                dispatcher_record.transformer_error = error_msg
+                output_record.transformer_error = error_msg
                 break -- Stop processing transformers if one fails
             end
         end
     end
 
     -- Apply single transformer if configured
-    if dispatcher_config.transformer and not dispatcher_record.transformer_error then
-        local transformed_record, error_msg = process_transformer(dispatcher_record, dispatcher_config.transformer)
+    if output_config.transformer and not output_record.transformer_error then
+        local transformed_record, error_msg = process_transformer(output_record, output_config.transformer)
         if transformed_record then
-            dispatcher_record = transformed_record
+            output_record = transformed_record
         else
-            dispatcher_record.transformer_error = error_msg
+            output_record.transformer_error = error_msg
         end
     end
 
     -- Apply presenter if configured
-    if dispatcher_config.presenter and not dispatcher_record.transformer_error then
-        local presented_message, error_msg = process_presenter(dispatcher_record, dispatcher_config.presenter)
+    if output_config.presenter and not output_record.transformer_error then
+        local presented_message, error_msg = process_presenter(output_record, output_config.presenter)
         if presented_message then
-            dispatcher_record.presented_message = presented_message
-            dispatcher_record.message = presented_message -- Overwrite message with presented message
+            output_record.presented_message = presented_message
+            output_record.message = presented_message -- Overwrite message with presented message
         else
-            dispatcher_record.presenter_error = error_msg
+            output_record.presenter_error = error_msg
         end
     end
 
-    -- Dispatch the record
+    -- Output the record
     local ok, err = pcall(function()
         -- This is the key fix - make sure we don't lose the level in the config
-        dispatcher_func(dispatcher_record, dispatcher_config)
+        output_func(output_record, output_config)
     end)
     if not ok then
-        io.stderr:write(string.format("Error dispatching log record: %s\n", err))
+        io.stderr:write(string.format("Error outputing log record: %s\n", err))
     end
 end
 
---- Core process dispatcher logic
+--- Core process output logic
 -- @param log_record table The log record to process
--- @param dispatchers table|function Array or single dispatcher
--- @param context_logger table The logger being used for this dispatch
-local function process_dispatchers(log_record, dispatchers, context_logger)
-    if not dispatchers or #dispatchers == 0 then
+-- @param outputs table|function Array or single output
+-- @param context_logger table The logger being used for this output
+local function process_outputs(log_record, outputs, context_logger)
+    if not outputs or #outputs == 0 then
         return -- Nothing to do
     end
 
-    for _, dispatcher in ipairs(dispatchers) do
-        process_dispatcher(log_record, dispatcher, context_logger)
+    for _, output in ipairs(outputs) do
+        process_output(log_record, output, context_logger)
     end
 end
 
---- Implements the new dispatch loop logic from step 2.7
+--- Implements the new output loop logic from step 2.7
 -- This is the core of event processing for each logger L in the hierarchy
 -- @param source_logger table The logger that originated the log event
 -- @param log_record table The log record to process
-function M.dispatch_log_event(source_logger, log_record)
+function M.output_log_event(source_logger, log_record)
     local current_logger = source_logger
 
     -- Process through the hierarchy (from source up to _root)
@@ -241,19 +241,19 @@ function M.dispatch_log_event(source_logger, log_record)
 
         -- Step 2: If event_level >= L.effective_level (level match)
         if log_record.level_no >= effective_level then
-            -- Step 2a: For each dispatcher in L's *own* dispatchers list
-            for _, dispatcher_entry in ipairs(current_logger.dispatchers) do
+            -- Step 2a: For each output in L's *own* outputs list
+            for _, output_entry in ipairs(current_logger.outputs) do
                 -- Step 2a.i: (Optional) Process record through L's transformers
-                -- Step 2a.ii: Format record using the dispatcher's presenter
-                -- Step 2a.iii: Send formatted output via the dispatcher
-                process_dispatcher(log_record, dispatcher_entry, current_logger)
+                -- Step 2a.ii: Format record using the output's presenter
+                -- Step 2a.iii: Send formatted output via the output
+                process_output(log_record, output_entry, current_logger)
             end
 
-            -- Step 2b: If L has no dispatchers, it produces no output itself
+            -- Step 2b: If L has no outputs, it produces no output itself
             -- (This is handled naturally by the empty loop above)
         end
 
-        -- Step 3: If L is _root, stop after processing its dispatchers
+        -- Step 3: If L is _root, stop after processing its outputs
         if current_logger.name == "_root" then
             break
         end
@@ -355,7 +355,7 @@ function M.create_logging_methods()
             -- Create log record
             local log_record = create_log_record(self, level_no, level_name, msg_fmt, args, context)
 
-            M.dispatch_log_event(self, log_record)
+            M.output_log_event(self, log_record)
         end
     end
 
@@ -387,7 +387,7 @@ function M.create_logging_methods()
 
         -- Create log record
         local log_record = create_log_record(self, level_no, level_name, msg_fmt, args, context)
-        M.dispatch_log_event(self, log_record)
+        M.output_log_event(self, log_record)
     end
 
     return methods
@@ -395,7 +395,7 @@ end
 
 -- Expose internal functions for testing
 M._create_log_record = create_log_record
-M._process_dispatcher = process_dispatcher
+M._process_output = process_output
 M._format_message = format_message
 M._parse_log_args = parse_log_args
 
