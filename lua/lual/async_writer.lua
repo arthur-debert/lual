@@ -179,11 +179,54 @@ end
 function M.start(config, dispatch_func)
     config = config or {}
 
+    -- Validate batch size
+    local batch_size = config.async_batch_size or 50
+    if batch_size < 1 then
+        error("async_batch_size must be >= 1, got: " .. tostring(batch_size))
+    end
+    if batch_size > 10000 then
+        error("async_batch_size too large (max 10000), got: " .. tostring(batch_size))
+    end
+
+    -- Validate flush interval
+    local flush_interval = config.async_flush_interval or 1.0
+    if flush_interval < 0.001 then
+        error("async_flush_interval too small (min 0.001s), got: " .. tostring(flush_interval))
+    end
+    if flush_interval > 3600 then
+        error("async_flush_interval too large (max 1 hour), got: " .. tostring(flush_interval))
+    end
+
+    -- Validate queue size
+    local max_queue = config.max_queue_size or 10000
+    if max_queue < 1 then
+        error("max_queue_size must be >= 1, got: " .. tostring(max_queue))
+    end
+    if max_queue > 1000000 then
+        error("max_queue_size too large (max 1000000), got: " .. tostring(max_queue))
+    end
+
+    -- Validate queue size relationships
+    if max_queue < batch_size then
+        error(string.format(
+            "max_queue_size (%d) must be >= async_batch_size (%d)",
+            max_queue, batch_size))
+    end
+
+    -- Validate overflow strategy
+    local overflow_strategy = config.overflow_strategy or "drop_oldest"
+    local valid_strategies = { drop_oldest = true, drop_newest = true, block = true }
+    if not valid_strategies[overflow_strategy] then
+        error("Invalid overflow_strategy: " .. tostring(overflow_strategy) ..
+            " (must be 'drop_oldest', 'drop_newest', or 'block')")
+    end
+
+    -- Store validated config
     _async_enabled = config.async_enabled ~= false -- Default to true if not specified
-    _async_batch_size = config.async_batch_size or 50
-    _async_flush_interval = config.async_flush_interval or 1.0
-    _max_queue_size = config.max_queue_size or 10000
-    _overflow_strategy = config.overflow_strategy or "drop_oldest"
+    _async_batch_size = batch_size
+    _async_flush_interval = flush_interval
+    _max_queue_size = max_queue
+    _overflow_strategy = overflow_strategy
     _dispatch_function = dispatch_func
 
     if _async_enabled then
