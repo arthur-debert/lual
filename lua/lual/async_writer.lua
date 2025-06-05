@@ -183,13 +183,50 @@ function M.flush()
     end
 
     _flush_requested = true
+    local timeout = 5.0 -- Configurable timeout
+    local start_time = get_time()
+    local initial_queue_size = #_log_queue
+    local last_queue_size = initial_queue_size
+    local stall_count = 0
 
     -- Keep resuming the worker until all messages are processed
-    while #_log_queue > 0 and _worker_coroutine and coroutine.status(_worker_coroutine) == "suspended" do
-        M.resume_worker()
+    while #_log_queue > 0 and _worker_coroutine and
+        coroutine.status(_worker_coroutine) == "suspended" do
+        -- Check for overall timeout
+        if (get_time() - start_time) >= timeout then
+            report_async_error(string.format(
+                "Flush timeout after %.2fs: %d of %d messages remain in queue",
+                timeout, #_log_queue, initial_queue_size))
+            break
+        end
+
+        -- Check for progress stall (queue not shrinking)
+        if #_log_queue == last_queue_size then
+            stall_count = stall_count + 1
+            if stall_count >= 10 then -- 10 attempts without progress
+                report_async_error(string.format(
+                    "Flush stalled: queue size stuck at %d messages", #_log_queue))
+                break
+            end
+        else
+            stall_count = 0 -- Reset on progress
+            last_queue_size = #_log_queue
+        end
+
+        local ok, err = pcall(M.resume_worker)
+        if not ok then
+            report_async_error("Error during flush resume: " .. tostring(err))
+            break
+        end
     end
 
     _flush_requested = false
+
+    -- Report final status
+    if #_log_queue > 0 then
+        report_async_error(string.format(
+            "Flush completed with %d messages remaining", #_log_queue))
+    end
 end
 
 --- Gets current queue statistics

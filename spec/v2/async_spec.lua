@@ -247,6 +247,24 @@ describe("Async I/O", function()
                 lual.flush()
             end)
         end)
+
+        it("should handle flush timeout gracefully", function()
+            -- This test verifies that flush() won't hang indefinitely
+            -- We can't easily test the actual timeout in a unit test,
+            -- but we can verify it completes quickly
+            local logger = lual.logger("test")
+            logger:info("Test message")
+
+            local start_time = os.clock()
+            lual.flush()
+            local elapsed = os.clock() - start_time
+
+            -- Should complete very quickly (well under 1 second for normal operation)
+            assert.is_true(elapsed < 1.0, "Flush took too long: " .. elapsed .. " seconds")
+
+            -- Should process the message
+            assert.equals(1, #captured_output)
+        end)
     end)
 
     describe("Error handling", function()
