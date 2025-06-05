@@ -38,6 +38,10 @@ local _max_queue_size = 10000            -- Configurable limit
 local _queue_overflows = 0
 local _overflow_strategy = "drop_oldest" -- "drop_oldest", "drop_newest", "block"
 
+-- Circular buffer for performance
+local _queue_start = 1
+local _queue_end = 0
+
 --- Sets the error handler function for async errors
 -- @param handler function Function to call when async errors occur
 function M.set_error_handler(handler)
@@ -102,13 +106,49 @@ local function restart_worker()
     return true
 end
 
+--- Gets the current queue size (circular buffer)
+-- @return number Current number of items in queue
+local function get_queue_size()
+    return _queue_end - _queue_start + 1
+end
+
+--- Checks if the queue is empty
+-- @return boolean True if queue is empty
+local function is_queue_empty()
+    return _queue_start > _queue_end
+end
+
+--- Extracts a batch from the circular buffer efficiently
+-- @return table Array of log events
+local function extract_batch_circular()
+    local available = get_queue_size()
+    local batch_size = math.min(available, _async_batch_size)
+    local batch = {}
+
+    for i = 1, batch_size do
+        table.insert(batch, _log_queue[_queue_start])
+        _log_queue[_queue_start] = nil -- Allow GC
+        _queue_start = _queue_start + 1
+    end
+
+    -- Reset indices when queue is empty
+    if _queue_start > _queue_end then
+        _queue_start = 1
+        _queue_end = 0
+    end
+
+    return batch
+end
+
 --- Handles queue overflow using the configured strategy
 -- @return boolean True if the new message should be added to the queue
 local function handle_queue_overflow()
     _queue_overflows = _queue_overflows + 1
 
     if _overflow_strategy == "drop_oldest" then
-        local dropped = table.remove(_log_queue, 1)
+        local dropped = _log_queue[_queue_start]
+        _log_queue[_queue_start] = nil -- Allow GC
+        _queue_start = _queue_start + 1
         report_async_error(string.format(
             "Queue overflow: dropped oldest message (level=%s, logger=%s)",
             dropped.record.level_name, dropped.logger.name))
@@ -135,21 +175,15 @@ local function worker_function()
         if _flush_requested then
             should_process = true
             _flush_requested = false
-        elseif #_log_queue >= _async_batch_size then
+        elseif get_queue_size() >= _async_batch_size then
             should_process = true
-        elseif #_log_queue > 0 and (current_time - _last_flush_time) >= _async_flush_interval then
+        elseif get_queue_size() > 0 and (current_time - _last_flush_time) >= _async_flush_interval then
             should_process = true
         end
 
-        if should_process and #_log_queue > 0 then
-            -- Process batch
-            local batch_size = math.min(#_log_queue, _async_batch_size)
-            local batch = {}
-
-            -- Extract batch from queue
-            for i = 1, batch_size do
-                table.insert(batch, table.remove(_log_queue, 1))
-            end
+        if should_process and not is_queue_empty() then
+            -- Process batch using circular buffer
+            local batch = extract_batch_circular()
 
             -- Process each record in the batch
             for _, log_data in ipairs(batch) do
@@ -231,6 +265,8 @@ function M.start(config, dispatch_func)
 
     if _async_enabled then
         _log_queue = {}
+        _queue_start = 1
+        _queue_end = 0
         _worker_coroutine = coroutine.create(worker_function)
         _worker_status = "running"
         _last_flush_time = get_time() -- Initialize with precise time
@@ -286,17 +322,18 @@ function M.queue_log_event(logger, log_record)
     end
 
     -- Check queue size limit
-    if #_log_queue >= _max_queue_size then
+    if get_queue_size() >= _max_queue_size then
         if not handle_queue_overflow() then
             return -- Message dropped
         end
     end
 
-    -- Add to queue
-    table.insert(_log_queue, {
+    -- Add to circular buffer
+    _queue_end = _queue_end + 1
+    _log_queue[_queue_end] = {
         logger = logger,
         record = log_record
-    })
+    }
 
     -- Resume worker if it's yielded
     if _worker_coroutine and _worker_status == "yielded" then
@@ -349,32 +386,32 @@ function M.flush()
     _flush_requested = true
     local timeout = 5.0 -- Configurable timeout
     local start_time = get_time()
-    local initial_queue_size = #_log_queue
+    local initial_queue_size = get_queue_size()
     local last_queue_size = initial_queue_size
     local stall_count = 0
 
     -- Keep resuming the worker until all messages are processed
-    while #_log_queue > 0 and _worker_coroutine and
+    while not is_queue_empty() and _worker_coroutine and
         coroutine.status(_worker_coroutine) == "suspended" do
         -- Check for overall timeout
         if (get_time() - start_time) >= timeout then
             report_async_error(string.format(
                 "Flush timeout after %.2fs: %d of %d messages remain in queue",
-                timeout, #_log_queue, initial_queue_size))
+                timeout, get_queue_size(), initial_queue_size))
             break
         end
 
         -- Check for progress stall (queue not shrinking)
-        if #_log_queue == last_queue_size then
+        if get_queue_size() == last_queue_size then
             stall_count = stall_count + 1
             if stall_count >= 10 then -- 10 attempts without progress
                 report_async_error(string.format(
-                    "Flush stalled: queue size stuck at %d messages", #_log_queue))
+                    "Flush stalled: queue size stuck at %d messages", get_queue_size()))
                 break
             end
         else
             stall_count = 0 -- Reset on progress
-            last_queue_size = #_log_queue
+            last_queue_size = get_queue_size()
         end
 
         local ok, err = pcall(M.resume_worker)
@@ -387,9 +424,9 @@ function M.flush()
     _flush_requested = false
 
     -- Report final status
-    if #_log_queue > 0 then
+    if not is_queue_empty() then
         report_async_error(string.format(
-            "Flush completed with %d messages remaining", #_log_queue))
+            "Flush completed with %d messages remaining", get_queue_size()))
     end
 end
 
@@ -398,7 +435,7 @@ end
 function M.get_stats()
     return {
         enabled = _async_enabled,
-        queue_size = #_log_queue,
+        queue_size = get_queue_size(),
         batch_size = _async_batch_size,
         flush_interval = _async_flush_interval,
         worker_status = _worker_status,
@@ -432,6 +469,10 @@ function M.reset()
     _max_queue_size = 10000
     _queue_overflows = 0
     _overflow_strategy = "drop_oldest"
+
+    -- Reset circular buffer state
+    _queue_start = 1
+    _queue_end = 0
 end
 
 return M
