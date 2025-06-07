@@ -1,6 +1,7 @@
 --- Logger Hierarchy Management
 -- This module handles the hierarchical structure of loggers
 
+-- Module dependencies
 local core_levels = require("lua.lual.levels")
 local caller_info = require("lual.utils.caller_info")
 
@@ -17,7 +18,7 @@ local function get_parent_name_from_hierarchical(logger_name)
 end
 
 -- Export the module
-return {
+local M = {
     -- Functions
     get_parent_name_from_hierarchical = get_parent_name_from_hierarchical,
 
@@ -36,3 +37,5 @@ return {
         _logger_cache = {}
     end
 }
+
+return M
