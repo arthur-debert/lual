@@ -8,7 +8,7 @@ cd "$SCRIPT_DIR/../.."
 #    "busted >= 2.0.0",
 #    "luv >= 1.51.0-1"
 # Find all rockspecs
-MAIN_ROCKSPEC=$(find . -maxdepth 1 -name "lual-*.rockspec" | grep -v "lualextras" | head -1)
+MAIN_ROCKSPEC=$(find . -maxdepth 1 -name "lual-*.rockspec" | grep -v "extras" | head -1)
 
 if [ -z "$MAIN_ROCKSPEC" ]; then
     echo "Error: No lual-*.rockspec file found"
