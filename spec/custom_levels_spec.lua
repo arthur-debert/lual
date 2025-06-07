@@ -191,6 +191,40 @@ describe("Custom Levels", function()
         it("handles unknown levels", function()
             assert.equals("UNKNOWN_LEVEL_NO_99", core_levels.get_level_name(99))
         end)
+
+        it("get_level_by_name resolves both built-in and custom levels", function()
+            -- Test built-in levels
+            local name, value = core_levels.get_level_by_name("debug")
+            assert.equals("DEBUG", name)
+            assert.equals(10, value)
+
+            name, value = core_levels.get_level_by_name("DEBUG")
+            assert.equals("DEBUG", name)
+            assert.equals(10, value)
+
+            name, value = core_levels.get_level_by_name("info")
+            assert.equals("INFO", name)
+            assert.equals(20, value)
+
+            -- Test custom levels
+            name, value = core_levels.get_level_by_name("verbose")
+            assert.equals("VERBOSE", name)
+            assert.equals(25, value)
+
+            name, value = core_levels.get_level_by_name("trace")
+            assert.equals("TRACE", name)
+            assert.equals(15, value)
+
+            -- Test case-insensitivity for custom levels
+            name, value = core_levels.get_level_by_name("VERBOSE")
+            assert.equals("VERBOSE", name)
+            assert.equals(25, value)
+
+            -- Test unknown level
+            name, value = core_levels.get_level_by_name("unknown")
+            assert.is_nil(name)
+            assert.is_nil(value)
+        end)
     end)
 
     describe("get_all_levels()", function()
