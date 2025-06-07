@@ -21,6 +21,15 @@ Controlling log levels through command line arguments.
 - Custom flag mappings
 - Integration with CLI applications
 
+### **[Live Log Level Changes](live-level-changes.md)**
+
+Adjusting log levels at runtime via environment variables.
+
+- Dynamic level changes without restart
+- Environment variable monitoring
+- Performance considerations
+- Production debugging strategies
+
 ## Learning Path
 
 If you're new to lual, we recommend starting with the [Getting Started](../getting-started/) section first, then reading this guide.

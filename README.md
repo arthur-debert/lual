@@ -35,6 +35,7 @@ lual.config({
 - **Built-in Components**: Write to the console, files, or syslog; format as JSON, plain text, or colored terminal output.
 - **Hierarchical Loggers**: Dot-separated logger names create automatic parent-child relationships with propagation.
 - **Performance**: Efficient level filtering and lazy evaluation minimize overhead.
+- **Runtime Level Control**: Change log levels on the fly via environment variables or command-line flags without restarting your application.
 - **AsyncIO**:  [Async I/O Guide](docs/guide/async/async-io.md)  in experimental mode, with coroutines and lluv backends (requireles luv lib)
 
 ## Lean and Dependency-Free

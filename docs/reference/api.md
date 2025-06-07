@@ -44,6 +44,10 @@ Configures the root logger with the specified settings.
 - `command_line_verbosity` (table): Configuration for command line argument driven logging level.
   - `mapping` (table, optional): Custom mapping of command line flags to log level names.
   - `auto_detect` (boolean, optional): Whether to automatically detect and apply CLI verbosity. Defaults to true.
+- `live_level` (table): Configuration for environment variable driven live log level changes.
+  - `env_var` (string, required): Name of the environment variable to monitor.
+  - `check_interval` (number, optional): How often to check for changes, in log entries. Defaults to 100.
+  - `enabled` (boolean, optional): Whether the feature is enabled. Defaults to true if env_var is provided.
 
 **Returns:**
 - None
@@ -85,6 +89,18 @@ lual.config({
             quiet = "error"
         },
         auto_detect = true
+    }
+})
+
+-- Configure with live log level changes via environment variable
+lual.config({
+    pipelines = {
+        { outputs = { lual.console }, presenter = lual.color() }
+    },
+    live_level = {
+        env_var = "APP_LOG_LEVEL",     -- Monitor this environment variable
+        check_interval = 50,           -- Check every 50 log entries
+        enabled = true                 -- Enable the feature (default when env_var is provided)
     }
 })
 ```
@@ -576,6 +592,26 @@ lual.set_command_line_verbosity({
 lual.set_command_line_verbosity({
     auto_detect = false
 })
+```
+
+### lual.set_live_level(env_var_name, check_interval)
+
+Sets up live log level changes through environment variables, allowing runtime modification of the root logger's level without restarting the application.
+
+**Parameters:**
+- `env_var_name` (string): Name of the environment variable to monitor for level changes.
+- `check_interval` (number, optional): How often to check for changes, measured in log entries. Defaults to 100.
+
+**Returns:**
+- (table): The updated root logger configuration.
+
+**Examples:**
+```lua
+-- Monitor LOG_LEVEL environment variable with default check interval
+lual.set_live_level("LOG_LEVEL")
+
+-- Monitor APP_DEBUG environment variable, checking every 50 log entries
+lual.set_live_level("APP_DEBUG", 50)
 ```
 
 ### lual.flush()
