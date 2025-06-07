@@ -18,7 +18,10 @@ dependencies = {
 build = {
    type = "builtin",
    modules = {
-      lual = "lua/lual/logger.lua"
+      lual = "lua/lual/logger.lua",
+      ["lual.api"] = "lua/lual/api.lua",
+      ["lual.loggers"] = "lua/lual/loggers.lua",
+      ["lual.constants"] = "lua/lual/constants.lua"
    },
    copy_directories = {
       "docs"
