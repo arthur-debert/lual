@@ -36,8 +36,8 @@
 --   })
 
 local core_levels = require("lua.lual.levels")
-local all_presenters = require("lual.presenters.init")
-local all_transformers = require("lual.transformers.init")
+local all_presenters = require("lual.pipeline.presenters.init")
+local all_transformers = require("lual.pipeline.transformers.init")
 local component_utils = require("lual.utils.component")
 local async_writer = require("lual.async")
 

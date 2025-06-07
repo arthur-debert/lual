@@ -9,7 +9,7 @@
 --
 -- @usage
 -- local lual = require("lual")
--- local syslog_output_factory = require("lual.outputs.syslog_output")
+-- local syslog_output_factory = require("lual.pipeline.outputs.syslog_output")
 --
 -- -- Local syslog
 -- local logger = lual.logger("my_app")

@@ -14,9 +14,9 @@ local config_module = require("lual.config")
 local pipeline_module = require("lual.pipeline")
 local table_utils = require("lual.utils.table")
 local caller_info = require("lual.utils.caller_info")
-local all_outputs = require("lual.outputs.init")           -- Require the new outputs init
-local all_presenters = require("lual.presenters.init")     -- Require the new presenters init
-local all_transformers = require("lual.transformers.init") -- Require the new transformers init
+local all_outputs = require("lual.pipeline.outputs.init")           -- Require the new outputs init
+local all_presenters = require("lual.pipeline.presenters.init")     -- Require the new presenters init
+local all_transformers = require("lual.pipeline.transformers.init") -- Require the new transformers init
 local component_utils = require("lual.utils.component")
 local async_writer = require("lual.async")
 
@@ -522,6 +522,13 @@ log.levels = core_levels.definition
 log.outputs = all_outputs           -- Assign the outputs table
 log.presenters = all_presenters     -- Assign the presenters table
 log.transformers = all_transformers -- Assign the transformers table
+
+-- Pipeline namespace for backwards compatibility with tests
+log.pipeline = {
+  outputs = all_outputs,
+  presenters = all_presenters,
+  transformers = all_transformers
+}
 
 -- Configuration API
 log.config = config_module.config

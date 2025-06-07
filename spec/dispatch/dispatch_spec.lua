@@ -3,10 +3,10 @@ package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lu
 
 local lual = require("lual.logger")
 local core_levels = require("lua.lual.levels")
-local console_output = require("lual.outputs.console_output")
-local file_output = require("lual.outputs.file_output")
-local syslog_output = require("lual.outputs.syslog_output")
-local all_presenters = require("lual.presenters.init") -- For presenter tests
+local console_output = require("lual.pipeline.outputs.console_output")
+local file_output = require("lual.pipeline.outputs.file_output")
+local syslog_output = require("lual.pipeline.outputs.syslog_output")
+local all_presenters = require("lual.pipeline.presenters.init") -- For presenter tests
 
 -- Helper function to check if a file exists
 local function file_exists(filename)

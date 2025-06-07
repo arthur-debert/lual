@@ -1,9 +1,9 @@
 #!/usr/bin/env lua
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 
-local text_presenter = require("lual.presenters.text")
-local color_presenter = require("lual.presenters.color")
-local json_presenter = require("lual.presenters.json")
+local text_presenter = require("lual.pipeline.presenters.text")
+local color_presenter = require("lual.pipeline.presenters.color")
+local json_presenter = require("lual.pipeline.presenters.json")
 local time_utils = require("lual.utils.time")
 
 describe("lual Presenters", function()
