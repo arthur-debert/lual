@@ -228,7 +228,7 @@ end
 --- Synchronous dispatch function (used by async worker)
 -- @param source_logger table The logger that originated the log event
 -- @param log_record table The log record to process
-local function dispatch_log_event_sync(source_logger, log_record)
+local function process_log_record(source_logger, log_record)
     local current_logger = source_logger
 
     -- Process through the hierarchy (from source up to _root)
@@ -275,14 +275,14 @@ function M.dispatch_log_event(source_logger, log_record)
     end
 
     -- Synchronous processing
-    dispatch_log_event_sync(source_logger, log_record)
+    process_log_record(source_logger, log_record)
 end
 
 --- Sets up the async writer with the dispatch function
 -- This is called when async mode is enabled to provide the dispatch function
 function M.setup_async_writer()
     -- Set the dispatch function for async processing
-    async_writer.set_dispatch_function(dispatch_log_event_sync)
+    async_writer.set_dispatch_function(process_log_record)
 end
 
 --- Formats arguments for logging
