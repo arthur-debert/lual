@@ -98,10 +98,7 @@ _get_or_create_logger_internal = function(requested_name_or_nil, config_data, lo
         end
     end
 
-    -- No backward compatibility - reject outputs configuration
-    if config_data.outputs then
-        error("'outputs' configuration is no longer supported. Use 'pipelines' instead.")
-    end
+
 
     if config_data.propagate ~= nil then
         new_logger.propagate = config_data.propagate

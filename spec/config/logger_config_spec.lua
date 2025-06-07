@@ -276,30 +276,7 @@ describe("lual Logger Configuration API (Step 2.6)", function()
             assert.are.equal("INVALID_TYPE", error_info.fields.propagate[1][1])
         end)
 
-        it("should reject outputs configuration", function()
-            assert.has_error(function()
-                    lual.logger("test_disptype", {
-                        outputs = "not a table"
-                    })
-                end,
-                "Invalid logger configuration: 'outputs' is no longer supported. Use 'pipelines' instead.")
-        end)
 
-        it("should reject outputs array entirely", function()
-            assert.has_error(function()
-                    lual.logger("test_dispitem1", {
-                        outputs = { "not a function" }
-                    })
-                end,
-                "Invalid logger configuration: 'outputs' is no longer supported. Use 'pipelines' instead.")
-
-            assert.has_error(function()
-                    lual.logger("test_dispitem2", {
-                        outputs = { function() end, 123, function() end }
-                    })
-                end,
-                "Invalid logger configuration: 'outputs' is no longer supported. Use 'pipelines' instead.")
-        end)
 
         it("should accept empty pipelines array", function()
             assert.has_no_error(function()

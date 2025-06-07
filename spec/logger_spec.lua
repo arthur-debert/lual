@@ -330,7 +330,7 @@ describe("lual Logger - Naming Conventions", function()
 
         local outputs_error = get_validation_error({ outputs = "not_a_table" })
         assert.is_not_nil(outputs_error)
-        assert.are.equal("DEPRECATED_KEY", outputs_error.error_code)
+        assert.are.equal("UNKNOWN_KEY", outputs_error.error_code)
 
         local propagate_error = get_validation_error({ propagate = "not_a_boolean" })
         assert.is_not_nil(propagate_error)

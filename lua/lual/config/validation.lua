@@ -16,11 +16,6 @@ function M.validate_config_structure(config_table, registry)
         return false, "Configuration must be a table, got " .. type(config_table)
     end
 
-    -- Reject outputs key entirely - no backward compatibility
-    if config_table.outputs then
-        return false, "'outputs' is no longer supported. Use 'pipelines' instead."
-    end
-
     -- Check for unknown keys
     local registered_keys = registry.get_registered_keys()
     local valid_keys = {}

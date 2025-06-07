@@ -24,19 +24,6 @@ local function validate_logger_config_table(config_table, return_detailed)
         end
     end
 
-    -- Reject outputs key entirely - no backward compatibility
-    if config_table.outputs then
-        if return_detailed then
-            return false, {
-                error_code = "DEPRECATED_KEY",
-                message = "'outputs' is no longer supported. Use 'pipelines' instead.",
-                field = "outputs"
-            }
-        else
-            return false, "'outputs' is no longer supported. Use 'pipelines' instead."
-        end
-    end
-
     -- Check for unknown keys first
     local valid_keys = { "level", "pipelines", "propagate" }
     for key, _ in pairs(config_table) do
