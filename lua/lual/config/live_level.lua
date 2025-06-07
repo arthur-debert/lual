@@ -72,8 +72,12 @@ end
 -- @param current_config table The current configuration state
 -- @return table The updated configuration state
 local function apply(config, current_config)
-    -- Store configuration
-    current_config.live_level = config
+    -- Store configuration in current_config.live_level
+    current_config.live_level = {
+        env_var = config.env_var,
+        check_interval = config.check_interval,
+        enabled = config.enabled
+    }
 
     -- Update global state
     _env_var_name = config.env_var
@@ -85,6 +89,9 @@ local function apply(config, current_config)
     else
         _enabled = config.enabled and (config.env_var ~= nil)
     end
+
+    -- Also store the enabled state in the config
+    current_config.live_level.enabled = _enabled
 
     _entry_counter = 0
 
