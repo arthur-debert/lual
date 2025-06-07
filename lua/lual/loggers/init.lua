@@ -5,13 +5,15 @@ local unpack = unpack or table.unpack
 -- For LuaRocks installed modules or busted tests, use require("lual.*")
 local core_levels = require("lua.lual.levels")
 local config_module = require("lual.config")
-local pipeline_module = require("lual.pipelines")
+local log_module = require("lual.log")
+local constants = require("lual.constants")
 local table_utils = require("lual.utils.table")
 local caller_info = require("lual.utils.caller_info")
 local component_utils = require("lual.utils.component")
 local logger_config = require("lual.loggers.config")
 local tree_module = require("lual.loggers.tree")
 local factory_module = require("lual.loggers.factory")
+local async_writer = require("lual.async")
 
 ------------------------------------------
 -- LOGGER PROTOTYPE AND CORE FUNCTIONALITY
@@ -114,7 +116,7 @@ function logger_prototype:add_output(output_func, config)
     -- Create a pipeline with the output and a default text presenter
     local pipeline = {
         outputs = { output_func },
-        presenter = require("lual.pipelines.presenters.init").text()
+        presenter = constants.text()
     }
 
     -- Add to the logger's pipelines
@@ -153,8 +155,98 @@ end
 -- LOG EVENT PROCESSING
 -----------------------
 
--- Add logging methods from the pipeline system
-local logging_methods = pipeline_module.create_logging_methods()
+-- Implements the pipeline dispatch logic
+-- @param source_logger table The logger that originated the log event
+-- @param log_record table The log record to process
+local function dispatch_log_event(source_logger, log_record)
+    -- Check if async mode is enabled
+    if async_writer.is_enabled() then
+        -- Queue the event for async processing
+        async_writer.queue_log_event(source_logger, log_record)
+        return
+    end
+
+    -- Synchronous processing using the log module
+    log_module.process_log_record(source_logger, log_record)
+end
+
+-- Define logging methods directly
+local function create_logging_methods()
+    local methods = {}
+
+    -- Helper function to create a log method for a specific level
+    local function create_log_method(level_no, level_name)
+        return function(self, ...)
+            -- Check if logging is enabled for this level
+            local effective_level = self:_get_effective_level()
+            if level_no < effective_level then
+                return -- Early exit if level not enabled
+            end
+
+            -- Parse arguments
+            local msg_fmt, args, context = log_module.parse_log_args(...)
+
+            -- Create log record
+            local log_record = log_module.create_log_record(self, level_no, level_name, msg_fmt, args, context)
+
+            -- Dispatch the log event
+            dispatch_log_event(self, log_record)
+        end
+    end
+
+    -- Create methods for each log level
+    methods.debug = create_log_method(core_levels.definition.DEBUG, "DEBUG")
+    methods.info = create_log_method(core_levels.definition.INFO, "INFO")
+    methods.warn = create_log_method(core_levels.definition.WARNING, "WARNING")
+    methods.error = create_log_method(core_levels.definition.ERROR, "ERROR")
+    methods.critical = create_log_method(core_levels.definition.CRITICAL, "CRITICAL")
+
+    -- Generic log method
+    methods.log = function(self, level_arg, ...)
+        local level_no
+        local level_name
+
+        -- Handle both numeric levels and custom level names
+        if type(level_arg) == "number" then
+            level_no = level_arg
+            level_name = core_levels.get_level_name(level_no)
+        elseif type(level_arg) == "string" then
+            -- Check if it's a custom level name
+            local custom_level_value = core_levels.get_custom_level_value(level_arg)
+            if custom_level_value then
+                level_no = custom_level_value
+                level_name = level_arg:upper()
+            else
+                error("Unknown level name: " .. level_arg)
+            end
+        else
+            error("Log level must be a number or string, got " .. type(level_arg))
+        end
+
+        -- Check if logging is enabled for this level
+        local effective_level = self:_get_effective_level()
+        if level_no < effective_level then
+            return -- Early exit if level not enabled
+        end
+
+        -- Parse arguments
+        local msg_fmt, args, context = log_module.parse_log_args(...)
+
+        -- Create log record
+        local log_record = log_module.create_log_record(self, level_no, level_name, msg_fmt, args, context)
+
+        -- Dispatch the log event
+        dispatch_log_event(self, log_record)
+    end
+
+    return methods
+end
+
+-- Set up the async writer with the dispatch function
+async_writer.set_dispatch_function(log_module.process_log_record)
+
+-- Add logging methods to the logger prototype
+local logging_methods = create_logging_methods()
 for method_name, method_func in pairs(logging_methods) do
     logger_prototype[method_name] = method_func
 end
@@ -177,12 +269,13 @@ logger_prototype.__index = function(self, key)
             end
 
             -- Parse arguments
-            local msg_fmt, args, context = pipeline_module._parse_log_args(...)
+            local msg_fmt, args, context = log_module.parse_log_args(...)
 
             -- Create log record
-            local log_record = pipeline_module._create_log_record(self_inner, level_no, level_name, msg_fmt, args,
-                context)
-            pipeline_module.dispatch_log_event(self_inner, log_record)
+            local log_record = log_module.create_log_record(self_inner, level_no, level_name, msg_fmt, args, context)
+
+            -- Dispatch the log event
+            dispatch_log_event(self_inner, log_record)
         end
     end
 

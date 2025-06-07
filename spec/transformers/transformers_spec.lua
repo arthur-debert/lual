@@ -1,7 +1,8 @@
 #!/usr/bin/env lua
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 
-local transformers = require("lual.pipelines.transformers")
+local lual = require("lual.constants")
+local transformers = lual.transformers
 
 describe("lual Transformers", function()
     -- Sample log record for testing

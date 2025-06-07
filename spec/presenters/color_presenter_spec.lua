@@ -1,8 +1,9 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 local unpack = unpack or table.unpack
-local color_factory = require("lual.pipelines.presenters.color")
+local lual = require("lual.constants")
+local color_factory = lual.color
 
-describe("lual.pipelines.presenters.color", function()
+describe("lual.presenters.color", function()
 	local colors = {
 		reset = "\27[0m",
 		dim = "\27[2m",

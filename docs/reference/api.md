@@ -379,9 +379,27 @@ Sets the logger's level.
 logger:set_level(lual.debug)
 ```
 
+### logger:add_pipeline(pipeline)
+
+Adds a pipeline configuration to the logger.
+
+**Parameters:**
+- `pipeline` (table): Pipeline configuration with `outputs` and `presenter` fields.
+
+**Returns:**
+- (table): The logger (for method chaining).
+
+**Examples:**
+```lua
+logger:add_pipeline({
+    outputs = { lual.console },
+    presenter = lual.text()
+})
+```
+
 ### logger:add_output(output, [config])
 
-Adds an output to the logger.
+Adds an output to the logger. This method is deprecated - use `add_pipeline()` instead.
 
 **Parameters:**
 - `output` (function): The output function.
@@ -409,6 +427,102 @@ Sets whether log events propagate to parent loggers.
 ```lua
 logger:set_propagate(false)
 ```
+
+## Log Module
+
+The `lual.log` module provides direct access to the internal log processing functions. These functions are used internally by the logger objects but can be used directly for advanced use cases.
+
+### lual.log.create_log_record(logger, level_no, level_name, message_fmt, args, context)
+
+Creates a log record from the provided parameters.
+
+**Parameters:**
+- `logger` (table): The logger object.
+- `level_no` (number): The numeric log level.
+- `level_name` (string): The log level name.
+- `message_fmt` (string): Message format string.
+- `args` (table): Arguments for formatting.
+- `context` (table): Additional context data.
+
+**Returns:**
+- (table): The log record.
+
+### lual.log.parse_log_args(...)
+
+Parses arguments passed to logging methods into message, args, and context.
+
+**Parameters:**
+- `...` (any): Arguments passed to a logging method.
+
+**Returns:**
+- (string): Message format string.
+- (table): Arguments for formatting.
+- (table): Context data if provided.
+
+### lual.log.format_message(message_fmt, args)
+
+Formats a message using printf-style formatting.
+
+**Parameters:**
+- `message_fmt` (string): Format string.
+- `args` (table): Arguments for formatting.
+
+**Returns:**
+- (string): Formatted message.
+
+### lual.log.get_logger_tree(source_logger)
+
+Builds a list of loggers that should process a log event, starting with the source logger and following the parent chain.
+
+**Parameters:**
+- `source_logger` (table): The source logger that created the log event.
+
+**Returns:**
+- (table): Array of loggers to process the event.
+
+### lual.log.get_eligible_pipelines(logger, log_record)
+
+Gets pipelines from a logger that should process a log record based on level.
+
+**Parameters:**
+- `logger` (table): The logger to check.
+- `log_record` (table): The log record.
+
+**Returns:**
+- (table): Array of eligible pipelines with their owning logger.
+
+### lual.log.process_pipeline(log_record, pipeline_entry)
+
+Processes a single pipeline for a log record.
+
+**Parameters:**
+- `log_record` (table): The log record to process.
+- `pipeline_entry` (table): The pipeline entry containing the pipeline and owning logger.
+
+**Returns:**
+- (boolean): Whether processing succeeded.
+
+### lual.log.process_pipelines(logger_pipelines, log_record)
+
+Processes multiple pipelines for a log record.
+
+**Parameters:**
+- `logger_pipelines` (table): Array of pipelines with their owning loggers.
+- `log_record` (table): The log record to process.
+
+**Returns:**
+- None
+
+### lual.log.process_log_record(source_logger, log_record)
+
+Processes a log record through the logging system.
+
+**Parameters:**
+- `source_logger` (table): The logger that created the log record.
+- `log_record` (table): The log record to process.
+
+**Returns:**
+- None
 
 ---
 
