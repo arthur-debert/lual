@@ -87,6 +87,20 @@ Example Usage:
         print("Level:", result.level) -- Will be 1 (transformed from "DEBUG")
     end
 
+Example with on_extra_keys:
+
+    local schema = {
+        fields = {
+            name = { type = "string", required = true },
+            age = { type = "number" }
+        },
+        on_extra_keys = "ignore" -- Allow unknown keys
+    }
+
+    local data = { name = "Alice", age = 30, extra = "value" }
+    local err, result = schemer.validate(data, schema)
+    -- result.extra will be "value" (ignored and kept)
+
 API Reference:
 
 Functions:
@@ -155,6 +169,10 @@ Cross-field Schema Properties:
     one_of (table): List of fields where at least one must be present
     depends_on (table): { field = "field_name", requires = "required_field" }
     exclusive (table): List of fields that cannot be present together
+    on_extra_keys (string): How to handle unknown keys ("error", "ignore", "remove")
+                           Default: "error" - reject unknown keys
+                           "ignore" - allow unknown keys and keep them in result
+                           "remove" - strip unknown keys from result but continue validation
 
 Error Codes:
     INVALID_TYPE: Type mismatch
@@ -170,6 +188,7 @@ Error Codes:
     DEPENDENCY_MISSING: Required dependency field missing
     EXCLUSIVE_CONFLICT: Mutually exclusive fields both present
     CUSTOM_VALIDATION_FAILED: Custom validator returned false
+    UNKNOWN_KEY: Unknown key in data
 
 --]]
 
@@ -189,7 +208,8 @@ local ERROR_CODES = {
     ONE_OF_MISSING = "ONE_OF_MISSING",
     DEPENDENCY_MISSING = "DEPENDENCY_MISSING",
     EXCLUSIVE_CONFLICT = "EXCLUSIVE_CONFLICT",
-    CUSTOM_VALIDATION_FAILED = "CUSTOM_VALIDATION_FAILED"
+    CUSTOM_VALIDATION_FAILED = "CUSTOM_VALIDATION_FAILED",
+    UNKNOWN_KEY = "UNKNOWN_KEY"
 }
 
 -- Helper function for enum definitions
@@ -563,6 +583,26 @@ function schemer.validate(data, schema)
             -- Apply normalized value (including defaults)
             if normalized_value ~= nil or data[field_name] ~= nil then
                 result[field_name] = normalized_value
+            end
+        end
+    end
+
+    -- Handle extra keys based on on_extra_keys setting
+    local on_extra_keys = schema.on_extra_keys or "error"
+    if schema.fields then
+        for field_name, _ in pairs(data) do
+            if not schema.fields[field_name] then
+                -- This is an unknown/extra key
+                if on_extra_keys == "error" or (on_extra_keys ~= "ignore" and on_extra_keys ~= "remove") then
+                    if not field_errors[field_name] then
+                        field_errors[field_name] = {}
+                    end
+                    table.insert(field_errors[field_name], { ERROR_CODES.UNKNOWN_KEY,
+                        string.format("Unknown field '%s'", field_name) })
+                elseif on_extra_keys == "remove" then
+                    result[field_name] = nil
+                    -- For "ignore", we do nothing - the key stays in the result
+                end
             end
         end
     end
