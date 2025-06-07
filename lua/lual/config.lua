@@ -6,6 +6,7 @@ local table_utils = require("lual.utils.table")
 local component_utils = require("lual.utils.component")
 local all_outputs = require("lual.outputs.init")
 local all_presenters = require("lual.presenters.init")
+local async_writer = require("lual.async_writer")
 
 local M = {}
 
@@ -65,7 +66,8 @@ local VALID_CONFIG_KEYS = {
     level = { type = "number", description = "Logging level (use lual.DEBUG, lual.INFO, etc.)" },
     pipelines = { type = "table", description = "Array of pipeline configurations" },
     propagate = { type = "boolean", description = "Whether to propagate messages (always true for root)" },
-    custom_levels = { type = "table", description = "Custom log levels as name = value pairs" }
+    custom_levels = { type = "table", description = "Custom log levels as name = value pairs" },
+    async = { type = "table", description = "Async configuration { enabled, backend, batch_size, flush_interval, max_queue_size, overflow_strategy }" }
 }
 
 -- Table of valid pipeline keys and their expected types/descriptions
@@ -136,9 +138,10 @@ local function validate_pipeline(pipeline, index)
 
         -- Additional validation for specific keys
         if key == "level" then
-            -- Validate that level is a known level value
+            -- Validate that level is a known level value (including custom levels)
+            local all_levels = core_levels.get_all_levels()
             local valid_level = false
-            for _, level_value in pairs(core_levels.definition) do
+            for _, level_value in pairs(all_levels) do
                 if value == level_value then
                     valid_level = true
                     break
@@ -146,7 +149,7 @@ local function validate_pipeline(pipeline, index)
             end
             if not valid_level then
                 local valid_levels = {}
-                for level_name, level_value in pairs(core_levels.definition) do
+                for level_name, level_value in pairs(all_levels) do
                     table.insert(valid_levels, string.format("%s(%d)", level_name, level_value))
                 end
                 table.sort(valid_levels)
@@ -331,6 +334,63 @@ local function validate_config(config_table)
             if value == core_levels.definition.NOTSET then
                 return false, "Root logger level cannot be set to NOTSET"
             end
+        elseif key == "async" then
+            -- Validate async configuration structure
+            local valid_async_keys = {
+                enabled = { type = "boolean", description = "Enable asynchronous logging mode" },
+                backend = { type = "string", description = "Async backend ('coroutines', etc.)" },
+                batch_size = { type = "number", description = "Number of messages to batch before writing" },
+                flush_interval = { type = "number", description = "Time interval (seconds) to force flush batches" },
+                max_queue_size = { type = "number", description = "Maximum number of messages in async queue" },
+                overflow_strategy = { type = "string", description = "Queue overflow strategy" }
+            }
+
+            local key_diff = table_utils.key_diff(valid_async_keys, value)
+            if #key_diff.added_keys > 0 then
+                local valid_keys = {}
+                for valid_key, _ in pairs(valid_async_keys) do
+                    table.insert(valid_keys, valid_key)
+                end
+                table.sort(valid_keys)
+                return false, string.format(
+                    "Unknown async configuration key '%s'. Valid keys are: %s",
+                    tostring(key_diff.added_keys[1]),
+                    table.concat(valid_keys, ", ")
+                )
+            end
+
+            -- Validate async sub-keys
+            for async_key, async_value in pairs(value) do
+                local expected_spec = valid_async_keys[async_key]
+                if expected_spec and expected_spec.type and type(async_value) ~= expected_spec.type then
+                    return false, string.format(
+                        "Invalid type for async.%s: expected %s, got %s. %s",
+                        async_key,
+                        expected_spec.type,
+                        type(async_value),
+                        expected_spec.description
+                    )
+                end
+
+                -- Additional validation for specific async keys
+                if async_key == "batch_size" and async_value <= 0 then
+                    return false, "async.batch_size must be greater than 0"
+                elseif async_key == "flush_interval" and async_value <= 0 then
+                    return false, "async.flush_interval must be greater than 0"
+                elseif async_key == "max_queue_size" and async_value <= 0 then
+                    return false, "async.max_queue_size must be greater than 0"
+                elseif async_key == "overflow_strategy" then
+                    local valid_strategies = { drop_oldest = true, drop_newest = true, block = true }
+                    if not valid_strategies[async_value] then
+                        return false, "async.overflow_strategy must be 'drop_oldest', 'drop_newest', or 'block'"
+                    end
+                elseif async_key == "backend" then
+                    local valid_backends = { coroutines = true, libuv = true }
+                    if not valid_backends[async_value] then
+                        return false, "async.backend must be 'coroutines' or 'libuv'"
+                    end
+                end
+            end
         end
 
         ::continue::
@@ -397,6 +457,19 @@ function M.config(config_table)
         end
     end
 
+    -- Handle async configuration - start/stop async writer as needed
+    if config_table.async and config_table.async.enabled ~= nil then
+        if config_table.async.enabled then
+            async_writer.start(config_table, nil)
+            -- Setup the dispatch function in pipeline module
+            local pipeline_module = require("lual.pipeline")
+            pipeline_module.setup_async_writer()
+        else
+            -- Stop async writer
+            async_writer.stop()
+        end
+    end
+
     return table_utils.deepcopy(_root_logger_config)
 end
 
@@ -409,6 +482,9 @@ end
 
 --- Resets the _root logger configuration to defaults
 function M.reset_config()
+    -- Stop async writer if running
+    async_writer.stop()
+
     -- Reset to defaults
     _root_logger_config = {
         level = core_levels.definition.WARNING,

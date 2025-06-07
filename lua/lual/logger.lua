@@ -18,6 +18,7 @@ local all_outputs = require("lual.outputs.init")           -- Require the new ou
 local all_presenters = require("lual.presenters.init")     -- Require the new presenters init
 local all_transformers = require("lual.transformers.init") -- Require the new transformers init
 local component_utils = require("lual.utils.component")
+local async_writer = require("lual.async_writer")
 
 -- Logger cache
 local _logger_cache = {}
@@ -552,6 +553,33 @@ log.utc = "utc"
 -- Transformer constants
 log.noop = all_transformers.noop_transformer
 
+-- Async constants
+log.async = {
+  -- Backend constants
+  coroutines = "coroutines",
+  libuv = "libuv",
+
+  -- Overflow strategy constants
+  drop_oldest = "drop_oldest",
+  drop_newest = "drop_newest",
+  block = "block",
+
+  -- Default configuration
+  defaults = {
+    enabled = false,
+    backend = "coroutines",
+    batch_size = 50,
+    flush_interval = 1.0,
+    max_queue_size = 10000,
+    overflow_strategy = "drop_oldest"
+  },
+
+  -- Statistics function
+  get_stats = function()
+    return async_writer.get_stats()
+  end
+}
+
 -- Add LEVELS mapping for external validation and use
 log.LEVELS = {
   notset = core_levels.definition.NOTSET,
@@ -585,6 +613,13 @@ function log.reset_config()
   config_module.reset_config()
   log.reset_cache()
   -- Comments about _root re-creation are fine. No active code needed here for _root.
+end
+
+--- Flushes all queued async log events immediately.
+-- This function will block until all currently queued log events have been processed.
+-- If async logging is not enabled, this function does nothing.
+function log.flush()
+  async_writer.flush()
 end
 
 return log

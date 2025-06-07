@@ -2,6 +2,9 @@
 
 lual is logging library for lua. Modeled after Python's standard lib, with a leaner API making good usage of Lua idioms, such as using functions over classes. The API is design to scale from a simple personal project to more complex deployments with hierarchical configurations and multiple pipelines.
 
+Supports do synchronous and asynchronous (co-routines and libuv).
+
+
 ## Quick Start
 
 ```lua
@@ -32,6 +35,7 @@ lual.config({
 - **Built-in Components**: Write to the console, files, or syslog; format as JSON, plain text, or colored terminal output.
 - **Hierarchical Loggers**: Dot-separated logger names create automatic parent-child relationships with propagation.
 - **Performance**: Efficient level filtering and lazy evaluation minimize overhead.
+- **AsyncIO**:  [Async I/O Guide](docs/guide/async/async-io.md)  in experimental mode, with coroutines and lluv backends (requireles luv lib)
 
 ## Lean and Dependency-Free
 
@@ -41,6 +45,7 @@ The base install has no dependencies. If you use these specific components, then
 
 - JSON presenter requires dkjson
 - Syslog output requires luasocket
+- UV async backend requires luv. 
 
 See [if lual is not a good fit for your deployment for more](#who-lual-is-not-for)
 
@@ -69,11 +74,6 @@ Currently, lual has two primary limitations that might be important for your use
 
     In many scenarios, logging to files or syslog provides a good baseline, as these can often be integrated with other systems via adapters. But, if you require direct integration with specialized output targets and cannot use file/syslog adapters, you would need to implement custom output writers.
 
-2.  **Blocking I/O**
-
-    All logging operations in lual, from event dispatch to the final output write, are blocking. This can be a critical limitation for high-throughput systems where logging performance and application responsiveness are paramount.
-
-    Improving this aspect is an area for potential future development. Feedback or suggestions on non-blocking I/O approaches suitable for the Lua ecosystem are welcome.
 
 ## Contributing
 
