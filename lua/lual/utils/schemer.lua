@@ -93,14 +93,27 @@ local function validate_field(value, field_schema, field_name, data)
 
     -- Type validation (use transformed value if we had enum transformation)
     if field_schema.type then
-        local check_value = enum_transformed and transformed_value or value
+        local check_value
+        if enum_transformed then
+            check_value = transformed_value
+        else
+            check_value = value
+        end
+
         -- Allow nil values from successful enum transformation
-        if not (enum_transformed and transformed_value == nil) then
+        if not (enum_transformed and check_value == nil) then
             local actual_type = type(check_value)
             if actual_type ~= field_schema.type then
-                table.insert(errors, { ERROR_CODES.INVALID_TYPE,
-                    string.format("Field '%s' must be of type %s, got %s", field_name, field_schema.type, actual_type) })
-                return errors, value -- Return early on type mismatch
+                local is_reverse_enum = field_schema.values and type(field_schema.values) == 'table' and
+                    field_schema.values.enum and field_schema.values.reverse
+
+                -- For reverse enums, an un-transformed value of the wrong type
+                -- is an invalid key, not a type error. Let value validation handle it.
+                if not (is_reverse_enum and not enum_transformed) then
+                    table.insert(errors, { ERROR_CODES.INVALID_TYPE,
+                        string.format("Field '%s' must be of type %s, got %s", field_name, field_schema.type, actual_type) })
+                    return errors, value -- Return early on type mismatch
+                end
             end
         end
     end
@@ -294,7 +307,7 @@ function schemer.validate(data, schema)
             end
 
             -- Apply normalized value (including defaults)
-            if normalized_value ~= nil then
+            if normalized_value ~= nil or data[field_name] ~= nil then
                 result[field_name] = normalized_value
             end
         end

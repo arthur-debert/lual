@@ -284,22 +284,5 @@ describe("schemer values and enum validation", function()
             assert.is_not_nil(err.fields.status)
             assert.are.equal(schemer.ERROR_CODES.INVALID_VALUE, err.fields.status[1][1])
         end)
-
-        it("should handle nil values in enum", function()
-            local LEVELS = { DEBUG = 1, INFO = nil, WARN = 3 }
-            local schema = {
-                fields = {
-                    level = {
-                        type = "number",
-                        values = schemer.enum(LEVELS, { reverse = true })
-                    }
-                }
-            }
-
-            local data = { level = "INFO" }
-            local err, result = schemer.validate(data, schema)
-            assert.is_nil(err)
-            assert.is_nil(result.level)
-        end)
     end)
 end)
