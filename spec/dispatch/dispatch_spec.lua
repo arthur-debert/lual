@@ -5,7 +5,7 @@ local lual = require("lual.logger")
 local core_levels = require("lua.lual.levels")
 local console = require("lual.pipeline.outputs.console")
 local file_output = require("lual.pipeline.outputs.file")
-local syslog_output = require("lual.pipeline.outputs.syslog_output")
+local syslog = require("lual.pipeline.outputs.syslog")
 local all_presenters = require("lual.pipeline.presenters.init") -- For presenter tests
 
 -- Helper function to check if a file exists
@@ -1024,25 +1024,25 @@ describe("lual outputs", function()
     describe("Syslog output", function()
         it("should validate configuration", function()
             -- Valid configurations
-            assert.is_true(syslog_output._validate_config({
+            assert.is_true(syslog._validate_config({
                 facility = "LOCAL0",
                 host = "localhost",
                 port = 514
             }))
 
-            assert.is_true(syslog_output._validate_config({
+            assert.is_true(syslog._validate_config({
                 facility = "USER",
                 tag = "myapp"
             }))
 
             -- Invalid configurations
-            local valid, err = syslog_output._validate_config({
+            local valid, err = syslog._validate_config({
                 facility = "INVALID"
             })
             assert.is_false(valid)
             assert.matches("Unknown syslog facility", err)
 
-            valid, err = syslog_output._validate_config({
+            valid, err = syslog._validate_config({
                 port = "not_a_number"
             })
             assert.is_false(valid)
@@ -1050,8 +1050,8 @@ describe("lual outputs", function()
         end)
 
         it("should map log levels to syslog severities", function()
-            local map = syslog_output._map_level_to_severity
-            local sev = syslog_output._SEVERITIES
+            local map = syslog._map_level_to_severity
+            local sev = syslog._SEVERITIES
 
             assert.are.equal(sev.DEBUG, map(10))    -- DEBUG
             assert.are.equal(sev.INFO, map(20))     -- INFO
@@ -1061,8 +1061,8 @@ describe("lual outputs", function()
         end)
 
         it("should format syslog messages correctly", function()
-            local format = syslog_output._format_syslog_message
-            local facility = syslog_output._FACILITIES.USER
+            local format = syslog._format_syslog_message
+            local facility = syslog._FACILITIES.USER
 
             local message = format(sample_record, facility, "testhost", "myapp")
 
@@ -1071,7 +1071,7 @@ describe("lual outputs", function()
         end)
 
         it("should handle network errors gracefully", function()
-            local output = syslog_output({
+            local output = syslog({
                 facility = "USER",
                 host = "nonexistent.host",
                 port = 55555 -- Unlikely to be open
