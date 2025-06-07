@@ -113,7 +113,7 @@ local text_presenter = lual.text({
 A component responsible for sending a formatted log message to a destination (console, file, network).
 
 ```lua
-local file_output = lual.file({
+local file = lual.file({
     path = "app.log",
     max_size = 10 * 1024 * 1024  -- 10 MB
 })

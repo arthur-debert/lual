@@ -8,10 +8,10 @@
 --
 -- @usage
 -- local lual = require("lual")
--- local file_output_factory = require("lual.pipeline.outputs.file_output")
+-- local file_factory = require("lual.pipeline.outputs.file")
 --
 -- local logger = lual.logger("my_app")
--- logger:add_output(file_output_factory({ path = "app.log" }), lual.levels.INFO)
+-- logger:add_output(file_factory({ path = "app.log" }), lual.levels.INFO)
 -- logger:info("This will be written to app.log after rotation.")
 
 local MAX_BACKUPS = 5
@@ -162,9 +162,9 @@ end
 -- @param config (table) Configuration for the file output.
 --   Must contain `path` (string) - the path to the main log file.
 -- @return function(record) The actual log writing function.
-local function file_output_factory(config)
+local function file_factory(config)
     if not config or not config.path or type(config.path) ~= "string" then
-        io.stderr:write("lual: file_output_factory requires config.path (string)\n")
+        io.stderr:write("lual: file_factory requires config.path (string)\n")
         return function() end -- Return a no-op function on error
     end
 
@@ -222,7 +222,7 @@ local module = setmetatable({
     _execute_rotation_commands = execute_rotation_commands
 }, {
     __call = function(_, config)
-        return file_output_factory(config)
+        return file_factory(config)
     end
 })
 

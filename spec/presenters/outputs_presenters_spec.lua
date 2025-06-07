@@ -140,7 +140,7 @@ describe("console output", function()
 		local all_outputs = require("lual.pipeline.outputs.init")
 
 		local record = { message = "Hello default stdout" }
-		all_outputs.console_output(record, {}) -- Empty config
+		all_outputs.console(record, {}) -- Empty config
 		assert.are.same("Hello default stdout\n", mock_stream.written_data)
 		assert.is_true(mock_stream.flushed)
 	end)
@@ -161,7 +161,7 @@ describe("console output", function()
 			end,
 		}
 		local record = { message = "Hello custom stream" }
-		all_outputs.console_output(record, { stream = custom_mock_stream })
+		all_outputs.console(record, { stream = custom_mock_stream })
 
 		assert.are.same("Hello custom stream\n", custom_mock_stream.written_data)
 		assert.is_true(custom_mock_stream.flushed)
@@ -182,7 +182,7 @@ describe("console output", function()
 		local record = { message = "Message that will fail to write" }
 
 		-- Call the output with the erroring stream
-		all_outputs.console_output(record, { stream = erroring_mock_stream })
+		all_outputs.console(record, { stream = erroring_mock_stream })
 
 		-- Check that an error message was written to our mock_stderr_stream
 		assert.is_not_nil(string.find(mock_stderr_stream.written_data, "Error writing to stream:", 1, true))

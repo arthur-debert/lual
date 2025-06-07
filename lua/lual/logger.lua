@@ -317,7 +317,7 @@ create_root_logger_instance = function()       -- Renamed from create_root_logge
     root_config_for_logger.pipelines = table_utils.deepcopy(main_conf.pipelines)
   else
     -- If no pipelines are configured, add a default pipeline with console output
-    local default_console = all_outputs.console_output
+    local default_console = all_outputs.console
     local normalized_output = component_utils.normalize_component(default_console,
       component_utils.DISPATCHER_DEFAULTS)
 
@@ -545,8 +545,8 @@ log.critical = core_levels.definition.CRITICAL
 log.none = core_levels.definition.NONE
 
 -- output constants (function references for config API)
-log.console = all_outputs.console_output
-log.file = all_outputs.file_output
+log.console = all_outputs.console
+log.file = all_outputs.file
 
 -- Presenter constants (function references for config API)
 log.text = all_presenters.text

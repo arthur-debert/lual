@@ -3,8 +3,8 @@ package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lu
 
 local lual = require("lual.logger")
 local core_levels = require("lua.lual.levels")
-local console_output = require("lual.pipeline.outputs.console_output")
-local file_output = require("lual.pipeline.outputs.file_output")
+local console = require("lual.pipeline.outputs.console")
+local file_output = require("lual.pipeline.outputs.file")
 local syslog_output = require("lual.pipeline.outputs.syslog_output")
 local all_presenters = require("lual.pipeline.presenters.init") -- For presenter tests
 
@@ -876,7 +876,7 @@ describe("lual outputs", function()
                 flush = function() end
             }
 
-            console_output(sample_record)
+            console(sample_record)
 
             -- Restore stdout
             io.stdout = old_stdout
@@ -893,7 +893,7 @@ describe("lual outputs", function()
                 flush = function() end
             }
 
-            console_output(sample_record, { stream = mock_stream })
+            console(sample_record, { stream = mock_stream })
 
             assert.is_true(#output >= 2) -- Message + newline
             assert.matches("User jane.doe logged in from 10.0.0.1", output[1])
@@ -906,7 +906,7 @@ describe("lual outputs", function()
                 flush = function() end
             }
 
-            console_output("Direct string message", { stream = mock_stream })
+            console("Direct string message", { stream = mock_stream })
 
             assert.are.equal("Direct string message", output[1])
             assert.are.equal("\n", output[2])
@@ -924,7 +924,7 @@ describe("lual outputs", function()
                 flush = function() end
             }
 
-            console_output(sample_record, { stream = failing_stream })
+            console(sample_record, { stream = failing_stream })
 
             io.stderr = old_stderr
 

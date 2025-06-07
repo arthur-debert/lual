@@ -34,7 +34,7 @@ local function create_default_pipelines()
             level = core_levels.definition.WARNING,
             outputs = {
                 {
-                    func = require("lual.pipeline.outputs.console_output"),
+                    func = require("lual.pipeline.outputs.console"),
                     config = {}
                 }
             },
@@ -46,13 +46,13 @@ end
 -- Initialize with a default console output pipeline
 local function initialize_default_config()
     -- Initialize with the console output pipeline
-    local console_output = require("lual.pipeline.outputs.console_output")
+    local console = require("lual.pipeline.outputs.console")
     local text_presenter = require("lual.pipeline.presenters.text")
     local component_utils = require("lual.utils.component")
 
     -- Create a normalized output
     local normalized_output = component_utils.normalize_component(
-        console_output,
+        console,
         component_utils.DISPATCHER_DEFAULTS
     )
 

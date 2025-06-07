@@ -36,14 +36,14 @@ describe("Component Utils End-to-End", function()
         }
 
         -- Create components using our new system
-        local console_output = {
-            all_outputs.console_output,
+        local console = {
+            all_outputs.console,
             stream = test_stream
         }
 
         -- Normalize the output
         local normalized_output = component_utils.normalize_component(
-            console_output,
+            console,
             component_utils.DISPATCHER_DEFAULTS
         )
 
@@ -101,15 +101,15 @@ describe("Component Utils End-to-End", function()
         }
 
         -- Create output with WARNING level
-        local console_output = {
-            all_outputs.console_output,
+        local console = {
+            all_outputs.console,
             level = core_levels.definition.WARNING,
             stream = test_stream
         }
 
         -- Normalize the output
         local normalized_output = component_utils.normalize_component(
-            console_output,
+            console,
             component_utils.DISPATCHER_DEFAULTS
         )
 

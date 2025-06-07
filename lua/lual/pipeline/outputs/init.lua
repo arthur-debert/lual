@@ -1,7 +1,7 @@
 local outputs = {}
 
-outputs.console_output = require("lual.pipeline.outputs.console_output")
-outputs.file_output = require("lual.pipeline.outputs.file_output")
+outputs.console = require("lual.pipeline.outputs.console")
+outputs.file = require("lual.pipeline.outputs.file")
 outputs.syslog_output = require("lual.pipeline.outputs.syslog_output")
 
 return outputs

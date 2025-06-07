@@ -1,7 +1,7 @@
 --- output that writes log messages to a stream (e.g., io.stdout, io.stderr).
 -- @param record (table|string) A table containing log record details or a string message
 -- @param config (table, optional) output-specific configuration.
-local function console_output(record, config)
+local function console(record, config)
     local stream = io.stdout
     if config and config.stream then
         stream = config.stream
@@ -37,4 +37,4 @@ local function console_output(record, config)
     end
 end
 
-return console_output
+return console
