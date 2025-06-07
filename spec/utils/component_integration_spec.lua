@@ -87,7 +87,7 @@ describe("Component Utils Integration", function()
 
     describe("with real transformers", function()
         it("should normalize noop transformer", function()
-            local noop = all_transformers.noop_transformer()
+            local noop = all_transformers.noop()
             local result = component_utils.normalize_component(noop, component_utils.TRANSFORMER_DEFAULTS)
 
             assert.is_table(result)
@@ -96,7 +96,7 @@ describe("Component Utils Integration", function()
         end)
 
         it("should normalize transformer with config", function()
-            local noop = all_transformers.noop_transformer()
+            local noop = all_transformers.noop()
             local input = { noop, custom_field = "value" }
 
             local result = component_utils.normalize_component(input, component_utils.TRANSFORMER_DEFAULTS)
@@ -113,7 +113,7 @@ describe("Component Utils Integration", function()
             local file_disp = all_outputs.file
             local text_presenter = all_presenters.text()
             local json_presenter = all_presenters.json()
-            local noop_transformer = all_transformers.noop_transformer()
+            local noop = all_transformers.noop()
 
             local outputs = component_utils.normalize_components({
                 console_disp,
@@ -126,7 +126,7 @@ describe("Component Utils Integration", function()
             }, component_utils.PRESENTER_DEFAULTS)
 
             local transformers = component_utils.normalize_components({
-                noop_transformer
+                noop
             }, component_utils.TRANSFORMER_DEFAULTS)
 
             -- Now we can use these normalized components in a logger config
@@ -149,7 +149,7 @@ describe("Component Utils Integration", function()
             assert.is_true(presenters[2].config.pretty)
 
             -- Verify transformers
-            assert.are.equal(noop_transformer, transformers[1].func)
+            assert.are.equal(noop, transformers[1].func)
         end)
     end)
 end)

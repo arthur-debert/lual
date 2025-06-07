@@ -558,7 +558,7 @@ log.local_time = "local"
 log.utc = "utc"
 
 -- Transformer constants
-log.noop = all_transformers.noop_transformer
+log.noop = all_transformers.noop
 
 -- Async constants
 log.async = {

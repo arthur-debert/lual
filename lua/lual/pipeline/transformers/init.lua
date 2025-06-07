@@ -1,5 +1,5 @@
 local transformers = {}
 
-transformers.noop_transformer = require("lual.pipeline.transformers.noop_transformer")
+transformers.noop = require("lual.pipeline.transformers.noop")
 
 return transformers

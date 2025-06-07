@@ -16,7 +16,7 @@ describe("lual Transformers", function()
 
     describe("No-op Transformer", function()
         it("should pass through log records unchanged", function()
-            local noop = transformers.noop_transformer()
+            local noop = transformers.noop()
             local original_record = {
                 timestamp = os.time(),
                 level_name = "INFO",
@@ -46,7 +46,7 @@ describe("lual Transformers", function()
         end)
 
         it("should handle empty records", function()
-            local noop = transformers.noop_transformer()
+            local noop = transformers.noop()
             local empty_record = {}
             local transformed = noop(empty_record)
 
@@ -55,7 +55,7 @@ describe("lual Transformers", function()
         end)
 
         it("should handle nil values in record", function()
-            local noop = transformers.noop_transformer()
+            local noop = transformers.noop()
             local record_with_nil = {
                 timestamp = os.time(),
                 level_name = nil,
@@ -69,7 +69,7 @@ describe("lual Transformers", function()
 
     describe("Transformer Factory Pattern", function()
         it("should return a callable object with schema", function()
-            local transformer = transformers.noop_transformer()
+            local transformer = transformers.noop()
 
             -- Check it's a table
             assert.is_table(transformer)
@@ -80,7 +80,7 @@ describe("lual Transformers", function()
         end)
 
         it("should accept optional configuration", function()
-            local transformer = transformers.noop_transformer({
+            local transformer = transformers.noop({
                 some_config = "value"
             })
 
