@@ -5,6 +5,7 @@
 -- For LuaRocks installed modules or busted tests, use require("lual.*")
 local core_levels = require("lual.levels")
 local schemer = require("lual.utils.schemer")
+local command_line_schema_module = require("lual.config.command_line_schema")
 
 local M = {}
 
@@ -18,14 +19,6 @@ local DEFAULT_MAPPING = {
     silent = "critical"
 }
 
--- Command line verbosity configuration schema
-local command_line_schema = {
-    fields = {
-        mapping = { type = "table", required = false },
-        auto_detect = { type = "boolean", required = false }
-    }
-}
-
 -- Validates command_line_verbosity configuration
 local function validate(config, full_config)
     if type(config) ~= "table" then
@@ -33,7 +26,7 @@ local function validate(config, full_config)
     end
 
     -- Use schemer for basic validation
-    local errors = schemer.validate(config, command_line_schema)
+    local errors = schemer.validate(config, command_line_schema_module.command_line_schema)
     if errors then
         return false, errors.error
     end

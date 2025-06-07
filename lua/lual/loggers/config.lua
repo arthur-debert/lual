@@ -3,25 +3,7 @@
 
 local core_levels = require("lual.levels")
 local schemer = require("lual.utils.schemer")
-
--- Logger configuration schema
-local logger_schema = {
-    fields = {
-        level = {
-            type = "number",
-            required = false,
-            values = schemer.enum(core_levels.definition)
-        },
-        pipelines = {
-            type = "table",
-            required = false
-        },
-        propagate = {
-            type = "boolean",
-            required = false
-        }
-    }
-}
+local loggers_schema_module = require("lual.loggers.schema")
 
 --- Validates a logger configuration table
 -- DEPRECATED: This is kept for backward compatibility with tests.
@@ -79,7 +61,7 @@ local function validate_logger_config_table(config_table, return_detailed)
     end
 
     -- Use schemer for validation
-    local errors = schemer.validate(config_table, logger_schema)
+    local errors = schemer.validate(config_table, loggers_schema_module.logger_schema)
     if errors then
         if return_detailed then
             return false, errors

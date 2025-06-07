@@ -3,17 +3,9 @@
 
 local core_levels = require("lual.levels")
 local schemer = require("lual.utils.schemer")
+local levels_schema_module = require("lual.levels.schema")
 
 local M = {}
-
--- Level validation schema (dynamic for custom levels)
-local function get_level_schema()
-    return {
-        fields = {
-            level = { type = "number", values = schemer.enum(core_levels.get_all_levels()) }
-        }
-    }
-end
 
 --- Validates level configuration
 -- @param level number The level value to validate
@@ -21,7 +13,7 @@ end
 -- @return boolean, string True if valid, otherwise false and error message
 local function validate_level(level, full_config)
     -- Use schemer for validation
-    local errors = schemer.validate({ level = level }, get_level_schema())
+    local errors = schemer.validate({ level = level }, levels_schema_module.get_level_schema())
     if errors then
         if errors.fields and errors.fields.level then
             local error_code = errors.fields.level[1][1]
