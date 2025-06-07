@@ -523,13 +523,6 @@ log.outputs = all_outputs           -- Assign the outputs table
 log.presenters = all_presenters     -- Assign the presenters table
 log.transformers = all_transformers -- Assign the transformers table
 
--- Pipeline namespace for backwards compatibility with tests
-log.pipeline = {
-  outputs = all_outputs,
-  presenters = all_presenters,
-  transformers = all_transformers
-}
-
 -- Add the new pipelines namespace to match the directory rename
 log.pipelines = {
   outputs = all_outputs,
