@@ -13,6 +13,14 @@ Understanding logger trees and propagation.
 - Log event propagation
 - Centralized vs. distributed logging
 
+### **[Command Line Verbosity](command-line-verbosity.md)**
+
+Controlling log levels through command line arguments.
+
+- Default verbosity mappings (`-v`, `-vv`, `-vvv`)
+- Custom flag mappings
+- Integration with CLI applications
+
 ## Learning Path
 
 If you're new to lual, we recommend starting with the [Getting Started](../getting-started/) section first, then reading this guide.

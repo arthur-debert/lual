@@ -41,6 +41,9 @@ Configures the root logger with the specified settings.
 - `pipelines` (table): Array of pipeline configurations.
 - `propagate` (boolean): Whether events propagate (always true for root).
 - `custom_levels` (table): Custom level definitions as name = value pairs.
+- `command_line_verbosity` (table): Configuration for command line argument driven logging level.
+  - `mapping` (table, optional): Custom mapping of command line flags to log level names.
+  - `auto_detect` (boolean, optional): Whether to automatically detect and apply CLI verbosity. Defaults to true.
 
 **Returns:**
 - None
@@ -65,6 +68,23 @@ lual.config({
     pipelines = {
         { outputs = { lual.console }, presenter = lual.text() },
         { outputs = { { lual.file, path = "app.log" } }, presenter = lual.json() }
+    }
+})
+
+-- Configure with command line verbosity detection
+lual.config({
+    pipelines = {
+        { outputs = { lual.console }, presenter = lual.color() }
+    },
+    command_line_verbosity = {
+        mapping = {
+            v = "warning",
+            vv = "info", 
+            vvv = "debug",
+            verbose = "info",
+            quiet = "error"
+        },
+        auto_detect = true
     }
 })
 ```
@@ -523,6 +543,44 @@ Processes a log record through the logging system.
 
 **Returns:**
 - None
+
+### lual.set_command_line_verbosity(verbosity_config)
+
+Sets the command line verbosity configuration for automatic log level detection from command line arguments.
+
+**Parameters:**
+- `verbosity_config` (table): Configuration table for command line verbosity.
+  - `mapping` (table, optional): Custom mapping of command line flags to log level names. Defaults to predefined mappings.
+  - `auto_detect` (boolean, optional): Whether to automatically detect and apply verbosity from command line. Defaults to true.
+
+**Returns:**
+- (table): The updated root logger configuration.
+
+**Examples:**
+```lua
+-- Enable command line verbosity with default mappings
+lual.set_command_line_verbosity({})
+
+-- Custom verbosity mapping
+lual.set_command_line_verbosity({
+    mapping = {
+        v = "warning",
+        vv = "info",
+        vvv = "debug",
+        verbose = "info",
+        quiet = "error"
+    }
+})
+
+-- Configure but disable auto-detection
+lual.set_command_line_verbosity({
+    auto_detect = false
+})
+```
+
+### lual.flush()
+
+Flushes all queued async log events immediately.
 
 ---
 
