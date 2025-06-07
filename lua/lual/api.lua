@@ -8,6 +8,7 @@ local config_module = require("lual.config")
 local constants = require("lual.constants")
 local core_levels = require("lua.lual.levels")
 local async_writer = require("lual.async")
+local logger_config = require("lual.loggers.config")
 
 local M = {}
 
@@ -44,7 +45,7 @@ function M.logger(arg1, arg2)
     end
 
     -- Validate configuration using the validation function for backward compatibility
-    local ok, err_msg = loggers_module.validate_logger_config_table(config_input)
+    local ok, err_msg = logger_config.validate_logger_config_table(config_input)
     if not ok then error("Invalid logger configuration: " .. err_msg) end
 
     -- Connect log.logger to the internal factory
