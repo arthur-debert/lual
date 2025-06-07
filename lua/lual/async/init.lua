@@ -5,7 +5,7 @@
 local M = {}
 
 -- Import the new generic async interface
-local async = require("lual.pipeline.outputs.async")
+local async = require("lual.async.core")
 
 -- Module state for backward compatibility
 local _writer_instance = nil
