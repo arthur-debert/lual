@@ -1,9 +1,9 @@
 local unpack = unpack or table.unpack
 
 -- Core modules
--- Note: For direct execution with 'lua', use require("lua.lual.*")
+-- Note: For direct execution with 'lua', use require("lual.*")
 -- For LuaRocks installed modules or busted tests, use require("lual.*")
-local core_levels = require("lua.lual.levels")
+local core_levels = require("lual.levels")
 local config_module = require("lual.config")
 local log_module = require("lual.log")
 local constants = require("lual.constants")
@@ -174,9 +174,30 @@ end
 local function create_logging_methods()
     local methods = {}
 
+    -- Get the live level module for environment variable checking
+    local live_level = require("lual.config.live_level")
+
+    -- Helper function to check for live level changes
+    local function check_for_level_changes()
+        if not config_module then return end
+
+        -- Get current config
+        local current_config = config_module.get_config()
+
+        -- Check for level changes via environment variable
+        local changed, new_level = live_level.check_level_change(current_config)
+        if changed and new_level then
+            -- Update the config with the new level
+            config_module.config({ level = new_level })
+        end
+    end
+
     -- Helper function to create a log method for a specific level
     local function create_log_method(level_no, level_name)
         return function(self, ...)
+            -- Check for environment variable level changes
+            check_for_level_changes()
+
             -- Check if logging is enabled for this level
             local effective_level = self:_get_effective_level()
             if level_no < effective_level then
@@ -203,6 +224,9 @@ local function create_logging_methods()
 
     -- Generic log method
     methods.log = function(self, level_arg, ...)
+        -- Check for environment variable level changes
+        check_for_level_changes()
+
         local level_no
         local level_name
 
@@ -259,6 +283,14 @@ logger_prototype.__index = function(self, key)
     local level_name, level_no = core_levels.get_level_by_name(key)
     if level_name and level_no then
         return function(self_inner, ...)
+            -- Check for environment variable level changes
+            local live_level = require("lual.config.live_level")
+            local current_config = config_module.get_config()
+            local changed, new_level = live_level.check_level_change(current_config)
+            if changed and new_level then
+                config_module.config({ level = new_level })
+            end
+
             -- Check if logging is enabled for this level
             local effective_level = self_inner:_get_effective_level()
             if level_no < effective_level then

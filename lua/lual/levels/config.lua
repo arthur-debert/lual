@@ -1,7 +1,7 @@
 --- Levels Configuration Handler
 -- This module handles both 'level' and 'custom_levels' configuration keys
 
-local core_levels = require("lua.lual.levels")
+local core_levels = require("lual.levels")
 
 local M = {}
 

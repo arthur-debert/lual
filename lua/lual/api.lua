@@ -1,12 +1,12 @@
 -- Public API for lual logger
 -- This module provides the main entry points for the logging library
 
--- Note: For direct execution with 'lua', use require("lua.lual.*")
+-- Note: For direct execution with 'lua', use require("lual.*")
 -- For LuaRocks installed modules or busted tests, use require("lual.*")
 local loggers_module = require("lual.loggers")
 local config_module = require("lual.config")
 local constants = require("lual.constants")
-local core_levels = require("lua.lual.levels")
+local core_levels = require("lual.levels")
 local async_writer = require("lual.async")
 local logger_config = require("lual.loggers.config")
 
@@ -94,6 +94,45 @@ end
 -- If async logging is not enabled, this function does nothing.
 function M.flush()
     async_writer.flush()
+end
+
+-- Sets the command line verbosity configuration
+-- @param verbosity_config table Configuration for command line verbosity mapping
+-- @return table The updated root logger configuration
+function M.set_command_line_verbosity(verbosity_config)
+    if type(verbosity_config) ~= "table" then
+        error("Command line verbosity config must be a table")
+    end
+
+    return config_module.config({
+        command_line_verbosity = verbosity_config
+    })
+end
+
+-- Sets up live log level changes through environment variables
+-- @param env_var_name string Name of the environment variable to watch
+-- @param check_interval number How often to check (in log calls)
+-- @return table The updated root logger configuration
+function M.set_live_level(env_var_name, check_interval)
+    if not env_var_name or type(env_var_name) ~= "string" then
+        error("Environment variable name must be a string")
+    end
+
+    local config = {
+        env_var = env_var_name,
+        enabled = true
+    }
+
+    if check_interval ~= nil then
+        if type(check_interval) ~= "number" then
+            error("Check interval must be a number")
+        end
+        config.check_interval = check_interval
+    end
+
+    return config_module.config({
+        live_level = config
+    })
 end
 
 -- Expose internal functions for testing

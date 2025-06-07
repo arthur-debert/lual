@@ -1,7 +1,7 @@
 -- Log Module
 -- This module serves as the API namespace for log-related functionality
 
--- Note: For direct execution with 'lua', use require("lua.lual.*")
+-- Note: For direct execution with 'lua', use require("lual.*")
 -- For LuaRocks installed modules or busted tests, use require("lual.*")
 local log_record = require("lual.log.log_record")
 local get_logger_tree = require("lual.log.get_logger_tree")

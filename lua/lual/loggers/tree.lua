@@ -2,7 +2,7 @@
 -- This module handles the hierarchical structure of loggers
 
 -- Module dependencies
-local core_levels = require("lua.lual.levels")
+local core_levels = require("lual.levels")
 local caller_info = require("lual.utils.caller_info")
 
 -- Logger cache - shared with other modules via the exported API

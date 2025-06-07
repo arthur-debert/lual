@@ -1,10 +1,10 @@
 -- Pipeline Processing
 -- This module handles the processing of log records through pipelines
 
--- Note: For direct execution with 'lua', use require("lua.lual.*")
+-- Note: For direct execution with 'lua', use require("lual.*")
 -- For LuaRocks installed modules or busted tests, use require("lual.*")
 local component_utils = require("lual.utils.component")
-local core_levels = require("lua.lual.levels")
+local core_levels = require("lual.levels")
 
 local M = {}
 

@@ -1,7 +1,7 @@
 --- Configuration API
 -- This module provides the main configuration API functions
 
--- Note: For direct execution with 'lua', use require("lua.lual.*")
+-- Note: For direct execution with 'lua', use require("lual.*")
 -- For LuaRocks installed modules or busted tests, use require("lual.*")
 local registry = require("lual.config.registry")
 local defaults = require("lual.config.defaults")
@@ -21,6 +21,8 @@ local function register_handlers()
     registry.register("propagate", require("lual.config.propagate"))
     registry.register("pipelines", require("lual.pipelines.config"))
     registry.register("async", require("lual.async.config"))
+    registry.register("command_line_verbosity", require("lual.config.command_line"))
+    registry.register("live_level", require("lual.config.live_level"))
 end
 
 -- Initialize the config system
