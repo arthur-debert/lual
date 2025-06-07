@@ -1,6 +1,7 @@
 return {
   -- Modules to include in coverage analysis
   include = {
+    "lua/lual/",
     "lual",
   },
   -- Modules to exclude from coverage analysis
@@ -21,9 +22,5 @@ return {
   -- List of reporters to run at the end
   reporter = "default",
   -- Additional reporters
-  reporters = { "default", "lcov" },
-  -- LCOV reporter configuration
-  lcov = {
-    reportfile = "coverage/lcov.info"
-  },
+  reporters = { "default" },
 }
