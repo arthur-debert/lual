@@ -2,9 +2,10 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 
 local component_utils = require("lual.utils.component")
-local all_outputs = require("lual.pipelines.outputs.init")
-local all_presenters = require("lual.pipelines.presenters.init")
-local all_transformers = require("lual.pipelines.transformers.init")
+local lual = require("lual.constants")
+local all_outputs = lual.outputs
+local all_presenters = lual.presenters
+local all_transformers = lual.transformers
 local core_levels = require("lua.lual.levels")
 
 describe("Component Utils End-to-End", function()

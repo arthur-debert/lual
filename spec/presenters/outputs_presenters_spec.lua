@@ -3,11 +3,11 @@ package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lu
 -- Compatibility for Lua 5.1 if running in a context where table.unpack is not defined
 local unpack = unpack or table.unpack
 local lualog = require("lual.logger")
+local lual = require("lual.constants")
 
 describe("text presenter", function()
 	it("should format a basic log record", function()
-		local all_presenters = require("lual.pipelines.presenters.init")
-		local text_presenter = all_presenters.text({ timezone = "utc" }) -- Configure UTC for predictable test
+		local text_presenter = lual.text({ timezone = "utc" }) -- Configure UTC for predictable test
 
 		local record = {
 			timestamp = 1678886400, -- 2023-03-15 10:00:00 UTC
@@ -22,8 +22,7 @@ describe("text presenter", function()
 	end)
 
 	it("should handle nil arguments gracefully", function()
-		local all_presenters = require("lual.pipelines.presenters.init")
-		local text_presenter = all_presenters.text({ timezone = "utc" }) -- Configure UTC for predictable test
+		local text_presenter = lual.text({ timezone = "utc" }) -- Configure UTC for predictable test
 
 		local record = {
 			timestamp = 1678886401, -- 2023-03-15 10:00:01 UTC
@@ -38,8 +37,7 @@ describe("text presenter", function()
 	end)
 
 	it("should handle empty arguments table", function()
-		local all_presenters = require("lual.pipelines.presenters.init")
-		local text_presenter = all_presenters.text({ timezone = "utc" }) -- Configure UTC for predictable test
+		local text_presenter = lual.text({ timezone = "utc" }) -- Configure UTC for predictable test
 
 		local record = {
 			timestamp = 1678886402, -- 2023-03-15 10:00:02 UTC
@@ -54,10 +52,9 @@ describe("text presenter", function()
 	end)
 
 	it("should use fallbacks for missing optional record fields", function()
-		local all_presenters = require("lual.pipelines.presenters.init")
-		local text_presenter = all_presenters.text({ timezone = "utc" }) -- Configure UTC for predictable test
+		local text_presenter = lual.text({ timezone = "utc" }) -- Configure UTC for predictable test
 
-		local ts = 1678886403                                      -- 2023-03-15 10:00:03 UTC
+		local ts = 1678886403                            -- 2023-03-15 10:00:03 UTC
 		local expected_timestamp = os.date("!%Y-%m-%d %H:%M:%S", ts)
 
 		local record1 = {
@@ -137,17 +134,13 @@ describe("console output", function()
 	end)
 
 	it("should write to default stream (io.stdout) if no stream specified in config", function()
-		local all_outputs = require("lual.pipelines.outputs.init")
-
 		local record = { message = "Hello default stdout" }
-		all_outputs.console(record, {}) -- Empty config
+		lual.console(record, {}) -- Empty config
 		assert.are.same("Hello default stdout\n", mock_stream.written_data)
 		assert.is_true(mock_stream.flushed)
 	end)
 
 	it("should write to a custom stream if specified in config", function()
-		local all_outputs = require("lual.pipelines.outputs.init")
-
 		local custom_mock_stream = {
 			written_data = "",
 			flushed = false,
@@ -161,7 +154,7 @@ describe("console output", function()
 			end,
 		}
 		local record = { message = "Hello custom stream" }
-		all_outputs.console(record, { stream = custom_mock_stream })
+		lual.console(record, { stream = custom_mock_stream })
 
 		assert.are.same("Hello custom stream\n", custom_mock_stream.written_data)
 		assert.is_true(custom_mock_stream.flushed)
@@ -169,8 +162,6 @@ describe("console output", function()
 	end)
 
 	it("should handle stream write error and report to io.stderr", function()
-		local all_outputs = require("lual.pipelines.outputs.init")
-
 		local erroring_mock_stream = {
 			write = function(self, ...)
 				error("Simulated stream write error")
@@ -182,7 +173,7 @@ describe("console output", function()
 		local record = { message = "Message that will fail to write" }
 
 		-- Call the output with the erroring stream
-		all_outputs.console(record, { stream = erroring_mock_stream })
+		lual.console(record, { stream = erroring_mock_stream })
 
 		-- Check that an error message was written to our mock_stderr_stream
 		assert.is_not_nil(string.find(mock_stderr_stream.written_data, "Error writing to stream:", 1, true))

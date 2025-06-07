@@ -3,10 +3,11 @@ package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lu
 
 local lual = require("lual.logger")
 local core_levels = require("lua.lual.levels")
-local console = require("lual.pipelines.outputs.console")
-local file_output = require("lual.pipelines.outputs.file")
-local syslog = require("lual.pipelines.outputs.syslog")
-local all_presenters = require("lual.pipelines.presenters.init") -- For presenter tests
+local constants = require("lual.constants")
+local console = constants.console
+local file_output = constants.file
+local syslog = constants.syslog
+local all_presenters = constants.presenters
 local log_module = require("lual.log")
 
 -- Helper function to check if a file exists
@@ -1024,27 +1025,35 @@ describe("lual outputs", function()
     end)
 
     describe("Syslog output", function()
+        -- Get internal functions from the syslog module
+        local syslog_module = require("lual.pipelines.outputs.syslog")
+        local _FACILITIES = syslog_module._FACILITIES
+        local _SEVERITIES = syslog_module._SEVERITIES
+        local _validate_config = syslog_module._validate_config
+        local _map_level_to_severity = syslog_module._map_level_to_severity
+        local _format_syslog_message = syslog_module._format_syslog_message
+
         it("should validate configuration", function()
             -- Valid configurations
-            assert.is_true(syslog._validate_config({
+            assert.is_true(_validate_config({
                 facility = "LOCAL0",
                 host = "localhost",
                 port = 514
             }))
 
-            assert.is_true(syslog._validate_config({
+            assert.is_true(_validate_config({
                 facility = "USER",
                 tag = "myapp"
             }))
 
             -- Invalid configurations
-            local valid, err = syslog._validate_config({
+            local valid, err = _validate_config({
                 facility = "INVALID"
             })
             assert.is_false(valid)
             assert.matches("Unknown syslog facility", err)
 
-            valid, err = syslog._validate_config({
+            valid, err = _validate_config({
                 port = "not_a_number"
             })
             assert.is_false(valid)
@@ -1052,28 +1061,24 @@ describe("lual outputs", function()
         end)
 
         it("should map log levels to syslog severities", function()
-            local map = syslog._map_level_to_severity
-            local sev = syslog._SEVERITIES
-
-            assert.are.equal(sev.DEBUG, map(10))    -- DEBUG
-            assert.are.equal(sev.INFO, map(20))     -- INFO
-            assert.are.equal(sev.WARNING, map(30))  -- WARNING
-            assert.are.equal(sev.ERROR, map(40))    -- ERROR
-            assert.are.equal(sev.CRITICAL, map(50)) -- CRITICAL
+            assert.are.equal(_SEVERITIES.DEBUG, _map_level_to_severity(10))    -- DEBUG
+            assert.are.equal(_SEVERITIES.INFO, _map_level_to_severity(20))     -- INFO
+            assert.are.equal(_SEVERITIES.WARNING, _map_level_to_severity(30))  -- WARNING
+            assert.are.equal(_SEVERITIES.ERROR, _map_level_to_severity(40))    -- ERROR
+            assert.are.equal(_SEVERITIES.CRITICAL, _map_level_to_severity(50)) -- CRITICAL
         end)
 
         it("should format syslog messages correctly", function()
-            local format = syslog._format_syslog_message
-            local facility = syslog._FACILITIES.USER
+            local facility = _FACILITIES.USER
 
-            local message = format(sample_record, facility, "testhost", "myapp")
+            local message = _format_syslog_message(sample_record, facility, "testhost", "myapp")
 
             -- Check RFC 3164 format: <priority>timestamp hostname tag: message
             assert.matches("^<%d+>%w+ %d+ %d+:%d+:%d+ testhost myapp: .*$", message)
         end)
 
         it("should handle network errors gracefully", function()
-            local output = syslog({
+            local output = syslog_module({
                 facility = "USER",
                 host = "nonexistent.host",
                 port = 55555 -- Unlikely to be open
