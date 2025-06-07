@@ -16,11 +16,12 @@ local _root_logger_config = {
 
 -- Register subsystem handlers
 local function register_handlers()
-    registry.register("level", require("lual.config.level"))
+    local levels_handlers = require("lual.levels.config").create_handlers()
+    registry.register("level", levels_handlers.level)
+    registry.register("custom_levels", levels_handlers.custom_levels)
     registry.register("propagate", require("lual.config.propagate"))
-    registry.register("pipelines", require("lual.config.pipelines"))
-    registry.register("custom_levels", require("lual.config.custom_levels"))
-    registry.register("async", require("lual.config.async"))
+    registry.register("pipelines", require("lual.pipelines.config"))
+    registry.register("async", require("lual.async.config"))
 end
 
 -- Initialize handlers
