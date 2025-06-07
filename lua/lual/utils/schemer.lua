@@ -115,11 +115,12 @@ Functions:
 
         Parameters:
             enum_table (table): Key-value pairs for the enum
-            options (table, optional): { reverse = boolean }
+            options (table, optional): { reverse = boolean, case_insensitive = boolean }
                 reverse: If true, allows string keys to be transformed to values
+                case_insensitive: If true, enables case-insensitive matching
 
         Returns:
-            { enum = enum_table, reverse = boolean }
+            { enum = enum_table, reverse = boolean, case_insensitive = boolean }
 
 Schema Structure:
 
@@ -130,6 +131,7 @@ Field Schema Properties:
 
     For all types:
         values (table|enum_def): List of allowed values or enum definition
+        case_insensitive (boolean): Enable case-insensitive string matching for values
 
     For strings:
         min_len (number): Minimum string length
@@ -193,7 +195,15 @@ local ERROR_CODES = {
 -- Helper function for enum definitions
 function schemer.enum(enum_table, options)
     options = options or {}
-    return { enum = enum_table, reverse = options.reverse or false }
+    local result = {
+        enum = enum_table,
+        reverse = options.reverse or false
+    }
+    -- Only set case_insensitive if explicitly provided
+    if options.case_insensitive ~= nil then
+        result.case_insensitive = options.case_insensitive
+    end
+    return result
 end
 
 -- Helper function to deep copy a table
@@ -212,6 +222,24 @@ local function has_value(list, value)
         if v == value then return true end
     end
     return false
+end
+
+-- Helper function to check if a value is in a list with case insensitive matching
+local function has_value_case_insensitive(list, value)
+    if type(value) ~= "string" then
+        local found = has_value(list, value)
+        return found, value -- Return value as canonical for consistency
+    end
+
+    local lower_value = string.lower(value)
+    for _, v in ipairs(list) do
+        if type(v) == "string" and string.lower(v) == lower_value then
+            return true, v -- Return the canonical value
+        elseif v == value then
+            return true, v
+        end
+    end
+    return false, nil
 end
 
 -- Helper function to validate count specification
@@ -253,8 +281,22 @@ local function validate_field(value, field_schema, field_name, data)
     if field_schema.values and type(field_schema.values) == 'table' and
         field_schema.values.enum and field_schema.values.reverse then
         -- Check if value is a key in the enum
+        local case_insensitive
+        if field_schema.values.case_insensitive ~= nil then
+            case_insensitive = field_schema.values.case_insensitive
+        else
+            case_insensitive = field_schema.case_insensitive
+        end
+
         for k, v in pairs(field_schema.values.enum) do
-            if k == value then
+            local match = false
+            if case_insensitive and type(k) == "string" and type(value) == "string" then
+                match = string.lower(k) == string.lower(value)
+            else
+                match = k == value
+            end
+
+            if match then
                 transformed_value = v
                 enum_transformed = true
                 break
@@ -293,10 +335,15 @@ local function validate_field(value, field_schema, field_name, data)
     if field_schema.values then
         local is_valid = false
         local final_value = value
+        local case_insensitive = field_schema.case_insensitive
 
         if type(field_schema.values) == 'table' and field_schema.values.enum then
             -- Handle enum
             local enum_def = field_schema.values
+            if enum_def.case_insensitive ~= nil then
+                case_insensitive = enum_def.case_insensitive
+            end
+
             if enum_def.reverse then
                 -- For reverse lookup, check if we already transformed it or if it's a valid enum value
                 if enum_transformed then
@@ -305,8 +352,16 @@ local function validate_field(value, field_schema, field_name, data)
                 else
                     -- Check if it's already a valid enum value
                     for _, v in pairs(enum_def.enum) do
-                        if v == value then
+                        local match = false
+                        if case_insensitive and type(v) == "string" and type(value) == "string" then
+                            match = string.lower(v) == string.lower(value)
+                        else
+                            match = v == value
+                        end
+
+                        if match then
                             is_valid = true
+                            final_value = v -- Use canonical value
                             break
                         end
                     end
@@ -314,15 +369,31 @@ local function validate_field(value, field_schema, field_name, data)
             else
                 -- Normal enum - check if value is in enum values
                 for _, v in pairs(enum_def.enum) do
-                    if v == value then
+                    local match = false
+                    if case_insensitive and type(v) == "string" and type(value) == "string" then
+                        match = string.lower(v) == string.lower(value)
+                    else
+                        match = v == value
+                    end
+
+                    if match then
                         is_valid = true
+                        final_value = v -- Use canonical value
                         break
                     end
                 end
             end
         else
             -- Simple list of allowed values
-            is_valid = has_value(field_schema.values, value)
+            if case_insensitive then
+                local found, canonical = has_value_case_insensitive(field_schema.values, value)
+                is_valid = found
+                if found then
+                    final_value = canonical
+                end
+            else
+                is_valid = has_value(field_schema.values, value)
+            end
         end
 
         if not is_valid then
