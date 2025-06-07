@@ -193,4 +193,20 @@ function levels.get_custom_level_value(name)
     return _custom_levels[name:lower()]
 end
 
+-- Gets information about a custom level by name
+-- @param name string The custom level name
+-- @return string, number The level name (uppercase) and number, or nil if not found
+function levels.get_custom_level(name)
+    if type(name) ~= "string" then
+        return nil, nil
+    end
+
+    local level_no = _custom_levels[name:lower()]
+    if level_no then
+        return name:upper(), level_no
+    end
+
+    return nil, nil
+end
+
 return levels

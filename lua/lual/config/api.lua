@@ -1,6 +1,8 @@
 --- Configuration API
 -- This module provides the main configuration API functions
 
+-- Note: For direct execution with 'lua', use require("lua.lual.*")
+-- For LuaRocks installed modules or busted tests, use require("lual.*")
 local registry = require("lual.config.registry")
 local defaults = require("lual.config.defaults")
 local validation = require("lual.config.validation")
