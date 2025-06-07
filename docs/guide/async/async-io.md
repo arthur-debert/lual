@@ -17,8 +17,9 @@ lual.logger() -> async_writer.lua -> async/init.lua -> backends/[strategy].lua
 | Backend | Path | Documentation | Status |
 |---------|------|---------------|--------|
 | Coroutines | `lual.outputs.async.backends.coroutines` | [co-routines.md](co-routines.md) | Stable |
+| libuv | `lual.outputs.async.backends.libuv` | [libuv.md](libuv.md) | Stable |
 
-Future backends: libuv, lanes, native threads.
+Future backends: lanes, native threads.
 
 ## Configuration
 
@@ -26,7 +27,7 @@ Future backends: libuv, lanes, native threads.
 lual.config({
     async = {
         enabled = true,
-        backend = lual.async.coroutines,      -- Optional, defaults to lual.async.coroutines
+        backend = lual.async.libuv,           -- lual.async.coroutines, lual.async.libuv
         batch_size = 50,                      -- Messages per batch
         flush_interval = 1.0,                 -- Seconds
         max_queue_size = 10000,               -- Memory protection
@@ -185,7 +186,7 @@ lual.config({
     level = lual.debug,
     async = {
         enabled = true,
-        backend = lual.async.coroutines,
+        backend = lual.async.libuv,
         batch_size = 25,
         flush_interval = 0.5,
         max_queue_size = 5000,

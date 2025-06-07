@@ -2,6 +2,9 @@
 
 lual is logging library for lua. Modeled after Python's standard lib, with a leaner API making good usage of Lua idioms, such as using functions over classes. The API is design to scale from a simple personal project to more complex deployments with hierarchical configurations and multiple pipelines.
 
+Supports do synchronous and asynchronous (co-routines and libuv).
+
+
 ## Quick Start
 
 ```lua
@@ -32,7 +35,7 @@ lual.config({
 - **Built-in Components**: Write to the console, files, or syslog; format as JSON, plain text, or colored terminal output.
 - **Hierarchical Loggers**: Dot-separated logger names create automatic parent-child relationships with propagation.
 - **Performance**: Efficient level filtering and lazy evaluation minimize overhead.
-- **AsyncIO**:  [Async I/O Guide](docs/guide/async-io.md)  in experimental mode
+- **AsyncIO**:  [Async I/O Guide](docs/guide/async/async-io.md)  in experimental mode, with coroutines and lluv backends (requireles luv lib)
 
 ## Lean and Dependency-Free
 
@@ -42,6 +45,7 @@ The base install has no dependencies. If you use these specific components, then
 
 - JSON presenter requires dkjson
 - Syslog output requires luasocket
+- UV async backend requires luv. 
 
 See [if lual is not a good fit for your deployment for more](#who-lual-is-not-for)
 
@@ -69,13 +73,6 @@ Currently, lual has two primary limitations that might be important for your use
     For simpler applications or those with basic logging needs, lual's built-in output writers (like console and file) are generally sufficient. However, larger or more complex applications often require logging to diverse systems, each with unique protocols, formats, and performance considerations.
 
     In many scenarios, logging to files or syslog provides a good baseline, as these can often be integrated with other systems via adapters. But, if you require direct integration with specialized output targets and cannot use file/syslog adapters, you would need to implement custom output writers.
-
-2.  **Blocking I/O**
-
-    By default, all logging operations in lual are blocking. For high-throughput systems where logging performance and application responsiveness are critical, lual provides async I/O with pluggable backends.
-
-
-    New: in beta testing:  [Async I/O Guide](docs/guide/async-io.md) for configuration and backend options. The coroutine backend offers significant performance improvements for most use cases, with true non-blocking backends planned.
 
 
 ## Contributing

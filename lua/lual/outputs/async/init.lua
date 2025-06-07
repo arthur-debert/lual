@@ -9,7 +9,8 @@ local queue_module = require("lual.utils.queue")
 
 -- Available backends
 local BACKENDS = {
-    coroutines = "lual.outputs.async.backends.coroutines"
+    coroutines = "lual.outputs.async.backends.coroutines",
+    libuv = "lual.outputs.async.backends.libuv"
 }
 
 --- Creates a new async writer with the specified backend

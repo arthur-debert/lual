@@ -557,6 +557,7 @@ log.noop = all_transformers.noop_transformer
 log.async = {
   -- Backend constants
   coroutines = "coroutines",
+  libuv = "libuv",
 
   -- Overflow strategy constants
   drop_oldest = "drop_oldest",
