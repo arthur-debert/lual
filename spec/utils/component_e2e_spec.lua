@@ -2,9 +2,9 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 
 local component_utils = require("lual.utils.component")
-local all_outputs = require("lual.outputs.init")
-local all_presenters = require("lual.presenters.init")
-local all_transformers = require("lual.transformers.init")
+local all_outputs = require("lual.pipelines.outputs.init")
+local all_presenters = require("lual.pipelines.presenters.init")
+local all_transformers = require("lual.pipelines.transformers.init")
 local core_levels = require("lua.lual.levels")
 
 describe("Component Utils End-to-End", function()
@@ -36,14 +36,14 @@ describe("Component Utils End-to-End", function()
         }
 
         -- Create components using our new system
-        local console_output = {
-            all_outputs.console_output,
+        local console = {
+            all_outputs.console,
             stream = test_stream
         }
 
         -- Normalize the output
         local normalized_output = component_utils.normalize_component(
-            console_output,
+            console,
             component_utils.DISPATCHER_DEFAULTS
         )
 
@@ -101,15 +101,15 @@ describe("Component Utils End-to-End", function()
         }
 
         -- Create output with WARNING level
-        local console_output = {
-            all_outputs.console_output,
+        local console = {
+            all_outputs.console,
             level = core_levels.definition.WARNING,
             stream = test_stream
         }
 
         -- Normalize the output
         local normalized_output = component_utils.normalize_component(
-            console_output,
+            console,
             component_utils.DISPATCHER_DEFAULTS
         )
 

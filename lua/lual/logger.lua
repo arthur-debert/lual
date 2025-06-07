@@ -11,14 +11,14 @@ local log = {}
 
 local core_levels = require("lua.lual.levels")
 local config_module = require("lual.config")
-local pipeline_module = require("lual.pipeline")
+local pipeline_module = require("lual.pipelines")
 local table_utils = require("lual.utils.table")
 local caller_info = require("lual.utils.caller_info")
-local all_outputs = require("lual.outputs.init")           -- Require the new outputs init
-local all_presenters = require("lual.presenters.init")     -- Require the new presenters init
-local all_transformers = require("lual.transformers.init") -- Require the new transformers init
+local all_outputs = require("lual.pipelines.outputs.init")           -- Require the new outputs init
+local all_presenters = require("lual.pipelines.presenters.init")     -- Require the new presenters init
+local all_transformers = require("lual.pipelines.transformers.init") -- Require the new transformers init
 local component_utils = require("lual.utils.component")
-local async_writer = require("lual.async_writer")
+local async_writer = require("lual.async")
 
 -- Logger cache
 local _logger_cache = {}
@@ -317,7 +317,7 @@ create_root_logger_instance = function()       -- Renamed from create_root_logge
     root_config_for_logger.pipelines = table_utils.deepcopy(main_conf.pipelines)
   else
     -- If no pipelines are configured, add a default pipeline with console output
-    local default_console = all_outputs.console_output
+    local default_console = all_outputs.console
     local normalized_output = component_utils.normalize_component(default_console,
       component_utils.DISPATCHER_DEFAULTS)
 
@@ -523,6 +523,13 @@ log.outputs = all_outputs           -- Assign the outputs table
 log.presenters = all_presenters     -- Assign the presenters table
 log.transformers = all_transformers -- Assign the transformers table
 
+-- Add the new pipelines namespace to match the directory rename
+log.pipelines = {
+  outputs = all_outputs,
+  presenters = all_presenters,
+  transformers = all_transformers
+}
+
 -- Configuration API
 log.config = config_module.config
 log.get_config = config_module.get_config
@@ -538,8 +545,8 @@ log.critical = core_levels.definition.CRITICAL
 log.none = core_levels.definition.NONE
 
 -- output constants (function references for config API)
-log.console = all_outputs.console_output
-log.file = all_outputs.file_output
+log.console = all_outputs.console
+log.file = all_outputs.file
 
 -- Presenter constants (function references for config API)
 log.text = all_presenters.text
@@ -551,7 +558,7 @@ log.local_time = "local"
 log.utc = "utc"
 
 -- Transformer constants
-log.noop = all_transformers.noop_transformer
+log.noop = all_transformers.noop
 
 -- Async constants
 log.async = {

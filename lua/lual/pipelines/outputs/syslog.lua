@@ -9,14 +9,14 @@
 --
 -- @usage
 -- local lual = require("lual")
--- local syslog_output_factory = require("lual.outputs.syslog_output")
+-- local syslog_factory = require("lual.pipelines.outputs.syslog")
 --
 -- -- Local syslog
 -- local logger = lual.logger("my_app")
--- logger:add_output(syslog_output_factory({ facility = "LOCAL0" }), lual.levels.INFO)
+-- logger:add_output(syslog_factory({ facility = "LOCAL0" }), lual.levels.INFO)
 --
 -- -- Remote syslog
--- logger:add_output(syslog_output_factory({
+-- logger:add_output(syslog_factory({
 --     host = "log.example.com",
 --     port = 514,
 --     facility = "USER"
@@ -119,7 +119,7 @@ end
 -- @return boolean, string True if valid, false and error message if invalid.
 local function validate_config(config)
     if not config then
-        return false, "syslog_output_factory requires a config table"
+        return false, "syslog_factory requires a config table"
     end
 
     -- Validate facility
@@ -177,7 +177,7 @@ end
 --   - tag (string, optional): Application tag (default: "lual")
 --   - hostname (string, optional): Hostname to include in messages (default: auto-detected)
 -- @return function(record) The actual log sending function.
-local function syslog_output_factory(config)
+local function syslog_factory(config)
     local valid, err = validate_config(config)
     if not valid then
         io.stderr:write(string.format("lual: %s\n", err))
@@ -241,7 +241,7 @@ local module = setmetatable({
     _validate_config = validate_config
 }, {
     __call = function(_, config)
-        return syslog_output_factory(config)
+        return syslog_factory(config)
     end
 })
 

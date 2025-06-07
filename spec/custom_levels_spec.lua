@@ -270,7 +270,7 @@ describe("Custom Levels", function()
                         VERBOSE = 25 -- Uppercase not allowed
                     }
                 })
-            end, "Invalid custom level name 'VERBOSE': Level name must be lowercase")
+            end, "Invalid configuration: Invalid custom level name 'VERBOSE': Level name must be lowercase")
 
             assert.has_error(function()
                 lual.config({
@@ -278,7 +278,7 @@ describe("Custom Levels", function()
                         verbose = 5 -- Out of range
                     }
                 })
-            end, "Invalid custom level value for 'verbose': Level value must be between 11 and 39")
+            end, "Invalid configuration: Invalid custom level value for 'verbose': Level value must be between 11 and 39")
         end)
 
         it("allows using custom levels as root level", function()

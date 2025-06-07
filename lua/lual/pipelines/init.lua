@@ -1,47 +1,45 @@
---- Output Module
--- This module implements the new output loop logic from step 2.7
+--- Pipeline Module
+-- This module implements the pipeline logic for log processing
 --
--- Output-Specific Levels:
+-- Pipeline Structure:
 --
--- Outputs can optionally be configured with their own levels. During
--- the output loop, once a logger has determined a log event meets its level
--- requirement, it iterates over its outputs and performs a second level check
--- against each output's level.
+-- Pipelines replace the previous direct outputs configuration. Each pipeline includes:
+-- 1. A level threshold (when to activate the pipeline)
+-- 2. One or more outputs (where to send the log)
+-- 3. A presenter configuration (how to format the log)
+-- 4. Optional transformers (how to modify the log data)
 --
--- This occurs after the logger's own level check, hence a output's level
--- set to lower (more verbose) than the logger's level will never receive events
--- because the logger will filter them first.
---
--- By default, outputs have level NOTSET (0), meaning they will use the
--- logger's effective level.
---
--- This allows for more granular control over which events are sent to each
--- output. For example, you can configure a file output to receive all DEBUG
--- and above messages, while a console output only shows WARNING and above.
+-- During the dispatch process, a logger iterates through its pipelines and checks each
+-- pipeline's level threshold against the log event level. If the threshold is met,
+-- the pipeline processes the event through its transformers, presenter, and outputs.
 --
 -- Usage example:
 --
 --   lual.config({
 --     level = lual.DEBUG,  -- Root level is DEBUG
---     outputs = {
+--     pipelines = {
 --       {
---         type = lual.file,
---         level = lual.DEBUG,  -- File receives all logs
---         path = "app.log",
+--         level = lual.DEBUG,  -- Pipeline processes DEBUG and above
+--         outputs = {
+--           { type = lual.file, path = "app.log" }
+--         },
 --         presenter = { type = lual.json }
 --       },
 --       {
---         type = lual.console,
---         level = lual.WARNING,  -- Console only shows warnings and above
+--         level = lual.WARNING,  -- Pipeline processes WARNING and above
+--         outputs = {
+--           { type = lual.console }
+--         },
 --         presenter = { type = lual.text }
 --       }
 --     }
 --   })
 
 local core_levels = require("lua.lual.levels")
-local all_presenters = require("lual.presenters.init")
-local all_transformers = require("lual.transformers.init")
+local all_presenters = require("lual.pipelines.presenters.init")
+local all_transformers = require("lual.pipelines.transformers.init")
 local component_utils = require("lual.utils.component")
+local async_writer = require("lual.async")
 
 local M = {}
 
@@ -115,7 +113,17 @@ end
 -- @param presenter function|table The presenter function or config
 -- @return string|nil The presented message, or nil and error message
 local function process_presenter(record, presenter)
-    -- Normalize presenter to standard format
+    -- If the presenter is already a function, use it directly
+    if type(presenter) == "function" then
+        local ok, result = pcall(presenter, record)
+        if not ok then
+            io.stderr:write(string.format("LUAL: Error in presenter function: %s\n", tostring(result)))
+            return nil, result
+        end
+        return result
+    end
+
+    -- Otherwise normalize presenter to standard format
     local normalized = component_utils.normalize_component(presenter, component_utils.PRESENTER_DEFAULTS)
     local presenter_func = normalized.func
     local presenter_config = normalized.config
@@ -130,7 +138,7 @@ local function process_presenter(record, presenter)
     return result
 end
 
---- Processes a log record through a single output
+--- Processes a single output
 -- @param log_record table The log record to process
 -- @param output_entry table|function The output configuration or function
 -- @param logger table The logger that owns this output
@@ -151,87 +159,76 @@ local function process_output(log_record, output_entry, logger)
     output_record.owner_logger_level = logger.level
     output_record.owner_logger_propagate = logger.propagate
 
-    -- Handle output level filtering
-    local output_level = output_config.level
+    -- Output the record
+    local ok, err = pcall(function()
+        output_func(output_record, output_config)
+    end)
+    if not ok then
+        io.stderr:write(string.format("Error outputting log record: %s\n", err))
+    end
+end
 
-    -- Apply level filtering if a level is set
-    if output_level and type(output_level) == "number" and output_level > 0 then -- Skip NOTSET (0)
-        if log_record.level_no < output_level then
-            -- Skip this output as its level is higher than the log record
-            return
+--- Process a log record through a pipeline
+-- @param log_record table The log record to process
+-- @param pipeline table The pipeline configuration
+-- @param logger table The logger that owns this pipeline
+local function process_pipeline(log_record, pipeline, logger)
+    -- Check pipeline level if specified
+    if pipeline.level and type(pipeline.level) == "number" and pipeline.level > 0 then
+        if log_record.level_no < pipeline.level then
+            return -- Skip this pipeline as its level is higher than the log record
         end
     end
 
-    -- Add output level to the record for informational purposes
-    if output_level then
-        output_record.output_level = output_level
-    else
-        output_record.output_level = core_levels.definition.NOTSET
+    -- Create a copy of the log record for this pipeline
+    local pipeline_record = {}
+    for k, v in pairs(log_record) do
+        pipeline_record[k] = v
     end
 
-    -- Apply transformers array if configured
-    if output_config.transformers then
-        for _, transformer in ipairs(output_config.transformers) do
-            local transformed_record, error_msg = process_transformer(output_record, transformer)
+    -- Add pipeline level to the record for informational purposes
+    if pipeline.level then
+        pipeline_record.pipeline_level = pipeline.level
+    else
+        pipeline_record.pipeline_level = core_levels.definition.NOTSET
+    end
+
+    -- Apply transformers if configured
+    if pipeline.transformers then
+        for _, transformer in ipairs(pipeline.transformers) do
+            local transformed_record, error_msg = process_transformer(pipeline_record, transformer)
             if transformed_record then
-                output_record = transformed_record
+                pipeline_record = transformed_record
             else
-                output_record.transformer_error = error_msg
+                pipeline_record.transformer_error = error_msg
                 break -- Stop processing transformers if one fails
             end
         end
     end
 
-    -- Apply single transformer if configured
-    if output_config.transformer and not output_record.transformer_error then
-        local transformed_record, error_msg = process_transformer(output_record, output_config.transformer)
-        if transformed_record then
-            output_record = transformed_record
-        else
-            output_record.transformer_error = error_msg
-        end
-    end
-
     -- Apply presenter if configured
-    if output_config.presenter and not output_record.transformer_error then
-        local presented_message, error_msg = process_presenter(output_record, output_config.presenter)
+    if pipeline.presenter and not pipeline_record.transformer_error then
+        local presented_message, error_msg = process_presenter(pipeline_record, pipeline.presenter)
         if presented_message then
-            output_record.presented_message = presented_message
-            output_record.message = presented_message -- Overwrite message with presented message
+            pipeline_record.presented_message = presented_message
+            pipeline_record.message = presented_message -- Overwrite message with presented message
         else
-            output_record.presenter_error = error_msg
+            pipeline_record.presenter_error = error_msg
         end
     end
 
-    -- Output the record
-    local ok, err = pcall(function()
-        -- This is the key fix - make sure we don't lose the level in the config
-        output_func(output_record, output_config)
-    end)
-    if not ok then
-        io.stderr:write(string.format("Error outputing log record: %s\n", err))
+    -- Process each output in the pipeline
+    if pipeline.outputs and not pipeline_record.transformer_error and not pipeline_record.presenter_error then
+        for _, output in ipairs(pipeline.outputs) do
+            process_output(pipeline_record, output, logger)
+        end
     end
 end
 
---- Core process output logic
--- @param log_record table The log record to process
--- @param outputs table|function Array or single output
--- @param context_logger table The logger being used for this output
-local function process_outputs(log_record, outputs, context_logger)
-    if not outputs or #outputs == 0 then
-        return -- Nothing to do
-    end
-
-    for _, output in ipairs(outputs) do
-        process_output(log_record, output, context_logger)
-    end
-end
-
---- Implements the new output loop logic from step 2.7
--- This is the core of event processing for each logger L in the hierarchy
+--- Synchronous dispatch function (used by async worker)
 -- @param source_logger table The logger that originated the log event
 -- @param log_record table The log record to process
-function M.output_log_event(source_logger, log_record)
+local function dispatch_log_event_sync(source_logger, log_record)
     local current_logger = source_logger
 
     -- Process through the hierarchy (from source up to _root)
@@ -241,19 +238,16 @@ function M.output_log_event(source_logger, log_record)
 
         -- Step 2: If event_level >= L.effective_level (level match)
         if log_record.level_no >= effective_level then
-            -- Step 2a: For each output in L's *own* outputs list
-            for _, output_entry in ipairs(current_logger.outputs) do
-                -- Step 2a.i: (Optional) Process record through L's transformers
-                -- Step 2a.ii: Format record using the output's presenter
-                -- Step 2a.iii: Send formatted output via the output
-                process_output(log_record, output_entry, current_logger)
+            -- Step 2a: For each pipeline in L's pipelines list
+            for _, pipeline in ipairs(current_logger.pipelines) do
+                process_pipeline(log_record, pipeline, current_logger)
             end
 
-            -- Step 2b: If L has no outputs, it produces no output itself
+            -- Step 2b: If L has no pipelines, it produces no output itself
             -- (This is handled naturally by the empty loop above)
         end
 
-        -- Step 3: If L is _root, stop after processing its outputs
+        -- Step 3: If L is _root, stop after processing its pipelines
         if current_logger.name == "_root" then
             break
         end
@@ -266,6 +260,29 @@ function M.output_log_event(source_logger, log_record)
         -- Step 5: Continue to parent
         current_logger = current_logger.parent
     end
+end
+
+--- Implements the pipeline dispatch logic
+-- This is the core of event processing for each logger L in the hierarchy
+-- @param source_logger table The logger that originated the log event
+-- @param log_record table The log record to process
+function M.dispatch_log_event(source_logger, log_record)
+    -- Check if async mode is enabled
+    if async_writer.is_enabled() then
+        -- Queue the event for async processing
+        async_writer.queue_log_event(source_logger, log_record)
+        return
+    end
+
+    -- Synchronous processing
+    dispatch_log_event_sync(source_logger, log_record)
+end
+
+--- Sets up the async writer with the dispatch function
+-- This is called when async mode is enabled to provide the dispatch function
+function M.setup_async_writer()
+    -- Set the dispatch function for async processing
+    async_writer.set_dispatch_function(dispatch_log_event_sync)
 end
 
 --- Formats arguments for logging
@@ -355,7 +372,7 @@ function M.create_logging_methods()
             -- Create log record
             local log_record = create_log_record(self, level_no, level_name, msg_fmt, args, context)
 
-            M.output_log_event(self, log_record)
+            M.dispatch_log_event(self, log_record)
         end
     end
 
@@ -367,10 +384,25 @@ function M.create_logging_methods()
     methods.critical = create_log_method(core_levels.definition.CRITICAL, "CRITICAL")
 
     -- Generic log method
-    methods.log = function(self, level_no, ...)
-        -- Validate level
-        if type(level_no) ~= "number" then
-            error("Log level must be a number, got " .. type(level_no))
+    methods.log = function(self, level_arg, ...)
+        local level_no
+        local level_name
+
+        -- Handle both numeric levels and custom level names
+        if type(level_arg) == "number" then
+            level_no = level_arg
+            level_name = core_levels.get_level_name(level_no)
+        elseif type(level_arg) == "string" then
+            -- Check if it's a custom level name
+            local custom_level_value = core_levels.get_custom_level_value(level_arg)
+            if custom_level_value then
+                level_no = custom_level_value
+                level_name = level_arg:upper()
+            else
+                error("Unknown level name: " .. level_arg)
+            end
+        else
+            error("Log level must be a number or string, got " .. type(level_arg))
         end
 
         -- Check if logging is enabled for this level
@@ -379,15 +411,12 @@ function M.create_logging_methods()
             return -- Early exit if level not enabled
         end
 
-        -- Get level name
-        local level_name = core_levels.get_level_name(level_no)
-
         -- Parse arguments
         local msg_fmt, args, context = parse_log_args(...)
 
         -- Create log record
         local log_record = create_log_record(self, level_no, level_name, msg_fmt, args, context)
-        M.output_log_event(self, log_record)
+        M.dispatch_log_event(self, log_record)
     end
 
     return methods
@@ -395,6 +424,7 @@ end
 
 -- Expose internal functions for testing
 M._create_log_record = create_log_record
+M._process_pipeline = process_pipeline
 M._process_output = process_output
 M._format_message = format_message
 M._parse_log_args = parse_log_args

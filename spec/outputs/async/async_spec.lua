@@ -1,7 +1,7 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 
 local lual = require("lual.logger")
-local async_writer = require("lual.async_writer")
+local async_writer = require("lual.async")
 
 describe("Async I/O", function()
     local captured_output

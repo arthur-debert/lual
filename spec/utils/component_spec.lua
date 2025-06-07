@@ -167,12 +167,12 @@ describe("Component Utils", function()
 
     describe("integration scenarios", function()
         it("should handle complex output configuration", function()
-            local function file_output() end
-            local input = { file_output, path = "/var/log/app.log", level = 30, timezone = "utc" }
+            local function file() end
+            local input = { file, path = "/var/log/app.log", level = 30, timezone = "utc" }
 
             local result = component_utils.normalize_component(input, component_utils.DISPATCHER_DEFAULTS)
 
-            assert.are.equal(file_output, result.func)
+            assert.are.equal(file, result.func)
             assert.are.equal("/var/log/app.log", result.config.path)
             assert.are.equal(30, result.config.level)
             assert.are.equal("utc", result.config.timezone) -- user override

@@ -11,7 +11,7 @@ describe("libuv Backend", function()
     local ok, uv = pcall(require, "luv")
     if ok then
         uv_available = true
-        libuv_backend = require("lual.outputs.async.backends.libuv")
+        libuv_backend = require("lual.async.backends.libuv")
         queue_module = require("lual.utils.queue")
     end
 

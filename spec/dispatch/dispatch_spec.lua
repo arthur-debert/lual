@@ -3,10 +3,10 @@ package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lu
 
 local lual = require("lual.logger")
 local core_levels = require("lua.lual.levels")
-local console_output = require("lual.outputs.console_output")
-local file_output = require("lual.outputs.file_output")
-local syslog_output = require("lual.outputs.syslog_output")
-local all_presenters = require("lual.presenters.init") -- For presenter tests
+local console = require("lual.pipelines.outputs.console")
+local file_output = require("lual.pipelines.outputs.file")
+local syslog = require("lual.pipelines.outputs.syslog")
+local all_presenters = require("lual.pipelines.presenters.init") -- For presenter tests
 
 -- Helper function to check if a file exists
 local function file_exists(filename)
@@ -841,7 +841,7 @@ describe("Presenter Configuration in pipelines", function()
         }
 
         -- Access the internal pipeline module
-        local pipeline_module = require("lual.pipeline")
+        local pipeline_module = require("lual.pipelines")
 
         -- Process the pipeline directly
         pipeline_module._process_pipeline(test_record, logger.pipelines[1], logger)
@@ -876,7 +876,7 @@ describe("lual outputs", function()
                 flush = function() end
             }
 
-            console_output(sample_record)
+            console(sample_record)
 
             -- Restore stdout
             io.stdout = old_stdout
@@ -893,7 +893,7 @@ describe("lual outputs", function()
                 flush = function() end
             }
 
-            console_output(sample_record, { stream = mock_stream })
+            console(sample_record, { stream = mock_stream })
 
             assert.is_true(#output >= 2) -- Message + newline
             assert.matches("User jane.doe logged in from 10.0.0.1", output[1])
@@ -906,7 +906,7 @@ describe("lual outputs", function()
                 flush = function() end
             }
 
-            console_output("Direct string message", { stream = mock_stream })
+            console("Direct string message", { stream = mock_stream })
 
             assert.are.equal("Direct string message", output[1])
             assert.are.equal("\n", output[2])
@@ -924,7 +924,7 @@ describe("lual outputs", function()
                 flush = function() end
             }
 
-            console_output(sample_record, { stream = failing_stream })
+            console(sample_record, { stream = failing_stream })
 
             io.stderr = old_stderr
 
@@ -1024,25 +1024,25 @@ describe("lual outputs", function()
     describe("Syslog output", function()
         it("should validate configuration", function()
             -- Valid configurations
-            assert.is_true(syslog_output._validate_config({
+            assert.is_true(syslog._validate_config({
                 facility = "LOCAL0",
                 host = "localhost",
                 port = 514
             }))
 
-            assert.is_true(syslog_output._validate_config({
+            assert.is_true(syslog._validate_config({
                 facility = "USER",
                 tag = "myapp"
             }))
 
             -- Invalid configurations
-            local valid, err = syslog_output._validate_config({
+            local valid, err = syslog._validate_config({
                 facility = "INVALID"
             })
             assert.is_false(valid)
             assert.matches("Unknown syslog facility", err)
 
-            valid, err = syslog_output._validate_config({
+            valid, err = syslog._validate_config({
                 port = "not_a_number"
             })
             assert.is_false(valid)
@@ -1050,8 +1050,8 @@ describe("lual outputs", function()
         end)
 
         it("should map log levels to syslog severities", function()
-            local map = syslog_output._map_level_to_severity
-            local sev = syslog_output._SEVERITIES
+            local map = syslog._map_level_to_severity
+            local sev = syslog._SEVERITIES
 
             assert.are.equal(sev.DEBUG, map(10))    -- DEBUG
             assert.are.equal(sev.INFO, map(20))     -- INFO
@@ -1061,8 +1061,8 @@ describe("lual outputs", function()
         end)
 
         it("should format syslog messages correctly", function()
-            local format = syslog_output._format_syslog_message
-            local facility = syslog_output._FACILITIES.USER
+            local format = syslog._format_syslog_message
+            local facility = syslog._FACILITIES.USER
 
             local message = format(sample_record, facility, "testhost", "myapp")
 
@@ -1071,7 +1071,7 @@ describe("lual outputs", function()
         end)
 
         it("should handle network errors gracefully", function()
-            local output = syslog_output({
+            local output = syslog({
                 facility = "USER",
                 host = "nonexistent.host",
                 port = 55555 -- Unlikely to be open

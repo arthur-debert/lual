@@ -485,7 +485,7 @@ describe("lual Logger Configuration API (Step 2.6)", function()
             assert.are.equal(1, #root_logger.pipelines, "Root logger should have one default pipeline")
             assert.is_table(root_logger.pipelines[1].outputs, "Pipeline should have outputs")
             assert.are.equal(1, #root_logger.pipelines[1].outputs, "Default pipeline should have one output")
-            assert.are.equal(lual.outputs.console_output, root_logger.pipelines[1].outputs[1].func,
+            assert.are.equal(lual.pipelines.outputs.console, root_logger.pipelines[1].outputs[1].func,
                 "Default output should be console")
         end)
     end)

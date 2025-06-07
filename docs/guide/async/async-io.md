@@ -16,8 +16,8 @@ lual.logger() -> async_writer.lua -> async/init.lua -> backends/[strategy].lua
 
 | Backend | Path | Documentation | Status |
 |---------|------|---------------|--------|
-| Coroutines | `lual.outputs.async.backends.coroutines` | [co-routines.md](co-routines.md) | Stable |
-| libuv | `lual.outputs.async.backends.libuv` | [libuv.md](libuv.md) | Stable |
+| Coroutines | `lual.async.backends.coroutines` | [co-routines.md](co-routines.md) | Stable |
+| libuv | `lual.async.backends.libuv` | [libuv.md](libuv.md) | Stable |
 
 Future backends: lanes, native threads.
 
