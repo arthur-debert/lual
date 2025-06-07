@@ -96,6 +96,19 @@ function M.flush()
     async_writer.flush()
 end
 
+-- Sets the command line verbosity configuration
+-- @param verbosity_config table Configuration for command line verbosity mapping
+-- @return table The updated root logger configuration
+function M.set_command_line_verbosity(verbosity_config)
+    if type(verbosity_config) ~= "table" then
+        error("Command line verbosity config must be a table")
+    end
+
+    return config_module.config({
+        command_line_verbosity = verbosity_config
+    })
+end
+
 -- Expose internal functions for testing
 M.create_root_logger = loggers_module.create_root_logger
 

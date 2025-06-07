@@ -21,6 +21,7 @@ local function register_handlers()
     registry.register("propagate", require("lual.config.propagate"))
     registry.register("pipelines", require("lual.pipelines.config"))
     registry.register("async", require("lual.async.config"))
+    registry.register("command_line_verbosity", require("lual.config.command_line"))
 end
 
 -- Initialize the config system
