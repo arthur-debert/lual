@@ -145,6 +145,10 @@ Field Schema Properties:
         each (schema): Schema applied to each array element
         fields (table): Schema for nested object validation
 
+    Custom validation:
+        custom_validator (function): Custom validation function (value) -> boolean, error_msg
+        error_message (string): Custom error message for validation failures
+
 Cross-field Schema Properties:
     one_of (table): List of fields where at least one must be present
     depends_on (table): { field = "field_name", requires = "required_field" }
@@ -163,6 +167,7 @@ Error Codes:
     ONE_OF_MISSING: None of the required fields present
     DEPENDENCY_MISSING: Required dependency field missing
     EXCLUSIVE_CONFLICT: Mutually exclusive fields both present
+    CUSTOM_VALIDATION_FAILED: Custom validator returned false
 
 --]]
 
@@ -181,7 +186,8 @@ local ERROR_CODES = {
     INVALID_COUNT = "INVALID_COUNT",
     ONE_OF_MISSING = "ONE_OF_MISSING",
     DEPENDENCY_MISSING = "DEPENDENCY_MISSING",
-    EXCLUSIVE_CONFLICT = "EXCLUSIVE_CONFLICT"
+    EXCLUSIVE_CONFLICT = "EXCLUSIVE_CONFLICT",
+    CUSTOM_VALIDATION_FAILED = "CUSTOM_VALIDATION_FAILED"
 }
 
 -- Helper function for enum definitions
@@ -395,6 +401,18 @@ local function validate_field(value, field_schema, field_name, data)
                 end
             else
                 value = normalized_nested
+            end
+        end
+    end
+
+    -- Custom validation
+    if field_schema.custom_validator then
+        if type(field_schema.custom_validator) == 'function' then
+            local is_valid, custom_error = field_schema.custom_validator(value)
+            if not is_valid then
+                local error_msg = field_schema.error_message or custom_error or "Custom validation failed"
+                table.insert(errors, { "CUSTOM_VALIDATION_FAILED",
+                    string.format("Field '%s': %s", field_name, error_msg) })
             end
         end
     end
