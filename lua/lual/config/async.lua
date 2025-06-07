@@ -1,7 +1,7 @@
 --- Async Configuration Handler
 -- This module handles the 'async' configuration key
 
-local async_writer = require("lual.async_writer")
+local async_writer = require("lual.async")
 
 local M = {}
 

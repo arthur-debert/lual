@@ -18,7 +18,7 @@ local all_outputs = require("lual.outputs.init")           -- Require the new ou
 local all_presenters = require("lual.presenters.init")     -- Require the new presenters init
 local all_transformers = require("lual.transformers.init") -- Require the new transformers init
 local component_utils = require("lual.utils.component")
-local async_writer = require("lual.async_writer")
+local async_writer = require("lual.async")
 
 -- Logger cache
 local _logger_cache = {}

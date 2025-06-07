@@ -156,7 +156,7 @@ end
 --- Resets the _root logger configuration to defaults
 function M.reset_config()
     -- Stop async writer if running
-    local async_writer = require("lual.async_writer")
+    local async_writer = require("lual.async")
     async_writer.stop()
 
     -- Reset to defaults
