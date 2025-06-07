@@ -109,6 +109,32 @@ function M.set_command_line_verbosity(verbosity_config)
     })
 end
 
+-- Sets up live log level changes through environment variables
+-- @param env_var_name string Name of the environment variable to watch
+-- @param check_interval number How often to check (in log calls)
+-- @return table The updated root logger configuration
+function M.set_live_level(env_var_name, check_interval)
+    if not env_var_name or type(env_var_name) ~= "string" then
+        error("Environment variable name must be a string")
+    end
+
+    local config = {
+        env_var = env_var_name,
+        enabled = true
+    }
+
+    if check_interval ~= nil then
+        if type(check_interval) ~= "number" then
+            error("Check interval must be a number")
+        end
+        config.check_interval = check_interval
+    end
+
+    return config_module.config({
+        live_level = config
+    })
+end
+
 -- Expose internal functions for testing
 M.create_root_logger = loggers_module.create_root_logger
 
