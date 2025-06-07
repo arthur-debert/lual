@@ -8,7 +8,7 @@
 --
 -- @usage
 -- local lual = require("lual")
--- local file_factory = require("lual.pipeline.outputs.file")
+-- local file_factory = require("lual.pipelines.outputs.file")
 --
 -- local logger = lual.logger("my_app")
 -- logger:add_output(file_factory({ path = "app.log" }), lual.levels.INFO)
