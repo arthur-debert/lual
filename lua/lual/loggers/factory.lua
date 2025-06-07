@@ -4,6 +4,7 @@
 -- Core modules
 local core_levels = require("lua.lual.levels")
 local config_module = require("lual.config")
+local constants = require("lual.constants")
 local table_utils = require("lual.utils.table")
 local caller_info = require("lual.utils.caller_info")
 local component_utils = require("lual.utils.component")
@@ -130,7 +131,7 @@ create_root_logger_instance = function(logger_prototype)
         root_config_for_logger.pipelines = table_utils.deepcopy(main_conf.pipelines)
     else
         -- If no pipelines are configured, add a default pipeline with console output
-        local default_console = require("lual.pipelines.outputs.init").console
+        local default_console = constants.console
         local normalized_output = component_utils.normalize_component(default_console,
             component_utils.DISPATCHER_DEFAULTS)
 
@@ -138,7 +139,7 @@ create_root_logger_instance = function(logger_prototype)
         local default_pipeline = {
             level = core_levels.definition.WARNING,
             outputs = { normalized_output },
-            presenter = require("lual.pipelines.presenters.init").text()
+            presenter = constants.text()
         }
 
         root_config_for_logger.pipelines = { default_pipeline }

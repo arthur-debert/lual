@@ -6,6 +6,7 @@ local unpack = unpack or table.unpack
 local core_levels = require("lua.lual.levels")
 local config_module = require("lual.config")
 local log_module = require("lual.log")
+local constants = require("lual.constants")
 local table_utils = require("lual.utils.table")
 local caller_info = require("lual.utils.caller_info")
 local component_utils = require("lual.utils.component")
@@ -115,7 +116,7 @@ function logger_prototype:add_output(output_func, config)
     -- Create a pipeline with the output and a default text presenter
     local pipeline = {
         outputs = { output_func },
-        presenter = require("lual.pipelines.presenters.init").text()
+        presenter = constants.text()
     }
 
     -- Add to the logger's pipelines
@@ -233,7 +234,7 @@ local function create_logging_methods()
 
         -- Create log record
         local log_record = log_module.create_log_record(self, level_no, level_name, msg_fmt, args, context)
-        
+
         -- Dispatch the log event
         dispatch_log_event(self, log_record)
     end
@@ -272,7 +273,7 @@ logger_prototype.__index = function(self, key)
 
             -- Create log record
             local log_record = log_module.create_log_record(self_inner, level_no, level_name, msg_fmt, args, context)
-            
+
             -- Dispatch the log event
             dispatch_log_event(self_inner, log_record)
         end
