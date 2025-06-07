@@ -1,5 +1,170 @@
--- Schemer - A Lightweight Lua Schema Validation Library
--- Helps validate configuration or data entry against a defined schema
+--[[
+
+Schemer - A Lightweight Lua Schema Validation Library
+
+Schemer helps validate configuration or data entry against a defined schema.
+It's lightweight, expressive, and has a small footprint, designed for validating
+structured data with comprehensive error reporting and data normalization.
+
+Principles:
+    - Well-balanced feature set: expressive yet small
+    - Field-level validations with descriptive error reporting
+    - Cross-field validations for complex configurations
+    - Support for recursive schemas and nested validation
+    - Data normalization with defaults and enum transformations
+    - Consistent error codes for programmatic error handling
+
+Key Features:
+    ✓ Basic type validation (string, number, boolean, table, function)
+    ✓ Value constraints (enums, allowed values, ranges)
+    ✓ String validations (length, patterns)
+    ✓ Number validations (min/max ranges)
+    ✓ Array/table validations (count, element validation)
+    ✓ Nested schema validation
+    ✓ Cross-field dependencies and exclusions
+    ✓ Default value application
+    ✓ Enum reverse lookup and transformation
+
+Example Usage:
+
+    local schemer = require("lual.utils.schemer")
+
+    -- Define an enum with reverse lookup support
+    local LEVELS = { DEBUG = 1, INFO = 2, WARN = 3, ERROR = 4 }
+
+    local schema = {
+        fields = {
+            -- Enum field with reverse lookup (accepts "DEBUG" -> transforms to 1)
+            level = {
+                type = "number",
+                required = false,
+                values = schemer.enum(LEVELS, { reverse = true }),
+                default = LEVELS.INFO
+            },
+
+            -- String field with constraints
+            name = {
+                type = "string",
+                required = true,
+                pattern = "^%w+$",
+                min_len = 3,
+                max_len = 50
+            },
+
+            -- Array field with count and element validation
+            items = {
+                type = "table",
+                count = { 1, "*" }, -- At least one item required
+                each = { type = "string" }
+            },
+
+            -- Nested schema
+            config = {
+                type = "table",
+                fields = {
+                    timeout = { type = "number", min = 1, default = 30 },
+                    enabled = { type = "boolean", default = true }
+                }
+            }
+        },
+
+        -- Cross-field validations
+        one_of = { "items", "config" },                    -- At least one must be present
+        depends_on = { field = "config", requires = "name" }, -- If config exists, name must exist
+        exclusive = { "debug_mode", "production_mode" }    -- These cannot both be present
+    }
+
+    -- Validate data
+    local data = { level = "DEBUG", name = "test", items = { "a", "b" } }
+    local err, result = schemer.validate(data, schema)
+
+    if err then
+        print("Validation failed:", err.error)
+        -- Access field-specific errors via err.fields[field_name]
+        -- Access cross-field errors via err.all
+    else
+        -- result contains normalized data with defaults applied
+        print("Level:", result.level) -- Will be 1 (transformed from "DEBUG")
+    end
+
+API Reference:
+
+Functions:
+    schemer.validate(data, schema) -> error_table|nil, normalized_data|nil
+        Validates data against the provided schema.
+
+        Parameters:
+            data (table): The data to validate
+            schema (table): The schema definition
+
+        Returns:
+            On success: nil, normalized_data
+            On failure: error_table, nil
+
+        Error table structure:
+            {
+                fields = { field_name = { {error_code, error_message}, ... }, ... },
+                all = { {error_code, error_message}, ... }, -- Cross-field errors
+                error = "Human readable summary",
+                data = original_data,
+                schema = schema_used
+            }
+
+    schemer.enum(enum_table, options) -> enum_definition
+        Creates an enum definition for use in value validation.
+
+        Parameters:
+            enum_table (table): Key-value pairs for the enum
+            options (table, optional): { reverse = boolean }
+                reverse: If true, allows string keys to be transformed to values
+
+        Returns:
+            { enum = enum_table, reverse = boolean }
+
+Schema Structure:
+
+Field Schema Properties:
+    type (string): Required type ("string", "number", "boolean", "table", "function")
+    required (boolean): Whether field is required (default: false)
+    default (any): Default value when field is missing
+
+    For all types:
+        values (table|enum_def): List of allowed values or enum definition
+
+    For strings:
+        min_len (number): Minimum string length
+        max_len (number): Maximum string length
+        pattern (string): Lua pattern for validation
+
+    For numbers:
+        min (number): Minimum value (inclusive)
+        max (number): Maximum value (inclusive)
+
+    For tables:
+        count (table): {min, max} item count. Use "*" for unlimited max
+        each (schema): Schema applied to each array element
+        fields (table): Schema for nested object validation
+
+Cross-field Schema Properties:
+    one_of (table): List of fields where at least one must be present
+    depends_on (table): { field = "field_name", requires = "required_field" }
+    exclusive (table): List of fields that cannot be present together
+
+Error Codes:
+    INVALID_TYPE: Type mismatch
+    REQUIRED_FIELD: Required field missing
+    INVALID_VALUE: Value not in allowed set
+    STRING_TOO_SHORT: String below minimum length
+    STRING_TOO_LONG: String exceeds maximum length
+    PATTERN_MISMATCH: String doesn't match pattern
+    NUMBER_TOO_SMALL: Number below minimum
+    NUMBER_TOO_LARGE: Number above maximum
+    INVALID_COUNT: Table item count outside allowed range
+    ONE_OF_MISSING: None of the required fields present
+    DEPENDENCY_MISSING: Required dependency field missing
+    EXCLUSIVE_CONFLICT: Mutually exclusive fields both present
+
+--]]
 
 local schemer = {}
 
