@@ -7,6 +7,7 @@ local console = require("lual.pipelines.outputs.console")
 local file_output = require("lual.pipelines.outputs.file")
 local syslog = require("lual.pipelines.outputs.syslog")
 local all_presenters = require("lual.pipelines.presenters.init") -- For presenter tests
+local log_module = require("lual.log")
 
 -- Helper function to check if a file exists
 local function file_exists(filename)
@@ -841,10 +842,11 @@ describe("Presenter Configuration in pipelines", function()
         }
 
         -- Access the internal pipeline module
-        local pipeline_module = require("lual.pipelines")
-
-        -- Process the pipeline directly
-        pipeline_module._process_pipeline(test_record, logger.pipelines[1], logger)
+        local pipeline_entry = {
+            pipeline = logger.pipelines[1],
+            logger = logger
+        }
+        log_module.process_pipeline(test_record, pipeline_entry)
 
         io.stderr = old_stderr
 

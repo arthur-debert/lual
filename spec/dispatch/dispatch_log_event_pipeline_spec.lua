@@ -3,7 +3,7 @@ package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lu
 
 local lual = require("lual.logger")
 local core_levels = require("lua.lual.levels")
-local pipeline_module = require("lual.pipelines") -- Directly require the pipeline module for testing internals
+local log_module = require("lual.log") -- Use the log module for testing internals
 
 describe("Output Log Event Pipeline", function()
     before_each(function()
@@ -14,7 +14,7 @@ describe("Output Log Event Pipeline", function()
 
     -- Tests for format_message (completely uncovered)
     describe("format_message function", function()
-        local format_message = pipeline_module._format_message
+        local format_message = log_module.format_message
 
         it("should handle nil message format", function()
             local result = format_message(nil, table.pack())
@@ -42,7 +42,7 @@ describe("Output Log Event Pipeline", function()
 
     -- Tests for parse_log_args (partially covered)
     describe("parse_log_args function", function()
-        local parse_log_args = pipeline_module._parse_log_args
+        local parse_log_args = log_module.parse_log_args
 
         it("should handle no arguments", function()
             local msg_fmt, args, context = parse_log_args()
@@ -328,7 +328,11 @@ describe("Output Log Event Pipeline", function()
             }
 
             -- Process the pipeline directly
-            pipeline_module._process_pipeline(test_record, logger.pipelines[1], logger)
+            local pipeline_entry = {
+                pipeline = logger.pipelines[1],
+                logger = logger
+            }
+            log_module.process_pipeline(test_record, pipeline_entry)
 
             -- Restore stderr
             io.stderr = old_stderr
@@ -358,7 +362,7 @@ describe("Output Log Event Pipeline", function()
             })
 
             -- Create a direct test without using the logger
-            local test_record = pipeline_module._create_log_record(
+            local test_record = log_module.create_log_record(
                 logger,
                 core_levels.definition.INFO,
                 "INFO",
@@ -368,7 +372,7 @@ describe("Output Log Event Pipeline", function()
             )
 
             -- Directly test the process_output function
-            pipeline_module._process_output(test_record, broken_output, logger)
+            log_module._process_output(test_record, broken_output, logger)
 
             -- If no error was thrown, the test passes (the error was handled by the pcall)
             assert.is_true(true)
@@ -385,7 +389,7 @@ describe("Output Log Event Pipeline", function()
             local message_fmt = "This %s has %d too many %s placeholders"
             local args = table.pack("value") -- Not enough args to satisfy format
 
-            local record = pipeline_module._create_log_record(
+            local record = log_module.create_log_record(
                 logger, level_no, level_name, message_fmt, args, nil
             )
 
