@@ -2,9 +2,9 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 
 local component_utils = require("lual.utils.component")
-local all_outputs = require("lual.pipeline.outputs.init")
-local all_presenters = require("lual.pipeline.presenters.init")
-local all_transformers = require("lual.pipeline.transformers.init")
+local all_outputs = require("lual.pipelines.outputs.init")
+local all_presenters = require("lual.pipelines.presenters.init")
+local all_transformers = require("lual.pipelines.transformers.init")
 
 describe("Component Utils Integration", function()
     describe("with real outputs", function()

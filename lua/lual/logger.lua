@@ -11,12 +11,12 @@ local log = {}
 
 local core_levels = require("lua.lual.levels")
 local config_module = require("lual.config")
-local pipeline_module = require("lual.pipeline")
+local pipeline_module = require("lual.pipelines")
 local table_utils = require("lual.utils.table")
 local caller_info = require("lual.utils.caller_info")
-local all_outputs = require("lual.pipeline.outputs.init")           -- Require the new outputs init
-local all_presenters = require("lual.pipeline.presenters.init")     -- Require the new presenters init
-local all_transformers = require("lual.pipeline.transformers.init") -- Require the new transformers init
+local all_outputs = require("lual.pipelines.outputs.init")           -- Require the new outputs init
+local all_presenters = require("lual.pipelines.presenters.init")     -- Require the new presenters init
+local all_transformers = require("lual.pipelines.transformers.init") -- Require the new transformers init
 local component_utils = require("lual.utils.component")
 local async_writer = require("lual.async")
 
@@ -525,6 +525,13 @@ log.transformers = all_transformers -- Assign the transformers table
 
 -- Pipeline namespace for backwards compatibility with tests
 log.pipeline = {
+  outputs = all_outputs,
+  presenters = all_presenters,
+  transformers = all_transformers
+}
+
+-- Add the new pipelines namespace to match the directory rename
+log.pipelines = {
   outputs = all_outputs,
   presenters = all_presenters,
   transformers = all_transformers

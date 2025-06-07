@@ -3,7 +3,7 @@ package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lu
 
 local lual = require("lual.logger")
 local core_levels = require("lua.lual.levels")
-local pipeline_module = require("lual.pipeline") -- Directly require the pipeline module for testing internals
+local pipeline_module = require("lual.pipelines") -- Directly require the pipeline module for testing internals
 
 describe("Output Log Event Pipeline", function()
     before_each(function()

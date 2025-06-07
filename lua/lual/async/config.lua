@@ -86,7 +86,7 @@ function M.apply(async_config, current_config)
         if async_config.enabled then
             async_writer.start({ async = async_config }, nil)
             -- Setup the dispatch function in pipeline module
-            local pipeline_module = require("lual.pipeline")
+            local pipeline_module = require("lual.pipelines")
             pipeline_module.setup_async_writer()
         else
             -- Stop async writer

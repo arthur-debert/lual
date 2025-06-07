@@ -6,7 +6,7 @@ local lualog = require("lual.logger")
 
 describe("text presenter", function()
 	it("should format a basic log record", function()
-		local all_presenters = require("lual.pipeline.presenters.init")
+		local all_presenters = require("lual.pipelines.presenters.init")
 		local text_presenter = all_presenters.text({ timezone = "utc" }) -- Configure UTC for predictable test
 
 		local record = {
@@ -22,7 +22,7 @@ describe("text presenter", function()
 	end)
 
 	it("should handle nil arguments gracefully", function()
-		local all_presenters = require("lual.pipeline.presenters.init")
+		local all_presenters = require("lual.pipelines.presenters.init")
 		local text_presenter = all_presenters.text({ timezone = "utc" }) -- Configure UTC for predictable test
 
 		local record = {
@@ -38,7 +38,7 @@ describe("text presenter", function()
 	end)
 
 	it("should handle empty arguments table", function()
-		local all_presenters = require("lual.pipeline.presenters.init")
+		local all_presenters = require("lual.pipelines.presenters.init")
 		local text_presenter = all_presenters.text({ timezone = "utc" }) -- Configure UTC for predictable test
 
 		local record = {
@@ -54,7 +54,7 @@ describe("text presenter", function()
 	end)
 
 	it("should use fallbacks for missing optional record fields", function()
-		local all_presenters = require("lual.pipeline.presenters.init")
+		local all_presenters = require("lual.pipelines.presenters.init")
 		local text_presenter = all_presenters.text({ timezone = "utc" }) -- Configure UTC for predictable test
 
 		local ts = 1678886403                                      -- 2023-03-15 10:00:03 UTC
@@ -137,7 +137,7 @@ describe("console output", function()
 	end)
 
 	it("should write to default stream (io.stdout) if no stream specified in config", function()
-		local all_outputs = require("lual.pipeline.outputs.init")
+		local all_outputs = require("lual.pipelines.outputs.init")
 
 		local record = { message = "Hello default stdout" }
 		all_outputs.console(record, {}) -- Empty config
@@ -146,7 +146,7 @@ describe("console output", function()
 	end)
 
 	it("should write to a custom stream if specified in config", function()
-		local all_outputs = require("lual.pipeline.outputs.init")
+		local all_outputs = require("lual.pipelines.outputs.init")
 
 		local custom_mock_stream = {
 			written_data = "",
@@ -169,7 +169,7 @@ describe("console output", function()
 	end)
 
 	it("should handle stream write error and report to io.stderr", function()
-		local all_outputs = require("lual.pipeline.outputs.init")
+		local all_outputs = require("lual.pipelines.outputs.init")
 
 		local erroring_mock_stream = {
 			write = function(self, ...)
