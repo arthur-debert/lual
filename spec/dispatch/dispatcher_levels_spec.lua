@@ -3,7 +3,7 @@ package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lu
 
 -- Test suite for output-specific levels
 local lual = require("lual.logger")
-local core_levels = require("lua.lual.levels")
+local core_levels = require("lual.levels")
 local test_helpers = require("spec.utils.test_helpers")
 
 describe("output-specific levels", function()

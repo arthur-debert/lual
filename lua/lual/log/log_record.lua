@@ -1,9 +1,9 @@
 -- Log Record Creation and Processing
 -- This module handles the creation and processing of log records
 
--- Note: For direct execution with 'lua', use require("lua.lual.*")
+-- Note: For direct execution with 'lua', use require("lual.*")
 -- For LuaRocks installed modules or busted tests, use require("lual.*")
-local core_levels = require("lua.lual.levels")
+local core_levels = require("lual.levels")
 local get_logger_tree = require("lual.log.get_logger_tree")
 local get_pipelines = require("lual.log.get_pipelines")
 local process = require("lual.log.process")

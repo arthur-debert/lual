@@ -7,7 +7,7 @@ This outlines the main functions and their intended signatures.
 ]]
 
 -- Import the refactored modules
--- Note: For direct execution with 'lua', use require("lua.lual.api")
+-- Note: For direct execution with 'lua', use require("lual.api")
 -- For LuaRocks installed modules or busted tests, use require("lual.api")
 local api = require("lual.api")
 

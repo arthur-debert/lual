@@ -1,9 +1,9 @@
 local unpack = unpack or table.unpack
 
 -- Core modules
--- Note: For direct execution with 'lua', use require("lua.lual.*")
+-- Note: For direct execution with 'lua', use require("lual.*")
 -- For LuaRocks installed modules or busted tests, use require("lual.*")
-local core_levels = require("lua.lual.levels")
+local core_levels = require("lual.levels")
 local config_module = require("lual.config")
 local log_module = require("lual.log")
 local constants = require("lual.constants")

@@ -6,7 +6,7 @@ local lual = require("lual.constants")
 local all_outputs = lual.outputs
 local all_presenters = lual.presenters
 local all_transformers = lual.transformers
-local core_levels = require("lua.lual.levels")
+local core_levels = require("lual.levels")
 
 describe("Component Utils End-to-End", function()
     it("should correctly process a log record through normalized components", function()

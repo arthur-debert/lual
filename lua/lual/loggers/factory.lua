@@ -2,7 +2,7 @@
 -- This module handles the creation of logger instances
 
 -- Core modules
-local core_levels = require("lua.lual.levels")
+local core_levels = require("lual.levels")
 local config_module = require("lual.config")
 local constants = require("lual.constants")
 local table_utils = require("lual.utils.table")

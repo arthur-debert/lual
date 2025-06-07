@@ -1,7 +1,7 @@
 --- Logger Configuration Module
 -- This module handles configuration validation for loggers
 
-local core_levels = require("lua.lual.levels")
+local core_levels = require("lual.levels")
 local table_utils = require("lual.utils.table")
 
 -- Configuration validation for non-root loggers

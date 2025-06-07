@@ -1,9 +1,9 @@
 -- Command Line Verbosity Configuration
 -- This module handles command-line driven logging level configuration
 
--- Note: For direct execution with 'lua', use require("lua.lual.*")
+-- Note: For direct execution with 'lua', use require("lual.*")
 -- For LuaRocks installed modules or busted tests, use require("lual.*")
-local core_levels = require("lua.lual.levels")
+local core_levels = require("lual.levels")
 
 local M = {}
 

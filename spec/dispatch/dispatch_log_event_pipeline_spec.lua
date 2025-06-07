@@ -2,7 +2,7 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 
 local lual = require("lual.logger")
-local core_levels = require("lua.lual.levels")
+local core_levels = require("lual.levels")
 local log_module = require("lual.log") -- Use the log module for testing internals
 
 describe("Output Log Event Pipeline", function()

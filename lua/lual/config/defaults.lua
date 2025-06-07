@@ -1,7 +1,7 @@
 --- Configuration Defaults
 -- This module handles default configuration setup and initialization
 
-local core_levels = require("lua.lual.levels")
+local core_levels = require("lual.levels")
 
 local M = {}
 

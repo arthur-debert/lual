@@ -1,7 +1,7 @@
 --- Pipelines Configuration Handler
 -- This module handles the 'pipelines' configuration key
 
-local core_levels = require("lua.lual.levels")
+local core_levels = require("lual.levels")
 local component_utils = require("lual.utils.component")
 local table_utils = require("lual.utils.table")
 
