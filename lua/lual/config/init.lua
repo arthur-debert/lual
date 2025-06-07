@@ -1,7 +1,7 @@
 --- Configuration API (Main Entry Point)
 -- This module provides the main configuration API for the lual logging library
 
--- Note: For direct execution with 'lua', use require("lua.lual.config.api")
+-- Note: For direct execution with 'lua', use require("lual.config.api")
 -- For LuaRocks installed modules or busted tests, use require("lual.config.api")
 local api = require("lual.config.api")
 

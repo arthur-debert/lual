@@ -2,7 +2,7 @@
 package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 
 local lual = require("lual.logger")
-local core_levels = require("lua.lual.levels")
+local core_levels = require("lual.levels")
 local table_utils = require("lual.utils.table")
 
 --- Helper function to verify that a output matches the expected function

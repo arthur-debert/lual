@@ -1,7 +1,7 @@
 --- Async Configuration Handler
 -- This module handles the 'async' configuration key
 
--- Note: For direct execution with 'lua', use require("lua.lual.*")
+-- Note: For direct execution with 'lua', use require("lual.*")
 -- For LuaRocks installed modules or busted tests, use require("lual.*")
 local async_writer = require("lual.async")
 

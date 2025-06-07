@@ -1,12 +1,12 @@
 -- Public API for lual logger
 -- This module provides the main entry points for the logging library
 
--- Note: For direct execution with 'lua', use require("lua.lual.*")
+-- Note: For direct execution with 'lua', use require("lual.*")
 -- For LuaRocks installed modules or busted tests, use require("lual.*")
 local loggers_module = require("lual.loggers")
 local config_module = require("lual.config")
 local constants = require("lual.constants")
-local core_levels = require("lua.lual.levels")
+local core_levels = require("lual.levels")
 local async_writer = require("lual.async")
 local logger_config = require("lual.loggers.config")
 

@@ -1,9 +1,9 @@
 -- Constants module for lual logger
 -- This module centralizes all constants used across the lual library
 
--- Note: For direct execution with 'lua', use require("lua.lual.*")
+-- Note: For direct execution with 'lua', use require("lual.*")
 -- For LuaRocks installed modules or busted tests, use require("lual.*")
-local core_levels = require("lua.lual.levels")
+local core_levels = require("lual.levels")
 local all_outputs = require("lual.pipelines.outputs.init")
 local all_presenters = require("lual.pipelines.presenters.init")
 local all_transformers = require("lual.pipelines.transformers.init")
