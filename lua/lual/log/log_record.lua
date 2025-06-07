@@ -4,7 +4,9 @@
 -- Note: For direct execution with 'lua', use require("lua.lual.*")
 -- For LuaRocks installed modules or busted tests, use require("lual.*")
 local core_levels = require("lua.lual.levels")
-local component_utils = require("lual.utils.component")
+local get_logger_tree = require("lual.log.get_logger_tree")
+local get_pipelines = require("lual.log.get_pipelines")
+local process = require("lual.log.process")
 
 local M = {}
 
@@ -48,183 +50,24 @@ function M.create_log_record(logger, level_no, level_name, message_fmt, args, co
     }
 end
 
---- Processes a single transformer
--- @param record table The log record to process
--- @param transformer function|table The transformer function or config
--- @return table The transformed record, or nil and error message
-local function process_transformer(record, transformer)
-    -- Create a copy of the record for the transformer
-    local transformed_record = {}
-    for k, v in pairs(record) do
-        transformed_record[k] = v
-    end
-
-    -- Normalize transformer to standard format
-    local normalized = component_utils.normalize_component(transformer, component_utils.TRANSFORMER_DEFAULTS)
-    local transformer_func = normalized.func
-    local transformer_config = normalized.config
-
-    -- Apply the transformer
-    local ok, result = pcall(transformer_func, transformed_record, transformer_config)
-    if not ok then
-        return nil, "Transformer error: " .. tostring(result)
-    end
-
-    return result or transformed_record
-end
-
---- Processes a single presenter
--- @param record table The log record to process
--- @param presenter function|table The presenter function or config
--- @return string|nil The presented message, or nil and error message
-local function process_presenter(record, presenter)
-    -- If the presenter is already a function, use it directly
-    if type(presenter) == "function" then
-        local ok, result = pcall(presenter, record)
-        if not ok then
-            io.stderr:write(string.format("LUAL: Error in presenter function: %s\n", tostring(result)))
-            return nil, result
-        end
-        return result
-    end
-
-    -- Otherwise normalize presenter to standard format
-    local normalized = component_utils.normalize_component(presenter, component_utils.PRESENTER_DEFAULTS)
-    local presenter_func = normalized.func
-    local presenter_config = normalized.config
-
-    -- Apply the presenter
-    local ok, result = pcall(presenter_func, record, presenter_config)
-    if not ok then
-        io.stderr:write(string.format("LUAL: Error in presenter function: %s\n", tostring(result)))
-        return nil, result
-    end
-
-    return result
-end
-
---- Processes a single output
--- @param log_record table The log record to process
--- @param output_entry table|function The output configuration or function
--- @param logger table The logger that owns this output
-local function process_output(log_record, output_entry, logger)
-    -- Create a copy of the log record for this output
-    local output_record = {}
-    for k, v in pairs(log_record) do
-        output_record[k] = v
-    end
-
-    -- Normalize output to standard format
-    local normalized = component_utils.normalize_component(output_entry, component_utils.DISPATCHER_DEFAULTS)
-    local output_func = normalized.func
-    local output_config = normalized.config
-
-    -- Add logger context to the record
-    output_record.owner_logger_name = logger.name
-    output_record.owner_logger_level = logger.level
-    output_record.owner_logger_propagate = logger.propagate
-
-    -- Output the record
-    local ok, err = pcall(function()
-        output_func(output_record, output_config)
-    end)
-    if not ok then
-        io.stderr:write(string.format("Error outputting log record: %s\n", err))
-    end
-end
-
---- Process a log record through a pipeline
--- @param log_record table The log record to process
--- @param pipeline table The pipeline configuration
--- @param logger table The logger that owns this pipeline
-local function process_pipeline(log_record, pipeline, logger)
-    -- Check pipeline level if specified
-    if pipeline.level and type(pipeline.level) == "number" and pipeline.level > 0 then
-        if log_record.level_no < pipeline.level then
-            return -- Skip this pipeline as its level is higher than the log record
-        end
-    end
-
-    -- Create a copy of the log record for this pipeline
-    local pipeline_record = {}
-    for k, v in pairs(log_record) do
-        pipeline_record[k] = v
-    end
-
-    -- Add pipeline level to the record for informational purposes
-    if pipeline.level then
-        pipeline_record.pipeline_level = pipeline.level
-    else
-        pipeline_record.pipeline_level = core_levels.definition.NOTSET
-    end
-
-    -- Apply transformers if configured
-    if pipeline.transformers then
-        for _, transformer in ipairs(pipeline.transformers) do
-            local transformed_record, error_msg = process_transformer(pipeline_record, transformer)
-            if transformed_record then
-                pipeline_record = transformed_record
-            else
-                pipeline_record.transformer_error = error_msg
-                break -- Stop processing transformers if one fails
-            end
-        end
-    end
-
-    -- Apply presenter if configured
-    if pipeline.presenter and not pipeline_record.transformer_error then
-        local presented_message, error_msg = process_presenter(pipeline_record, pipeline.presenter)
-        if presented_message then
-            pipeline_record.presented_message = presented_message
-            pipeline_record.message = presented_message -- Overwrite message with presented message
-        else
-            pipeline_record.presenter_error = error_msg
-        end
-    end
-
-    -- Process each output in the pipeline
-    if pipeline.outputs and not pipeline_record.transformer_error and not pipeline_record.presenter_error then
-        for _, output in ipairs(pipeline.outputs) do
-            process_output(pipeline_record, output, logger)
-        end
-    end
-end
-
 --- Process log record through logger hierarchy
 -- @param source_logger table The logger that originated the log event
 -- @param log_record table The log record to process
 function M.process_log_record(source_logger, log_record)
-    local current_logger = source_logger
+    -- Step 1: Get the logger tree (all loggers that should process this record)
+    local logger_tree = get_logger_tree.get_logger_tree(source_logger)
 
-    -- Process through the hierarchy (from source up to _root)
-    while current_logger do
-        -- Step 1: Calculate L's effective level using L:_get_effective_level()
-        local effective_level = current_logger:_get_effective_level()
-
-        -- Step 2: If event_level >= L.effective_level (level match)
-        if log_record.level_no >= effective_level then
-            -- Step 2a: For each pipeline in L's pipelines list
-            for _, pipeline in ipairs(current_logger.pipelines) do
-                process_pipeline(log_record, pipeline, current_logger)
-            end
-
-            -- Step 2b: If L has no pipelines, it produces no output itself
-            -- (This is handled naturally by the empty loop above)
+    -- Step 2: Get all eligible pipelines from all loggers
+    local all_eligible_pipelines = {}
+    for _, logger in ipairs(logger_tree) do
+        local eligible_pipelines = get_pipelines.get_eligible_pipelines(logger, log_record)
+        for _, pipeline_entry in ipairs(eligible_pipelines) do
+            table.insert(all_eligible_pipelines, pipeline_entry)
         end
-
-        -- Step 3: If L is _root, stop after processing its pipelines
-        if current_logger.name == "_root" then
-            break
-        end
-
-        -- Step 4: If L.propagate is false, stop propagation
-        if not current_logger.propagate then
-            break
-        end
-
-        -- Step 5: Continue to parent
-        current_logger = current_logger.parent
     end
+
+    -- Step 3: Process all eligible pipelines
+    process.process_pipelines(all_eligible_pipelines, log_record)
 end
 
 --- Parses log method arguments (similar to v1 system but simplified)
@@ -296,7 +139,7 @@ function M.format_message(message_fmt, args)
 end
 
 -- Expose internal functions that are needed by other modules
-M._process_pipeline = process_pipeline
-M._process_output = process_output
+M._process_pipeline = process.process_pipeline
+M._process_output = process._process_output
 
 return M

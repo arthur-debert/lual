@@ -41,6 +41,7 @@ local all_transformers = require("lual.pipelines.transformers.init")
 local component_utils = require("lual.utils.component")
 local async_writer = require("lual.async")
 local log_module = require("lual.log")
+local process = require("lual.log.process")
 
 local M = {}
 
@@ -138,7 +139,14 @@ end
 
 -- Expose internal functions for testing
 M._create_log_record = log_module.create_log_record
-M._process_pipeline = log_module._process_pipeline
+M._process_pipeline = function(log_record, pipeline, logger)
+    -- Wrap in a compatible format for the new process_pipeline function
+    local pipeline_entry = {
+        pipeline = pipeline,
+        logger = logger
+    }
+    return process.process_pipeline(log_record, pipeline_entry)
+end
 M._process_output = log_module._process_output
 M._format_message = log_module.format_message
 M._parse_log_args = log_module.parse_log_args
