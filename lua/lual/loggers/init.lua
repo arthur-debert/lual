@@ -14,6 +14,16 @@ local logger_config = require("lual.loggers.config")
 -- Logger cache
 local _logger_cache = {}
 
+-- Forward declarations
+local create_root_logger_instance
+local get_parent_name_from_hierarchical
+local get_or_create_parent_logger
+local _get_or_create_logger_internal
+
+------------------------------------------
+-- LOGGER PROTOTYPE AND CORE FUNCTIONALITY
+------------------------------------------
+
 -- Logger prototype
 local logger_prototype = {}
 
@@ -146,6 +156,10 @@ function logger_prototype:get_config()
     return config
 end
 
+-----------------------
+-- LOG EVENT PROCESSING
+-----------------------
+
 -- Add logging methods from the pipeline system
 local logging_methods = pipeline_module.create_logging_methods()
 for method_name, method_func in pairs(logging_methods) do
@@ -183,11 +197,9 @@ logger_prototype.__index = function(self, key)
     return nil
 end
 
--- Forward declarations
-local create_root_logger_instance
-local get_parent_name_from_hierarchical
-local get_or_create_parent_logger
-local _get_or_create_logger_internal
+-------------------------------
+-- LOGGER HIERARCHY MANAGEMENT
+-------------------------------
 
 -- Define get_parent_name_from_hierarchical
 get_parent_name_from_hierarchical = function(logger_name)
@@ -195,6 +207,28 @@ get_parent_name_from_hierarchical = function(logger_name)
     local match = logger_name:match("(.+)%.[^%.]+$")
     return match or "_root" -- Always return "_root" for top-level loggers
 end
+
+-- Define get_or_create_parent_logger
+get_or_create_parent_logger = function(parent_name_str)
+    if not parent_name_str then return nil end
+    -- Special case: if parent is _root, create it from config
+    if parent_name_str == "_root" then
+        if _logger_cache["_root"] then
+            return _logger_cache["_root"]
+        else
+            -- Create _root logger from config
+            local root_logger = create_root_logger_instance()
+            _logger_cache["_root"] = root_logger
+            return root_logger
+        end
+    end
+    -- Parents are created with default configuration via the main factory.
+    return _get_or_create_logger_internal(parent_name_str, {})
+end
+
+------------------------
+-- LOGGER CREATION LOGIC
+------------------------
 
 -- Define _get_or_create_logger_internal
 _get_or_create_logger_internal = function(requested_name_or_nil, config_data)
@@ -267,23 +301,9 @@ _get_or_create_logger_internal = function(requested_name_or_nil, config_data)
     return new_logger
 end
 
--- Define get_or_create_parent_logger
-get_or_create_parent_logger = function(parent_name_str)
-    if not parent_name_str then return nil end
-    -- Special case: if parent is _root, create it from config
-    if parent_name_str == "_root" then
-        if _logger_cache["_root"] then
-            return _logger_cache["_root"]
-        else
-            -- Create _root logger from config
-            local root_logger = create_root_logger_instance()
-            _logger_cache["_root"] = root_logger
-            return root_logger
-        end
-    end
-    -- Parents are created with default configuration via the main factory.
-    return _get_or_create_logger_internal(parent_name_str, {})
-end
+---------------------------
+-- ROOT LOGGER SPECIFIC CODE
+---------------------------
 
 -- Define create_root_logger_instance
 create_root_logger_instance = function()         -- Renamed from create_root_logger if that was the old name
