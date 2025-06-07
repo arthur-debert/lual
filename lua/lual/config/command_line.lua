@@ -4,6 +4,7 @@
 -- Note: For direct execution with 'lua', use require("lual.*")
 -- For LuaRocks installed modules or busted tests, use require("lual.*")
 local core_levels = require("lual.levels")
+local schemer = require("lual.utils.schemer")
 
 local M = {}
 
@@ -17,39 +18,41 @@ local DEFAULT_MAPPING = {
     silent = "critical"
 }
 
+-- Command line verbosity configuration schema
+local command_line_schema = {
+    fields = {
+        mapping = { type = "table", required = false },
+        auto_detect = { type = "boolean", required = false }
+    }
+}
+
 -- Validates command_line_verbosity configuration
 local function validate(config, full_config)
     if type(config) ~= "table" then
         return false, "command_line_verbosity must be a table"
     end
 
-    -- Validate mapping if provided
-    if config.mapping ~= nil then
-        if type(config.mapping) ~= "table" then
-            return false, "command_line_verbosity.mapping must be a table"
-        end
+    -- Use schemer for basic validation
+    local errors = schemer.validate(config, command_line_schema)
+    if errors then
+        return false, errors.error
+    end
 
-        -- Validate each mapping entry
+    -- Custom validation for mapping entries
+    if config.mapping then
         for flag, level_name in pairs(config.mapping) do
             if type(flag) ~= "string" then
                 return false, "mapping keys must be strings"
             end
-
             if type(level_name) ~= "string" then
                 return false, "level names in mapping must be strings"
             end
-
             -- Verify level name is valid
             local level_valid, _ = core_levels.get_level_by_name(level_name:upper())
             if not level_valid then
                 return false, "unknown level name in mapping: " .. level_name
             end
         end
-    end
-
-    -- Validate auto_detect if provided
-    if config.auto_detect ~= nil and type(config.auto_detect) ~= "boolean" then
-        return false, "auto_detect must be a boolean"
     end
 
     return true

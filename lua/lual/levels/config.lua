@@ -2,43 +2,48 @@
 -- This module handles both 'level' and 'custom_levels' configuration keys
 
 local core_levels = require("lual.levels")
+local schemer = require("lual.utils.schemer")
 
 local M = {}
+
+-- Level validation schema (dynamic for custom levels)
+local function get_level_schema()
+    return {
+        fields = {
+            level = { type = "number", values = schemer.enum(core_levels.get_all_levels()) }
+        }
+    }
+end
 
 --- Validates level configuration
 -- @param level number The level value to validate
 -- @param full_config table The full configuration context
 -- @return boolean, string True if valid, otherwise false and error message
 local function validate_level(level, full_config)
-    if type(level) ~= "number" then
-        return false,
-            "Invalid type for 'level': expected number, got " ..
-            type(level) .. ". Logging level (use lual.DEBUG, lual.INFO, etc.)"
+    -- Use schemer for validation
+    local errors = schemer.validate({ level = level }, get_level_schema())
+    if errors then
+        if errors.fields and errors.fields.level then
+            local error_code = errors.fields.level[1][1]
+            if error_code == "INVALID_TYPE" then
+                return false,
+                    "Invalid type for 'level': expected number, got " ..
+                    type(level) .. ". Logging level (use lual.DEBUG, lual.INFO, etc.)"
+            elseif error_code == "INVALID_VALUE" then
+                local all_levels = core_levels.get_all_levels()
+                local valid_levels = {}
+                for level_name, level_value in pairs(all_levels) do
+                    table.insert(valid_levels, string.format("%s(%d)", level_name, level_value))
+                end
+                table.sort(valid_levels)
+                return false,
+                    string.format("Invalid level value %d. Valid levels are: %s", level, table.concat(valid_levels, ", "))
+            end
+        end
+        return false, errors.error
     end
 
-    -- Get all levels (built-in + custom) for validation
-    local all_levels = core_levels.get_all_levels()
-    local valid_level = false
-    for _, level_value in pairs(all_levels) do
-        if level == level_value then
-            valid_level = true
-            break
-        end
-    end
-    if not valid_level then
-        local valid_levels = {}
-        for level_name, level_value in pairs(all_levels) do
-            table.insert(valid_levels, string.format("%s(%d)", level_name, level_value))
-        end
-        table.sort(valid_levels)
-        return false, string.format(
-            "Invalid level value %d. Valid levels are: %s",
-            level,
-            table.concat(valid_levels, ", ")
-        )
-    end
-
-    -- Root logger cannot be set to NOTSET
+    -- Root logger cannot be set to NOTSET (business rule)
     if level == core_levels.definition.NOTSET then
         return false, "Root logger level cannot be set to NOTSET"
     end

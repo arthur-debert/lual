@@ -1,5 +1,18 @@
 local command_line = require("lual.config.command_line")
 local lual = require("lual")
+local schemer = require("lual.utils.schemer")
+
+-- Helper function to get detailed validation errors for testing
+local function get_command_line_validation_error(config_table)
+    local command_line_schema = {
+        fields = {
+            mapping = { type = "table", required = false },
+            auto_detect = { type = "boolean", required = false }
+        }
+    }
+    local errors = schemer.validate(config_table, command_line_schema)
+    return errors
+end
 
 describe("Command line verbosity", function()
     before_each(function()
@@ -22,7 +35,13 @@ describe("Command line verbosity", function()
         it("validates that mapping is a table if provided", function()
             local result, msg = command_line.validate({ mapping = "not a table" })
             assert.is_false(result)
-            assert.matches("mapping must be a table", msg)
+
+            -- Test specific error code
+            local error_info = get_command_line_validation_error({ mapping = "not a table" })
+            assert.is_not_nil(error_info)
+            assert.is_not_nil(error_info.fields)
+            assert.is_not_nil(error_info.fields.mapping)
+            assert.are.equal("INVALID_TYPE", error_info.fields.mapping[1][1])
         end)
 
         it("validates mapping key types", function()
@@ -46,7 +65,13 @@ describe("Command line verbosity", function()
         it("validates auto_detect type", function()
             local result, msg = command_line.validate({ auto_detect = "not a boolean" })
             assert.is_false(result)
-            assert.matches("auto_detect must be a boolean", msg)
+
+            -- Test specific error code
+            local error_info = get_command_line_validation_error({ auto_detect = "not a boolean" })
+            assert.is_not_nil(error_info)
+            assert.is_not_nil(error_info.fields)
+            assert.is_not_nil(error_info.fields.auto_detect)
+            assert.are.equal("INVALID_TYPE", error_info.fields.auto_detect[1][1])
         end)
 
         it("validates a proper config", function()
