@@ -9,60 +9,40 @@ local command_line_schema_module = require("lual.config.command_line_schema")
 
 local M = {}
 
--- Default mapping of command line flags to log levels
-local DEFAULT_MAPPING = {
-    v = "warning",
-    vv = "info",
-    vvv = "debug",
-    verbose = "info",
-    quiet = "error",
-    silent = "critical"
-}
-
 -- Validates command_line_verbosity configuration
 local function validate(config, full_config)
     if type(config) ~= "table" then
         return false, "command_line_verbosity must be a table"
     end
 
-    -- Use schemer for basic validation
+    -- Use schemer for validation (includes defaults, custom validators, etc.)
     local errors = schemer.validate(config, command_line_schema_module.command_line_schema)
     if errors then
-        return false, errors.error
-    end
-
-    -- Custom validation for mapping entries
-    if config.mapping then
-        for flag, level_name in pairs(config.mapping) do
-            if type(flag) ~= "string" then
-                return false, "mapping keys must be strings"
-            end
-            if type(level_name) ~= "string" then
-                return false, "level names in mapping must be strings"
-            end
-            -- Verify level name is valid
-            local level_valid, _ = core_levels.get_level_by_name(level_name:upper())
-            if not level_valid then
-                return false, "unknown level name in mapping: " .. level_name
+        -- Extract specific error message for backward compatibility with tests
+        if errors.fields and errors.fields.mapping and errors.fields.mapping[1] then
+            local error_code, error_message = errors.fields.mapping[1][1], errors.fields.mapping[1][2]
+            if error_code == "CUSTOM_VALIDATION_FAILED" then
+                -- Extract the actual custom error message from the formatted message
+                -- Format: "Field 'mapping': actual_message"
+                local actual_message = error_message:match("Field 'mapping': (.+)")
+                if actual_message then
+                    return false, actual_message
+                end
             end
         end
+        return false, errors.error
     end
 
     return true
 end
 
--- Normalizes command_line_verbosity configuration
+-- Normalizes command_line_verbosity configuration using schemer
 local function normalize(config)
-    local normalized = {}
-
-    -- Use provided mapping or default
-    normalized.mapping = config.mapping or DEFAULT_MAPPING
-
-    -- Default auto_detect to true if not specified
-    if config.auto_detect == nil then
-        normalized.auto_detect = true
-    else
-        normalized.auto_detect = config.auto_detect
+    -- Schemer validation with defaults applied
+    local errors, normalized = schemer.validate(config, command_line_schema_module.command_line_schema)
+    if errors then
+        -- This should not happen if validate() passed, but handle gracefully
+        return config
     end
 
     return normalized
@@ -152,6 +132,6 @@ M.validate = validate
 M.normalize = normalize
 M.apply = apply
 M.detect_verbosity_from_cli = M.detect_verbosity_from_cli
-M.DEFAULT_MAPPING = DEFAULT_MAPPING
+M.DEFAULT_MAPPING = command_line_schema_module.DEFAULT_MAPPING
 
 return M
