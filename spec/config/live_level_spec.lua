@@ -1,5 +1,19 @@
 local live_level = require("lual.config.live_level")
 local lual = require("lual")
+local schemer = require("lual.utils.schemer")
+
+-- Helper function to get detailed validation errors for testing
+local function get_live_level_validation_error(config_table)
+    local live_level_schema = {
+        fields = {
+            env_var = { type = "string", required = false },
+            check_interval = { type = "number", required = false, min = 1 },
+            enabled = { type = "boolean", required = false }
+        }
+    }
+    local errors = schemer.validate(config_table, live_level_schema)
+    return errors
+end
 
 -- Mock environment variable for testing
 local mock_env = {}
@@ -31,25 +45,49 @@ describe("Live level changes", function()
         it("validates env_var type", function()
             local result, msg = live_level.validate({ env_var = 123 })
             assert.is_false(result)
-            assert.matches("env_var must be a string", msg)
+
+            -- Test specific error code
+            local error_info = get_live_level_validation_error({ env_var = 123 })
+            assert.is_not_nil(error_info)
+            assert.is_not_nil(error_info.fields)
+            assert.is_not_nil(error_info.fields.env_var)
+            assert.are.equal("INVALID_TYPE", error_info.fields.env_var[1][1])
         end)
 
         it("validates check_interval type", function()
             local result, msg = live_level.validate({ check_interval = "not a number" })
             assert.is_false(result)
-            assert.matches("check_interval must be a number", msg)
+
+            -- Test specific error code
+            local error_info = get_live_level_validation_error({ check_interval = "not a number" })
+            assert.is_not_nil(error_info)
+            assert.is_not_nil(error_info.fields)
+            assert.is_not_nil(error_info.fields.check_interval)
+            assert.are.equal("INVALID_TYPE", error_info.fields.check_interval[1][1])
         end)
 
         it("validates check_interval minimum value", function()
             local result, msg = live_level.validate({ check_interval = 0 })
             assert.is_false(result)
-            assert.matches("check_interval must be at least 1", msg)
+
+            -- Test specific error code
+            local error_info = get_live_level_validation_error({ check_interval = 0 })
+            assert.is_not_nil(error_info)
+            assert.is_not_nil(error_info.fields)
+            assert.is_not_nil(error_info.fields.check_interval)
+            assert.are.equal("NUMBER_TOO_SMALL", error_info.fields.check_interval[1][1])
         end)
 
         it("validates enabled type", function()
             local result, msg = live_level.validate({ enabled = "not a boolean" })
             assert.is_false(result)
-            assert.matches("enabled must be a boolean", msg)
+
+            -- Test specific error code
+            local error_info = get_live_level_validation_error({ enabled = "not a boolean" })
+            assert.is_not_nil(error_info)
+            assert.is_not_nil(error_info.fields)
+            assert.is_not_nil(error_info.fields.enabled)
+            assert.are.equal("INVALID_TYPE", error_info.fields.enabled[1][1])
         end)
 
         it("validates a proper config", function()

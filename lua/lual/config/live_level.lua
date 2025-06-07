@@ -4,6 +4,7 @@
 -- Note: For direct execution with 'lua', use require("lua.lual.*")
 -- For LuaRocks installed modules or busted tests, use require("lual.*")
 local core_levels = require("lua.lual.levels")
+local schemer = require("lual.utils.schemer")
 
 local M = {}
 
@@ -15,6 +16,15 @@ local _last_value = nil
 local _enabled = false
 local _get_env_func = os.getenv -- Can be overridden for testing
 
+-- Live level configuration schema
+local live_level_schema = {
+    fields = {
+        env_var = { type = "string", required = false },
+        check_interval = { type = "number", required = false, min = 1 },
+        enabled = { type = "boolean", required = false }
+    }
+}
+
 --- Validates the live_level configuration
 -- @param config table Configuration for live_level
 -- @param full_config table The full configuration table
@@ -24,24 +34,9 @@ local function validate(config, full_config)
         return false, "live_level must be a table"
     end
 
-    -- Validate env_var field
-    if config.env_var ~= nil and type(config.env_var) ~= "string" then
-        return false, "env_var must be a string"
-    end
-
-    -- Validate check_interval field
-    if config.check_interval ~= nil then
-        if type(config.check_interval) ~= "number" then
-            return false, "check_interval must be a number"
-        end
-        if config.check_interval < 1 then
-            return false, "check_interval must be at least 1"
-        end
-    end
-
-    -- Validate enabled field
-    if config.enabled ~= nil and type(config.enabled) ~= "boolean" then
-        return false, "enabled must be a boolean"
+    local errors = schemer.validate(config, live_level_schema)
+    if errors then
+        return false, errors.error
     end
 
     return true
