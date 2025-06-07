@@ -206,17 +206,14 @@ local function create_logging_methods()
         local level_no
         local level_name
 
-        -- Handle both numeric levels and custom level names
+        -- Handle both numeric levels and level names (built-in or custom)
         if type(level_arg) == "number" then
             level_no = level_arg
             level_name = core_levels.get_level_name(level_no)
         elseif type(level_arg) == "string" then
-            -- Check if it's a custom level name
-            local custom_level_value = core_levels.get_custom_level_value(level_arg)
-            if custom_level_value then
-                level_no = custom_level_value
-                level_name = level_arg:upper()
-            else
+            -- Check if it's a valid level name (built-in or custom)
+            level_name, level_no = core_levels.get_level_by_name(level_arg)
+            if not level_name or not level_no then
                 error("Unknown level name: " .. level_arg)
             end
         else
@@ -258,8 +255,8 @@ logger_prototype.__index = function(self, key)
         return logger_prototype[key]
     end
 
-    -- Then check if it's a custom level name
-    local level_name, level_no = core_levels.get_custom_level(key)
+    -- Then check if it's a level name (built-in or custom)
+    local level_name, level_no = core_levels.get_level_by_name(key)
     if level_name and level_no then
         return function(self_inner, ...)
             -- Check if logging is enabled for this level
