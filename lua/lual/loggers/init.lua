@@ -160,8 +160,8 @@ logger_prototype.__index = function(self, key)
     end
 
     -- Then check if it's a custom level name
-    if core_levels.is_custom_level(key) then
-        local level_no = core_levels.get_custom_level_value(key)
+    local level_name, level_no = core_levels.get_custom_level(key)
+    if level_name and level_no then
         return function(self_inner, ...)
             -- Check if logging is enabled for this level
             local effective_level = self_inner:_get_effective_level()
@@ -173,7 +173,7 @@ logger_prototype.__index = function(self, key)
             local msg_fmt, args, context = pipeline_module._parse_log_args(...)
 
             -- Create log record
-            local log_record = pipeline_module._create_log_record(self_inner, level_no, key:upper(), msg_fmt, args,
+            local log_record = pipeline_module._create_log_record(self_inner, level_no, level_name, msg_fmt, args,
                 context)
             pipeline_module.dispatch_log_event(self_inner, log_record)
         end
