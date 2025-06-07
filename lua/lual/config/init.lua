@@ -19,7 +19,7 @@ local function register_handlers()
     registry.register("level", require("lual.config.level"))
     registry.register("propagate", require("lual.config.propagate"))
     registry.register("pipelines", require("lual.config.pipelines"))
-    registry.register("custom_levels", require("lual.config.levels"))
+    registry.register("custom_levels", require("lual.config.custom_levels"))
     registry.register("async", require("lual.config.async"))
 end
 
