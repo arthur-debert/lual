@@ -58,6 +58,12 @@ Example Usage:
                 each = { type = "string" }
             },
 
+            -- Table with unique values constraint
+            level_mappings = {
+                type = "table",
+                unique_values = true -- All values must be unique
+            },
+
             -- Nested schema
             config = {
                 type = "table",
@@ -160,6 +166,7 @@ Field Schema Properties:
         count (table): {min, max} item count. Use "*" for unlimited max
         each (schema): Schema applied to each array element
         fields (table): Schema for nested object validation
+        unique_values (boolean): Ensure all values in the table are unique
 
     Custom validation:
         custom_validator (function): Custom validation function (value) -> boolean, error_msg
@@ -184,6 +191,7 @@ Error Codes:
     NUMBER_TOO_SMALL: Number below minimum
     NUMBER_TOO_LARGE: Number above maximum
     INVALID_COUNT: Table item count outside allowed range
+    DUPLICATE_VALUE: Duplicate values found when uniqueness required
     ONE_OF_MISSING: None of the required fields present
     DEPENDENCY_MISSING: Required dependency field missing
     EXCLUSIVE_CONFLICT: Mutually exclusive fields both present
@@ -205,6 +213,7 @@ local ERROR_CODES = {
     NUMBER_TOO_SMALL = "NUMBER_TOO_SMALL",
     NUMBER_TOO_LARGE = "NUMBER_TOO_LARGE",
     INVALID_COUNT = "INVALID_COUNT",
+    DUPLICATE_VALUE = "DUPLICATE_VALUE",
     ONE_OF_MISSING = "ONE_OF_MISSING",
     DEPENDENCY_MISSING = "DEPENDENCY_MISSING",
     EXCLUSIVE_CONFLICT = "EXCLUSIVE_CONFLICT",
@@ -466,6 +475,35 @@ local function validate_field(value, field_schema, field_name, data)
             if not is_valid then
                 table.insert(errors, { ERROR_CODES.INVALID_COUNT,
                     string.format("Field '%s': %s", field_name, err_msg) })
+            end
+        end
+
+        -- Uniqueness validation
+        if field_schema.unique_values then
+            local seen_values = {}
+            local duplicate_found = false
+            local first_duplicate = nil
+            local duplicate_locations = {}
+
+            -- Check values in the table for duplicates
+            for k, v in pairs(value) do
+                if seen_values[v] then
+                    duplicate_found = true
+                    if not first_duplicate then
+                        first_duplicate = v
+                        duplicate_locations = { seen_values[v], k }
+                    end
+                    break
+                else
+                    seen_values[v] = k
+                end
+            end
+
+            if duplicate_found then
+                table.insert(errors, { ERROR_CODES.DUPLICATE_VALUE,
+                    string.format("Field '%s' has duplicate value '%s' at locations '%s' and '%s'",
+                        field_name, tostring(first_duplicate), tostring(duplicate_locations[1]),
+                        tostring(duplicate_locations[2])) })
             end
         end
 
