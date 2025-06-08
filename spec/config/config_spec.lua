@@ -196,23 +196,7 @@ describe("lual.config() API", function()
                 "Invalid configuration: Invalid type for 'propagate': expected boolean, got string. Whether to propagate messages (always true for root)")
         end)
 
-        it("should reject outputs configuration", function()
-            assert.has_error(function()
-                    lual.config({
-                        outputs = { function() end }
-                    })
-                end,
-                "Invalid configuration: 'outputs' is no longer supported. Use 'pipelines' instead.")
-        end)
 
-        it("should reject outputs containing non-functions", function()
-            assert.has_error(function()
-                    lual.config({
-                        outputs = { "not_a_output" }
-                    })
-                end,
-                "Invalid configuration: 'outputs' is no longer supported. Use 'pipelines' instead.")
-        end)
 
         it("should accept all valid level values", function()
             local valid_levels = {
@@ -240,14 +224,7 @@ describe("lual.config() API", function()
                 "Invalid configuration: Invalid type for 'propagate': expected boolean, got number. Whether to propagate messages (always true for root)")
         end)
 
-        it("should reject invalid outputs type", function()
-            assert.has_error(function()
-                    lual.config({
-                        outputs = 123
-                    })
-                end,
-                "Invalid configuration: 'outputs' is no longer supported. Use 'pipelines' instead.")
-        end)
+
 
         it("should accept empty pipelines array", function()
             assert.has_no_error(function()

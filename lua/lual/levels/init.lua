@@ -117,26 +117,37 @@ function levels.set_custom_levels(custom_levels_table)
         error("Custom levels must be a table")
     end
 
-    -- Validate all custom levels first
-    for name, value in pairs(custom_levels_table) do
-        local name_valid, name_error = levels.validate_custom_level_name(name)
-        if not name_valid then
-            error("Invalid custom level name '" .. tostring(name) .. "': " .. name_error)
-        end
+    -- Use the same schema validation that the config system uses (comprehensive and declarative)
+    local schemer = require("lual.utils.schemer")
+    local levels_schema_module = require("lual.levels.schema")
 
-        local value_valid, value_error = levels.validate_custom_level_value(value, true) -- exclude current customs
-        if not value_valid then
-            error("Invalid custom level value for '" .. name .. "': " .. value_error)
-        end
-    end
+    -- Wrap data to match schema structure
+    local errors = schemer.validate({ custom_levels = custom_levels_table },
+        levels_schema_module.get_custom_levels_schema())
+    if errors then
+        -- Extract specific error code and convert to appropriate error message
+        if errors.fields and errors.fields.custom_levels then
+            local field_error = errors.fields.custom_levels[1]
+            if field_error then
+                local error_code = field_error[1]
+                local error_message = field_error[2]
 
-    -- Check for duplicate values in the new set
-    local seen_values = {}
-    for name, value in pairs(custom_levels_table) do
-        if seen_values[value] then
-            error("Duplicate level value " .. value .. " for levels '" .. seen_values[value] .. "' and '" .. name .. "'")
+                -- Convert schema error codes to domain-specific error messages for backward compatibility
+                if error_code == "DUPLICATE_VALUE" then
+                    -- Extract duplicate value from the message
+                    local duplicate_value = error_message:match("duplicate value '([^']+)'")
+                    local locations = error_message:match("locations '([^']+)' and '([^']+)'")
+                    error("Duplicate level value " .. duplicate_value .. " for levels '" .. locations .. "'")
+                elseif error_code == "CUSTOM_VALIDATION_FAILED" then
+                    -- For custom validation, extract the actual validation error
+                    local actual_error = error_message:match("Field 'custom_levels': (.+)")
+                    error(actual_error or error_message)
+                end
+
+                error(error_message)
+            end
         end
-        seen_values[value] = name
+        error("Invalid custom levels: " .. errors.error)
     end
 
     -- Clear existing custom levels

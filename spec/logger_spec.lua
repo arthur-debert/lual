@@ -3,6 +3,16 @@ package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lu
 
 local lual = require("lual.logger")
 local core_levels = require("lual.levels")
+local logger_config = require("lual.loggers.config")
+
+-- Helper function to get detailed validation errors for testing
+local function get_validation_error(config_table)
+    local ok, error_info = logger_config.validate_logger_config_table(config_table, true)
+    if ok then
+        return nil
+    end
+    return error_info
+end
 
 describe("lual Logger - Effective Level Calculation (Step 2.5)", function()
     before_each(function()
@@ -287,17 +297,46 @@ describe("lual Logger - Naming Conventions", function()
     end)
 
     it("should raise an error for invalid keys in config table", function()
-        assert.has_error(function() lual.logger("cfgkeytest", { invalid_key = 123 }) end,                                         -- Unique name
-            "Invalid logger configuration: Unknown configuration key 'invalid_key'. Valid keys are: level, pipelines, propagate") -- Added "are"
+        -- Test that error is thrown
+        assert.has_error(function()
+            lual.logger("cfgkeytest", { invalid_key = 123 })
+        end)
+
+        -- Test specific error detection for unknown keys
+        local error_info = get_validation_error({ invalid_key = 123 })
+        assert.is_not_nil(error_info)
+        assert.are.equal("UNKNOWN_KEY", error_info.error_code)
+        assert.are.equal("invalid_key", error_info.field)
     end)
 
     it("should raise an error for invalid value types in config table", function()
-        assert.has_error(function() lual.logger("cfgvaltest1", { level = "not_a_number" }) end,                                                          -- Unique name
-            "Invalid logger configuration: Invalid type for 'level': expected number, got string. Logging level (use lual.DEBUG, lual.INFO, etc.)")      -- Changed "e.g." to "use"
-        assert.has_error(function() lual.logger("cfgvaltest2", { outputs = "not_a_table" }) end,                                                         -- Unique name
-            "Invalid logger configuration: 'outputs' is no longer supported. Use 'pipelines' instead.")                                                  -- Adjusted
-        assert.has_error(function() lual.logger("cfgvaltest3", { propagate = "not_a_boolean" }) end,                                                     -- Unique name
-            "Invalid logger configuration: Invalid type for 'propagate': expected boolean, got string. Whether to propagate messages to parent loggers") -- Plural "loggers"
+        -- Test that errors are thrown
+        assert.has_error(function()
+            lual.logger("cfgvaltest1", { level = "not_a_number" })
+        end)
+        assert.has_error(function()
+            lual.logger("cfgvaltest2", { outputs = "not_a_table" })
+        end)
+        assert.has_error(function()
+            lual.logger("cfgvaltest3", { propagate = "not_a_boolean" })
+        end)
+
+        -- Test specific error codes
+        local level_error = get_validation_error({ level = "not_a_number" })
+        assert.is_not_nil(level_error)
+        assert.is_not_nil(level_error.fields)
+        assert.is_not_nil(level_error.fields.level)
+        assert.are.equal("INVALID_TYPE", level_error.fields.level[1][1])
+
+        local outputs_error = get_validation_error({ outputs = "not_a_table" })
+        assert.is_not_nil(outputs_error)
+        assert.are.equal("UNKNOWN_KEY", outputs_error.error_code)
+
+        local propagate_error = get_validation_error({ propagate = "not_a_boolean" })
+        assert.is_not_nil(propagate_error)
+        assert.is_not_nil(propagate_error.fields)
+        assert.is_not_nil(propagate_error.fields.propagate)
+        assert.are.equal("INVALID_TYPE", propagate_error.fields.propagate[1][1])
     end)
 
     it("should create loggers with hierarchy and correct parents", function()

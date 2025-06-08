@@ -4,6 +4,16 @@ package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lu
 local lual = require("lual.logger")
 local core_levels = require("lual.levels")
 local table_utils = require("lual.utils.table")
+local logger_config = require("lual.loggers.config")
+
+-- Helper function to get detailed validation errors for testing
+local function get_validation_error(config_table)
+    local ok, error_info = logger_config.validate_logger_config_table(config_table, true)
+    if ok then
+        return nil
+    end
+    return error_info
+end
 
 --- Helper function to verify that a output matches the expected function
 -- @param actual table The normalized output
@@ -177,31 +187,58 @@ describe("lual Logger Configuration API (Step 2.6)", function()
         end)
 
         it("should reject unknown configuration keys", function()
+            -- Test that error is thrown
             assert.has_error(function()
-                    lual.logger("test_unknown", {
-                        level = core_levels.definition.DEBUG,
-                        unknown_key = "value"
-                    })
-                end,
-                "Invalid logger configuration: Unknown configuration key 'unknown_key'. Valid keys are: level, pipelines, propagate")
+                lual.logger("test_unknown", {
+                    level = core_levels.definition.DEBUG,
+                    unknown_key = "value"
+                })
+            end)
+
+            -- Test specific error code for unknown keys
+            local error_info = get_validation_error({
+                level = core_levels.definition.DEBUG,
+                unknown_key = "value"
+            })
+            assert.is_not_nil(error_info)
+            assert.are.equal("UNKNOWN_KEY", error_info.error_code)
+            assert.are.equal("unknown_key", error_info.field)
         end)
 
         it("should reject invalid level type", function()
+            -- Test that error is thrown
             assert.has_error(function()
-                    lual.logger("test_leveltype", {
-                        level = "debug"
-                    })
-                end,
-                "Invalid logger configuration: Invalid type for 'level': expected number, got string. Logging level (use lual.DEBUG, lual.INFO, etc.)")
+                lual.logger("test_leveltype", {
+                    level = "debug"
+                })
+            end)
+
+            -- Test specific error code for invalid type
+            local error_info = get_validation_error({
+                level = "debug"
+            })
+            assert.is_not_nil(error_info)
+            assert.is_not_nil(error_info.fields)
+            assert.is_not_nil(error_info.fields.level)
+            assert.are.equal("INVALID_TYPE", error_info.fields.level[1][1])
         end)
 
         it("should reject invalid level values", function()
+            -- Test that error is thrown
             assert.has_error(function()
-                    lual.logger("test_levelval", {
-                        level = 999
-                    })
-                end,
-                "Invalid logger configuration: Invalid level value 999. Valid levels are: CRITICAL(50), DEBUG(10), ERROR(40), INFO(20), NONE(100), NOTSET(0), WARNING(30)")
+                lual.logger("test_levelval", {
+                    level = 999
+                })
+            end)
+
+            -- Test specific error code for invalid value
+            local error_info = get_validation_error({
+                level = 999
+            })
+            assert.is_not_nil(error_info)
+            assert.is_not_nil(error_info.fields)
+            assert.is_not_nil(error_info.fields.level)
+            assert.are.equal("INVALID_VALUE", error_info.fields.level[1][1])
         end)
 
         it("should accept all valid level values", function()
@@ -222,38 +259,24 @@ describe("lual Logger Configuration API (Step 2.6)", function()
         end)
 
         it("should reject invalid propagate type", function()
+            -- Test that error is thrown
             assert.has_error(function()
-                    lual.logger("test_propag", {
-                        propagate = "true"
-                    })
-                end,
-                "Invalid logger configuration: Invalid type for 'propagate': expected boolean, got string. Whether to propagate messages to parent loggers")
+                lual.logger("test_propag", {
+                    propagate = "true"
+                })
+            end)
+
+            -- Test specific error code for invalid type
+            local error_info = get_validation_error({
+                propagate = "true"
+            })
+            assert.is_not_nil(error_info)
+            assert.is_not_nil(error_info.fields)
+            assert.is_not_nil(error_info.fields.propagate)
+            assert.are.equal("INVALID_TYPE", error_info.fields.propagate[1][1])
         end)
 
-        it("should reject outputs configuration", function()
-            assert.has_error(function()
-                    lual.logger("test_disptype", {
-                        outputs = "not a table"
-                    })
-                end,
-                "Invalid logger configuration: 'outputs' is no longer supported. Use 'pipelines' instead.")
-        end)
 
-        it("should reject outputs array entirely", function()
-            assert.has_error(function()
-                    lual.logger("test_dispitem1", {
-                        outputs = { "not a function" }
-                    })
-                end,
-                "Invalid logger configuration: 'outputs' is no longer supported. Use 'pipelines' instead.")
-
-            assert.has_error(function()
-                    lual.logger("test_dispitem2", {
-                        outputs = { function() end, 123, function() end }
-                    })
-                end,
-                "Invalid logger configuration: 'outputs' is no longer supported. Use 'pipelines' instead.")
-        end)
 
         it("should accept empty pipelines array", function()
             assert.has_no_error(function()

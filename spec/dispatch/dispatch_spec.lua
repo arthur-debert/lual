@@ -1034,6 +1034,9 @@ describe("lual outputs", function()
         local _format_syslog_message = syslog_module._format_syslog_message
 
         it("should validate configuration", function()
+            local schemer = require("lual.utils.schemer")
+            local syslog_schema = require("lual.pipelines.outputs.syslog_schema")
+
             -- Valid configurations
             assert.is_true(_validate_config({
                 facility = "LOCAL0",
@@ -1046,18 +1049,20 @@ describe("lual outputs", function()
                 tag = "myapp"
             }))
 
-            -- Invalid configurations
-            local valid, err = _validate_config({
+            -- Invalid configurations - test via schemer directly to get error codes
+            local errors = schemer.validate({
                 facility = "INVALID"
-            })
-            assert.is_false(valid)
-            assert.matches("Unknown syslog facility", err)
+            }, syslog_schema.syslog_schema)
+            assert.is_not_nil(errors)
+            assert.is_not_nil(errors.fields.facility)
+            assert.are.equal("CUSTOM_VALIDATION_FAILED", errors.fields.facility[1][1])
 
-            valid, err = _validate_config({
+            errors = schemer.validate({
                 port = "not_a_number"
-            })
-            assert.is_false(valid)
-            assert.matches("port must be a number", err)
+            }, syslog_schema.syslog_schema)
+            assert.is_not_nil(errors)
+            assert.is_not_nil(errors.fields.port)
+            assert.are.equal("INVALID_TYPE", errors.fields.port[1][1])
         end)
 
         it("should map log levels to syslog severities", function()

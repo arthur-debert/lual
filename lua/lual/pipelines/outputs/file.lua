@@ -1,5 +1,10 @@
 --- output that writes log messages to a file with rotation.
 --
+-- ARCHITECTURE NOTE: This module follows strict separation of concerns:
+-- 1. validate_rotation_commands() - PURE VALIDATION (no file I/O)
+-- 2. generate_rotation_commands() - FILE SYSTEM READING (during setup)
+-- 3. execute_rotation_commands() - FILE SYSTEM WRITING (during execution)
+--
 -- On initialization, this output handler will:
 -- 1. Rotate existing log files, keeping up to 5 backups.
 --    - Example: app.log -> app.log.1, app.log.1 -> app.log.2, ..., app.log.4 -> app.log.5
@@ -17,6 +22,7 @@
 local MAX_BACKUPS = 5
 
 --- Checks if a file exists by attempting to open it for reading.
+-- NOTE: This performs actual FILE I/O - used during setup, NOT validation
 -- @param path (string) The file path to check.
 -- @return boolean True if file exists, false otherwise.
 local function file_exists(path)
@@ -31,6 +37,9 @@ end
 --- Generates a list of file system operations needed for log rotation.
 -- This function returns a list of commands without executing them,
 -- allowing for validation and testing.
+--
+-- SIDE EFFECT WARNING: This function calls file_exists() which performs FILE I/O
+-- This is acceptable because it's used during factory setup, not validation.
 -- @param log_path (string) The path to the main log file.
 -- @return table A list of operations, each with type, source, and target.
 local function generate_rotation_commands(log_path)
@@ -73,6 +82,11 @@ local function generate_rotation_commands(log_path)
 end
 
 --- Validates that a list of rotation commands is correct.
+--
+-- PURE VALIDATION: This function performs NO file I/O operations.
+-- It only validates command structure, targets, and logical consistency.
+-- This is the "correct" way to do validation - no side effects!
+--
 -- @param commands (table) List of commands from generate_rotation_commands.
 -- @param log_path (string) The main log file path for validation context.
 -- @return boolean, string True if valid, false and error message if invalid.
@@ -163,8 +177,13 @@ end
 --   Must contain `path` (string) - the path to the main log file.
 -- @return function(record) The actual log writing function.
 local function file_factory(config)
-    if not config or not config.path or type(config.path) ~= "string" then
-        io.stderr:write("lual: file_factory requires config.path (string)\n")
+    -- Use schemer for validation
+    local schemer = require("lual.utils.schemer")
+    local file_schema = require("lual.pipelines.outputs.file_schema")
+
+    local errors = schemer.validate(config or {}, file_schema.file_schema)
+    if errors then
+        io.stderr:write(string.format("lual: file_factory validation error: %s\n", errors.error))
         return function() end -- Return a no-op function on error
     end
 

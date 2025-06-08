@@ -67,74 +67,79 @@ describe("Async I/O", function()
         end)
 
         it("should validate async batch_size", function()
-            assert.has_error(function()
-                lual.config({
-                    async = {
-                        enabled = true,
-                        batch_size = 0
-                    }
-                })
-            end, "Invalid configuration: async.batch_size must be greater than 0")
+            local schemer = require("lual.utils.schemer")
+            local async_schema = require("lual.async.schema")
 
-            assert.has_error(function()
-                lual.config({
-                    async = {
-                        enabled = true,
-                        batch_size = -5
-                    }
-                })
-            end, "Invalid configuration: async.batch_size must be greater than 0")
+            -- Test batch_size = 0 (should fail min validation)
+            local errors = schemer.validate({
+                batch_size = 0
+            }, async_schema.async_schema)
+            assert.is_not_nil(errors)
+            assert.is_not_nil(errors.fields.batch_size)
+            assert.are.equal("NUMBER_TOO_SMALL", errors.fields.batch_size[1][1])
+
+            -- Test batch_size = -5 (should fail min validation)
+            errors = schemer.validate({
+                batch_size = -5
+            }, async_schema.async_schema)
+            assert.is_not_nil(errors)
+            assert.is_not_nil(errors.fields.batch_size)
+            assert.are.equal("NUMBER_TOO_SMALL", errors.fields.batch_size[1][1])
         end)
 
         it("should validate async flush_interval", function()
-            assert.has_error(function()
-                lual.config({
-                    async = {
-                        enabled = true,
-                        flush_interval = 0
-                    }
-                })
-            end, "Invalid configuration: async.flush_interval must be greater than 0")
+            local schemer = require("lual.utils.schemer")
+            local async_schema = require("lual.async.schema")
 
-            assert.has_error(function()
-                lual.config({
-                    async = {
-                        enabled = true,
-                        flush_interval = -1.5
-                    }
-                })
-            end, "Invalid configuration: async.flush_interval must be greater than 0")
+            -- Test flush_interval = 0 (should fail min validation)
+            local errors = schemer.validate({
+                flush_interval = 0
+            }, async_schema.async_schema)
+            assert.is_not_nil(errors)
+            assert.is_not_nil(errors.fields.flush_interval)
+            assert.are.equal("NUMBER_TOO_SMALL", errors.fields.flush_interval[1][1])
+
+            -- Test flush_interval = -1.5 (should fail min validation)
+            errors = schemer.validate({
+                flush_interval = -1.5
+            }, async_schema.async_schema)
+            assert.is_not_nil(errors)
+            assert.is_not_nil(errors.fields.flush_interval)
+            assert.are.equal("NUMBER_TOO_SMALL", errors.fields.flush_interval[1][1])
         end)
 
         it("should validate max_queue_size", function()
-            assert.has_error(function()
-                lual.config({
-                    async = {
-                        enabled = true,
-                        max_queue_size = 0
-                    }
-                })
-            end, "Invalid configuration: async.max_queue_size must be greater than 0")
+            local schemer = require("lual.utils.schemer")
+            local async_schema = require("lual.async.schema")
 
-            assert.has_error(function()
-                lual.config({
-                    async = {
-                        enabled = true,
-                        max_queue_size = -10
-                    }
-                })
-            end, "Invalid configuration: async.max_queue_size must be greater than 0")
+            -- Test max_queue_size = 0 (should fail min validation)
+            local errors = schemer.validate({
+                max_queue_size = 0
+            }, async_schema.async_schema)
+            assert.is_not_nil(errors)
+            assert.is_not_nil(errors.fields.max_queue_size)
+            assert.are.equal("NUMBER_TOO_SMALL", errors.fields.max_queue_size[1][1])
+
+            -- Test max_queue_size = -10 (should fail min validation)
+            errors = schemer.validate({
+                max_queue_size = -10
+            }, async_schema.async_schema)
+            assert.is_not_nil(errors)
+            assert.is_not_nil(errors.fields.max_queue_size)
+            assert.are.equal("NUMBER_TOO_SMALL", errors.fields.max_queue_size[1][1])
         end)
 
         it("should validate overflow_strategy", function()
-            assert.has_error(function()
-                lual.config({
-                    async = {
-                        enabled = true,
-                        overflow_strategy = "invalid_strategy"
-                    }
-                })
-            end, "Invalid configuration: async.overflow_strategy must be 'drop_oldest', 'drop_newest', or 'block'")
+            local schemer = require("lual.utils.schemer")
+            local async_schema = require("lual.async.schema")
+
+            -- Test invalid overflow_strategy (should fail enum validation)
+            local errors = schemer.validate({
+                overflow_strategy = "invalid_strategy"
+            }, async_schema.async_schema)
+            assert.is_not_nil(errors)
+            assert.is_not_nil(errors.fields.overflow_strategy)
+            assert.are.equal("INVALID_VALUE", errors.fields.overflow_strategy[1][1])
         end)
 
         it("should validate relationships between config values", function()

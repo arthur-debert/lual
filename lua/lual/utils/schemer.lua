@@ -58,6 +58,32 @@ Example Usage:
                 each = { type = "string" }
             },
 
+            -- Table with unique values constraint
+            level_mappings = {
+                type = "table",
+                unique_values = true -- All values must be unique
+            },
+
+            -- Field with forbidden values (e.g., reserved values)
+            port = {
+                type = "number",
+                not_allowed_values = { 0, 22, 80, 443 }, -- Reserved ports
+                min = 1,
+                max = 65535
+            },
+
+            -- Union types - field can accept multiple types with different validation
+            timeout = {
+                union = {
+                    { type = "number", min = 1 },                        -- Timeout in seconds
+                    { type = "string", values = {"infinite", "never"} }, -- Special timeout values
+                    { type = "table", fields = {                         -- Custom timeout config
+                        min = { type = "number", min = 0 },
+                        max = { type = "number", min = 0 }
+                    }}
+                }
+            },
+
             -- Nested schema
             config = {
                 type = "table",
@@ -87,6 +113,20 @@ Example Usage:
         print("Level:", result.level) -- Will be 1 (transformed from "DEBUG")
     end
 
+Example with on_extra_keys:
+
+    local schema = {
+        fields = {
+            name = { type = "string", required = true },
+            age = { type = "number" }
+        },
+        on_extra_keys = "ignore" -- Allow unknown keys
+    }
+
+    local data = { name = "Alice", age = 30, extra = "value" }
+    local err, result = schemer.validate(data, schema)
+    -- result.extra will be "value" (ignored and kept)
+
 API Reference:
 
 Functions:
@@ -115,11 +155,12 @@ Functions:
 
         Parameters:
             enum_table (table): Key-value pairs for the enum
-            options (table, optional): { reverse = boolean }
+            options (table, optional): { reverse = boolean, case_insensitive = boolean }
                 reverse: If true, allows string keys to be transformed to values
+                case_insensitive: If true, enables case-insensitive matching
 
         Returns:
-            { enum = enum_table, reverse = boolean }
+            { enum = enum_table, reverse = boolean, case_insensitive = boolean }
 
 Schema Structure:
 
@@ -130,6 +171,9 @@ Field Schema Properties:
 
     For all types:
         values (table|enum_def): List of allowed values or enum definition
+        not_allowed_values (table): List of forbidden values
+        case_insensitive (boolean): Enable case-insensitive string matching for values
+        union (table): Array of alternative schemas - value must match at least one
 
     For strings:
         min_len (number): Minimum string length
@@ -144,25 +188,39 @@ Field Schema Properties:
         count (table): {min, max} item count. Use "*" for unlimited max
         each (schema): Schema applied to each array element
         fields (table): Schema for nested object validation
+        unique_values (boolean): Ensure all values in the table are unique
+
+    Custom validation:
+        custom_validator (function): Custom validation function (value) -> boolean, error_msg
+        error_message (string): Custom error message for validation failures
 
 Cross-field Schema Properties:
     one_of (table): List of fields where at least one must be present
     depends_on (table): { field = "field_name", requires = "required_field" }
     exclusive (table): List of fields that cannot be present together
+    on_extra_keys (string): How to handle unknown keys ("error", "ignore", "remove")
+                           Default: "error" - reject unknown keys
+                           "ignore" - allow unknown keys and keep them in result
+                           "remove" - strip unknown keys from result but continue validation
 
 Error Codes:
     INVALID_TYPE: Type mismatch
     REQUIRED_FIELD: Required field missing
     INVALID_VALUE: Value not in allowed set
+    FORBIDDEN_VALUE: Value in forbidden set
     STRING_TOO_SHORT: String below minimum length
     STRING_TOO_LONG: String exceeds maximum length
     PATTERN_MISMATCH: String doesn't match pattern
     NUMBER_TOO_SMALL: Number below minimum
     NUMBER_TOO_LARGE: Number above maximum
     INVALID_COUNT: Table item count outside allowed range
+    DUPLICATE_VALUE: Duplicate values found when uniqueness required
+    UNION_MISMATCH: Value doesn't match any union member
     ONE_OF_MISSING: None of the required fields present
     DEPENDENCY_MISSING: Required dependency field missing
     EXCLUSIVE_CONFLICT: Mutually exclusive fields both present
+    CUSTOM_VALIDATION_FAILED: Custom validator returned false
+    UNKNOWN_KEY: Unknown key in data
 
 --]]
 
@@ -173,21 +231,34 @@ local ERROR_CODES = {
     INVALID_TYPE = "INVALID_TYPE",
     REQUIRED_FIELD = "REQUIRED_FIELD",
     INVALID_VALUE = "INVALID_VALUE",
+    FORBIDDEN_VALUE = "FORBIDDEN_VALUE",
     STRING_TOO_SHORT = "STRING_TOO_SHORT",
     STRING_TOO_LONG = "STRING_TOO_LONG",
     PATTERN_MISMATCH = "PATTERN_MISMATCH",
     NUMBER_TOO_SMALL = "NUMBER_TOO_SMALL",
     NUMBER_TOO_LARGE = "NUMBER_TOO_LARGE",
     INVALID_COUNT = "INVALID_COUNT",
+    DUPLICATE_VALUE = "DUPLICATE_VALUE",
+    UNION_MISMATCH = "UNION_MISMATCH",
     ONE_OF_MISSING = "ONE_OF_MISSING",
     DEPENDENCY_MISSING = "DEPENDENCY_MISSING",
-    EXCLUSIVE_CONFLICT = "EXCLUSIVE_CONFLICT"
+    EXCLUSIVE_CONFLICT = "EXCLUSIVE_CONFLICT",
+    CUSTOM_VALIDATION_FAILED = "CUSTOM_VALIDATION_FAILED",
+    UNKNOWN_KEY = "UNKNOWN_KEY"
 }
 
 -- Helper function for enum definitions
 function schemer.enum(enum_table, options)
     options = options or {}
-    return { enum = enum_table, reverse = options.reverse or false }
+    local result = {
+        enum = enum_table,
+        reverse = options.reverse or false
+    }
+    -- Only set case_insensitive if explicitly provided
+    if options.case_insensitive ~= nil then
+        result.case_insensitive = options.case_insensitive
+    end
+    return result
 end
 
 -- Helper function to deep copy a table
@@ -206,6 +277,24 @@ local function has_value(list, value)
         if v == value then return true end
     end
     return false
+end
+
+-- Helper function to check if a value is in a list with case insensitive matching
+local function has_value_case_insensitive(list, value)
+    if type(value) ~= "string" then
+        local found = has_value(list, value)
+        return found, value -- Return value as canonical for consistency
+    end
+
+    local lower_value = string.lower(value)
+    for _, v in ipairs(list) do
+        if type(v) == "string" and string.lower(v) == lower_value then
+            return true, v -- Return the canonical value
+        elseif v == value then
+            return true, v
+        end
+    end
+    return false, nil
 end
 
 -- Helper function to validate count specification
@@ -232,12 +321,72 @@ end
 local function validate_field(value, field_schema, field_name, data)
     local errors = {}
 
-    -- Handle required/optional fields
-    if value == nil then
+    -- Handle required/optional fields for non-union fields
+    if value == nil and not field_schema.union then
         if field_schema.required then
             table.insert(errors, { ERROR_CODES.REQUIRED_FIELD, string.format("Field '%s' is required", field_name) })
         end
         return errors, field_schema.default
+    end
+
+    -- Union type validation - if present, try each union member
+    if field_schema.union then
+        local union_attempts = {}
+
+        for i, union_member in ipairs(field_schema.union) do
+            -- For union members, if value is nil and member has no default, it should fail
+            local member_copy = {}
+            for k, v in pairs(union_member) do
+                member_copy[k] = v
+            end
+            if value == nil and member_copy.default == nil then
+                member_copy.required = true -- Force failure for nil without default
+            end
+
+            local member_errors, normalized_value = validate_field(value, member_copy, field_name, data)
+
+            -- Debug: Uncomment these lines to debug union validation
+            -- print(string.format("DEBUG: Union member %d for field '%s' with value %s", i, field_name, tostring(value)))
+            -- print(string.format("DEBUG: Member errors: %d, normalized_value: %s", #member_errors, tostring(normalized_value)))
+
+            if #member_errors == 0 then
+                -- Success! This union member matched
+                return {}, normalized_value
+            end
+
+            -- Store this attempt for error reporting
+            table.insert(union_attempts, {
+                member_index = i,
+                errors = member_errors,
+                normalized_value = normalized_value
+            })
+        end
+
+        -- All union members failed, but check if any provided a default
+        if value == nil then
+            for _, attempt in ipairs(union_attempts) do
+                if attempt.normalized_value ~= nil then
+                    -- Found a default value, use the first one
+                    return {}, attempt.normalized_value
+                end
+            end
+
+            -- No defaults found and field is required
+            if field_schema.required then
+                table.insert(errors, { ERROR_CODES.REQUIRED_FIELD, string.format("Field '%s' is required", field_name) })
+                return errors, value
+            end
+        end
+
+        -- All union members failed - generate helpful error message
+        local error_parts = {}
+        for _, attempt in ipairs(union_attempts) do
+            table.insert(error_parts, string.format("option %d failed", attempt.member_index))
+        end
+
+        table.insert(errors, { ERROR_CODES.UNION_MISMATCH,
+            string.format("Field '%s' doesn't match any union type (%s)", field_name, table.concat(error_parts, ", ")) })
+        return errors, value
     end
 
     -- Check if we have an enum with reverse lookup that can transform the value
@@ -247,8 +396,22 @@ local function validate_field(value, field_schema, field_name, data)
     if field_schema.values and type(field_schema.values) == 'table' and
         field_schema.values.enum and field_schema.values.reverse then
         -- Check if value is a key in the enum
+        local case_insensitive
+        if field_schema.values.case_insensitive ~= nil then
+            case_insensitive = field_schema.values.case_insensitive
+        else
+            case_insensitive = field_schema.case_insensitive
+        end
+
         for k, v in pairs(field_schema.values.enum) do
-            if k == value then
+            local match = false
+            if case_insensitive and type(k) == "string" and type(value) == "string" then
+                match = string.lower(k) == string.lower(value)
+            else
+                match = k == value
+            end
+
+            if match then
                 transformed_value = v
                 enum_transformed = true
                 break
@@ -287,10 +450,15 @@ local function validate_field(value, field_schema, field_name, data)
     if field_schema.values then
         local is_valid = false
         local final_value = value
+        local case_insensitive = field_schema.case_insensitive
 
         if type(field_schema.values) == 'table' and field_schema.values.enum then
             -- Handle enum
             local enum_def = field_schema.values
+            if enum_def.case_insensitive ~= nil then
+                case_insensitive = enum_def.case_insensitive
+            end
+
             if enum_def.reverse then
                 -- For reverse lookup, check if we already transformed it or if it's a valid enum value
                 if enum_transformed then
@@ -299,8 +467,16 @@ local function validate_field(value, field_schema, field_name, data)
                 else
                     -- Check if it's already a valid enum value
                     for _, v in pairs(enum_def.enum) do
-                        if v == value then
+                        local match = false
+                        if case_insensitive and type(v) == "string" and type(value) == "string" then
+                            match = string.lower(v) == string.lower(value)
+                        else
+                            match = v == value
+                        end
+
+                        if match then
                             is_valid = true
+                            final_value = v -- Use canonical value
                             break
                         end
                     end
@@ -308,15 +484,31 @@ local function validate_field(value, field_schema, field_name, data)
             else
                 -- Normal enum - check if value is in enum values
                 for _, v in pairs(enum_def.enum) do
-                    if v == value then
+                    local match = false
+                    if case_insensitive and type(v) == "string" and type(value) == "string" then
+                        match = string.lower(v) == string.lower(value)
+                    else
+                        match = v == value
+                    end
+
+                    if match then
                         is_valid = true
+                        final_value = v -- Use canonical value
                         break
                     end
                 end
             end
         else
             -- Simple list of allowed values
-            is_valid = has_value(field_schema.values, value)
+            if case_insensitive then
+                local found, canonical = has_value_case_insensitive(field_schema.values, value)
+                is_valid = found
+                if found then
+                    final_value = canonical
+                end
+            else
+                is_valid = has_value(field_schema.values, value)
+            end
         end
 
         if not is_valid then
@@ -325,6 +517,25 @@ local function validate_field(value, field_schema, field_name, data)
             return errors, value -- Return early on value validation failure
         else
             value = final_value  -- Apply enum transformation if applicable
+        end
+    end
+
+    -- not_allowed_values validation (forbidden values)
+    if field_schema.not_allowed_values then
+        local is_forbidden = false
+        local case_insensitive = field_schema.case_insensitive
+
+        if case_insensitive then
+            local found, _ = has_value_case_insensitive(field_schema.not_allowed_values, value)
+            is_forbidden = found
+        else
+            is_forbidden = has_value(field_schema.not_allowed_values, value)
+        end
+
+        if is_forbidden then
+            table.insert(errors, { ERROR_CODES.FORBIDDEN_VALUE,
+                string.format("Field '%s' has forbidden value '%s'", field_name, tostring(value)) })
+            return errors, value -- Return early on forbidden value
         end
     end
 
@@ -372,6 +583,35 @@ local function validate_field(value, field_schema, field_name, data)
             end
         end
 
+        -- Uniqueness validation
+        if field_schema.unique_values then
+            local seen_values = {}
+            local duplicate_found = false
+            local first_duplicate = nil
+            local duplicate_locations = {}
+
+            -- Check values in the table for duplicates
+            for k, v in pairs(value) do
+                if seen_values[v] then
+                    duplicate_found = true
+                    if not first_duplicate then
+                        first_duplicate = v
+                        duplicate_locations = { seen_values[v], k }
+                    end
+                    break
+                else
+                    seen_values[v] = k
+                end
+            end
+
+            if duplicate_found then
+                table.insert(errors, { ERROR_CODES.DUPLICATE_VALUE,
+                    string.format("Field '%s' has duplicate value '%s' at locations '%s' and '%s'",
+                        field_name, tostring(first_duplicate), tostring(duplicate_locations[1]),
+                        tostring(duplicate_locations[2])) })
+            end
+        end
+
         -- Each element validation
         if field_schema.each then
             for i, item in ipairs(value) do
@@ -395,6 +635,18 @@ local function validate_field(value, field_schema, field_name, data)
                 end
             else
                 value = normalized_nested
+            end
+        end
+    end
+
+    -- Custom validation
+    if field_schema.custom_validator then
+        if type(field_schema.custom_validator) == 'function' then
+            local is_valid, custom_error = field_schema.custom_validator(value)
+            if not is_valid then
+                local error_msg = field_schema.error_message or custom_error or "Custom validation failed"
+                table.insert(errors, { "CUSTOM_VALIDATION_FAILED",
+                    string.format("Field '%s': %s", field_name, error_msg) })
             end
         end
     end
@@ -474,6 +726,26 @@ function schemer.validate(data, schema)
             -- Apply normalized value (including defaults)
             if normalized_value ~= nil or data[field_name] ~= nil then
                 result[field_name] = normalized_value
+            end
+        end
+    end
+
+    -- Handle extra keys based on on_extra_keys setting
+    local on_extra_keys = schema.on_extra_keys or "error"
+    if schema.fields then
+        for field_name, _ in pairs(data) do
+            if not schema.fields[field_name] then
+                -- This is an unknown/extra key
+                if on_extra_keys == "error" or (on_extra_keys ~= "ignore" and on_extra_keys ~= "remove") then
+                    if not field_errors[field_name] then
+                        field_errors[field_name] = {}
+                    end
+                    table.insert(field_errors[field_name], { ERROR_CODES.UNKNOWN_KEY,
+                        string.format("Unknown field '%s'", field_name) })
+                elseif on_extra_keys == "remove" then
+                    result[field_name] = nil
+                    -- For "ignore", we do nothing - the key stays in the result
+                end
             end
         end
     end

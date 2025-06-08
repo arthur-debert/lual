@@ -1,5 +1,11 @@
 --- output that sends log messages to syslog servers via UDP.
 --
+-- ARCHITECTURE NOTE: This module demonstrates proper separation of concerns:
+-- 1. validate_config() - PURE VALIDATION (uses schemer, no network I/O)
+-- 2. syslog_factory() - SETUP PHASE (creates sockets, detects hostname)
+-- 3. returned function - RUNTIME (sends actual messages)
+-- Network operations happen in setup/runtime, NOT during validation!
+--
 -- This handler implements RFC 3164 syslog protocol and supports:
 -- - Local syslog (localhost:514) and remote syslog servers
 -- - Configurable syslog facilities (e.g., LOCAL0-LOCAL7, USER, DAEMON, etc.)
@@ -78,6 +84,8 @@ local function map_level_to_severity(level_no)
 end
 
 --- Gets the local hostname.
+-- NETWORK I/O: This function performs network operations to detect hostname.
+-- Used during factory setup, NOT during validation. This separation is correct!
 -- @return string The hostname or "localhost" if detection fails.
 local function get_hostname()
     -- Try to get hostname via socket.dns
@@ -115,6 +123,8 @@ local function format_syslog_message(record, facility, hostname, tag)
 end
 
 --- Validates syslog configuration.
+-- PURE VALIDATION: Uses schemer for declarative validation, no network I/O!
+-- Port validation (1-65535) is handled declaratively by the schema.
 -- @param config (table) The configuration to validate.
 -- @return boolean, string True if valid, false and error message if invalid.
 local function validate_config(config)
@@ -122,48 +132,13 @@ local function validate_config(config)
         return false, "syslog_factory requires a config table"
     end
 
-    -- Validate facility
-    if config.facility then
-        if type(config.facility) == "string" then
-            if not FACILITIES[config.facility:upper()] then
-                return false, string.format("Unknown syslog facility: %s", config.facility)
-            end
-        elseif type(config.facility) == "number" then
-            local valid_facility = false
-            for _, fac_num in pairs(FACILITIES) do
-                if fac_num == config.facility then
-                    valid_facility = true
-                    break
-                end
-            end
-            if not valid_facility then
-                return false, string.format("Invalid syslog facility number: %d", config.facility)
-            end
-        else
-            return false, "syslog facility must be a string or number"
-        end
-    end
+    -- Use schemer for validation (handles type checking, ranges, unknown keys)
+    local schemer = require("lual.utils.schemer")
+    local syslog_schema = require("lual.pipelines.outputs.syslog_schema")
 
-    -- Validate host if provided
-    if config.host and type(config.host) ~= "string" then
-        return false, "syslog host must be a string"
-    end
-
-    -- Validate port if provided
-    if config.port then
-        if type(config.port) ~= "number" or config.port < 1 or config.port > 65535 then
-            return false, "syslog port must be a number between 1 and 65535"
-        end
-    end
-
-    -- Validate tag if provided
-    if config.tag and type(config.tag) ~= "string" then
-        return false, "syslog tag must be a string"
-    end
-
-    -- Validate hostname if provided
-    if config.hostname and type(config.hostname) ~= "string" then
-        return false, "syslog hostname must be a string"
+    local errors = schemer.validate(config, syslog_schema.syslog_schema)
+    if errors then
+        return false, errors.error
     end
 
     return true
