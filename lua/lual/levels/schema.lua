@@ -22,77 +22,67 @@ end
 
 -- Custom levels validation schema
 function M.get_custom_levels_schema()
-    -- Get built-in level values that custom levels cannot use
-    local builtin_values = {}
+    -- Build list of built-in level values that custom levels cannot use
+    local forbidden_values = {}
     for _, value in pairs(core_levels.definition) do
-        builtin_values[value] = true -- Use hash for O(1) lookup
+        table.insert(forbidden_values, value)
     end
 
-    -- Custom validator to check that all values are numbers >= 1 and don't conflict with built-ins
-    local function validate_level_values(custom_levels)
-        for name, value in pairs(custom_levels) do
-            if type(value) ~= "number" then
-                return false, "Level value for '" .. name .. "' must be a number, got " .. type(value)
-            end
-            if value < 1 then
-                return false, "Level value for '" .. name .. "' must be at least 1, got " .. value
-            end
-            -- Check for built-in level conflicts using schemer's forbidden value concept
-            if builtin_values[value] then
-                return false,
-                    "Level value '" ..
-                    value .. "' for '" .. name .. "' is a forbidden value (conflicts with built-in level)"
-            end
-        end
-        return true
-    end
-
-    -- Custom validator for level names (validates all keys in the table)
-    local function validate_level_names(custom_levels)
-        for name, value in pairs(custom_levels) do
-            if type(name) ~= "string" then
-                return false, "Level name must be a string, got " .. type(name)
-            end
-
-            if name == "" then
-                return false, "Level name cannot be empty"
-            end
-
-            -- Must be lowercase
-            if name ~= name:lower() then
-                return false, "Level name '" .. name .. "' must be lowercase"
-            end
-
-            -- Must be valid Lua identifier starting with letter (not underscore)
-            -- This combines the two original rules into one precise pattern
-            if not name:match("^[a-z][a-z0-9_]*$") then
-                return false,
-                    "Level name '" ..
-                    name ..
-                    "' must be a valid Lua identifier starting with a lowercase letter (no underscores at start - reserved)"
-            end
-        end
-        return true
-    end
-
+    -- Since schemer's main validate function only works with field-based schemas,
+    -- we need to wrap our table validation in a field structure
     return {
-        type = "table",
-        unique_values = true, -- Ensure no duplicate level values
-        custom_validator = function(custom_levels)
-            -- Validate names first
-            local name_valid, name_error = validate_level_names(custom_levels)
-            if not name_valid then
-                return false, name_error
-            end
+        fields = {
+            custom_levels = {
+                type = "table",
+                unique_values = true, -- Ensure no duplicate level values (declarative!)
+                custom_validator = function(custom_levels)
+                    -- Validate each key-value pair with streamlined logic inspired by declarative validation
+                    for name, value in pairs(custom_levels) do
+                        -- Key validation - consolidated and simplified
+                        if type(name) ~= "string" then
+                            return false, "Level name must be a string, got " .. type(name)
+                        end
+                        if name == "" then -- equivalent to not_allowed_values = {""}
+                            return false, "Level name cannot be empty"
+                        end
+                        if not name:match("^[a-z][a-z0-9_]*$") then -- pattern validation
+                            return false,
+                                "Level name '" ..
+                                name ..
+                                "' must be a valid Lua identifier starting with a lowercase letter (no underscores at start - reserved)"
+                        end
 
-            -- Then validate values (including built-in conflicts)
-            local value_valid, value_error = validate_level_values(custom_levels)
-            if not value_valid then
-                return false, value_error
-            end
+                        -- Value validation - using declarative concepts (type, min, max, not_allowed_values)
+                        if type(value) ~= "number" then
+                            return false, "Level value for '" .. name .. "' must be a number, got " .. type(value)
+                        end
+                        if value ~= math.floor(value) then
+                            return false, "Level value for '" .. name .. "' must be an integer, got " .. tostring(value)
+                        end
+                        if value <= 10 then -- min = 11 equivalent
+                            return false,
+                                "Level value for '" .. name .. "' must be greater than 10 (DEBUG level), got " .. value
+                        end
+                        if value >= 40 then -- max = 39 equivalent
+                            return false,
+                                "Level value for '" .. name .. "' must be less than 40 (ERROR level), got " .. value
+                        end
 
-            return true
-        end
+                        -- not_allowed_values check for built-in conflicts
+                        for _, forbidden_value in ipairs(forbidden_values) do
+                            if value == forbidden_value then
+                                return false,
+                                "Level value '" ..
+                                    value ..
+                                    "' for '" .. name .. "' is a forbidden value (conflicts with built-in level)"
+                            end
+                        end
+                    end
+                    return true
+                end
+            }
+        },
+        on_extra_keys = "error"
     }
 end
 

@@ -45,23 +45,32 @@ end
 -- @param full_config table The full configuration context
 -- @return boolean, string True if valid, otherwise false and error message
 local function validate_custom_levels(custom_levels, full_config)
-    -- First use schemer for basic structure and uniqueness validation
-    local errors = schemer.validate(custom_levels, levels_schema_module.get_custom_levels_schema())
+    -- Use schemer for comprehensive validation (handles all business rules declaratively)
+    -- Wrap data to match schema structure
+    local errors = schemer.validate({ custom_levels = custom_levels }, levels_schema_module.get_custom_levels_schema())
     if errors then
+        -- Extract specific error code and convert to appropriate error message
+        if errors.fields and errors.fields.custom_levels then
+            local field_error = errors.fields.custom_levels[1]
+            if field_error then
+                local error_code = field_error[1]
+                local error_message = field_error[2]
+
+                -- Convert schema error codes to domain-specific error messages for backward compatibility
+                if error_code == "DUPLICATE_VALUE" then
+                    -- Extract duplicate value from the message
+                    local duplicate_value = error_message:match("duplicate value '([^']+)'")
+                    return false, "Duplicate level value " .. duplicate_value
+                elseif error_code == "CUSTOM_VALIDATION_FAILED" then
+                    -- For custom validation, extract the actual validation error
+                    local actual_error = error_message:match("Field 'custom_levels': (.+)")
+                    return false, actual_error or error_message
+                end
+
+                return false, error_message
+            end
+        end
         return false, errors.error
-    end
-
-    -- Then validate business rules that schemer doesn't handle
-    for name, value in pairs(custom_levels) do
-        local name_valid, name_error = core_levels.validate_custom_level_name(name)
-        if not name_valid then
-            return false, "Invalid custom level name '" .. tostring(name) .. "': " .. name_error
-        end
-
-        local value_valid, value_error = core_levels.validate_custom_level_value(value, true) -- exclude current customs
-        if not value_valid then
-            return false, "Invalid custom level value for '" .. name .. "': " .. value_error
-        end
     end
 
     return true
