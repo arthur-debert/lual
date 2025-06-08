@@ -10,7 +10,11 @@ local M = {}
 function M.get_level_schema()
     return {
         fields = {
-            level = { type = "number", values = schemer.enum(core_levels.get_all_levels()) }
+            level = {
+                type = "number",
+                values = schemer.enum(core_levels.get_all_levels()),
+                not_allowed_values = { core_levels.definition.NOTSET } -- Root logger cannot be NOTSET
+            }
         },
         on_extra_keys = "error"
     }

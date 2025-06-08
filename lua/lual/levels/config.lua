@@ -30,14 +30,11 @@ local function validate_level(level, full_config)
                 table.sort(valid_levels)
                 return false,
                     string.format("Invalid level value %d. Valid levels are: %s", level, table.concat(valid_levels, ", "))
+            elseif error_code == "FORBIDDEN_VALUE" then
+                return false, "Root logger level cannot be set to NOTSET"
             end
         end
         return false, errors.error
-    end
-
-    -- Root logger cannot be set to NOTSET (business rule)
-    if level == core_levels.definition.NOTSET then
-        return false, "Root logger level cannot be set to NOTSET"
     end
 
     return true
