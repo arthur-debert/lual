@@ -1,5 +1,10 @@
 --- Async Configuration Handler
 -- This module handles the 'async' configuration key
+--
+-- ARCHITECTURE NOTE: This module demonstrates PROPER separation of concerns:
+-- 1. validate() - PURE VALIDATION (no side effects, uses schemer)
+-- 2. apply() - SIDE EFFECTS (starts/stops async writer)
+-- This is the correct pattern: validation is pure, side effects happen in apply()
 
 -- Note: For direct execution with 'lua', use require("lual.*")
 -- For LuaRocks installed modules or busted tests, use require("lual.*")
@@ -10,6 +15,7 @@ local async_schema_module = require("lual.async.schema")
 local M = {}
 
 --- Validates async configuration
+-- PURE VALIDATION: No side effects, only validates configuration structure
 -- @param async_config table The async configuration to validate
 -- @param full_config table The full configuration context
 -- @return boolean, string True if valid, otherwise false and error message
@@ -28,6 +34,8 @@ function M.validate(async_config, full_config)
 end
 
 --- Applies async configuration changes
+-- SIDE EFFECTS: This is where it's appropriate to start/stop services
+-- This function may modify global state (async writer) - this is correct!
 -- @param async_config table The async configuration to apply
 -- @param current_config table The current full configuration
 -- @return table The async configuration to store

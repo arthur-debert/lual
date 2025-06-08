@@ -1,5 +1,11 @@
 --- output that sends log messages to syslog servers via UDP.
 --
+-- ARCHITECTURE NOTE: This module demonstrates proper separation of concerns:
+-- 1. validate_config() - PURE VALIDATION (uses schemer, no network I/O)
+-- 2. syslog_factory() - SETUP PHASE (creates sockets, detects hostname)
+-- 3. returned function - RUNTIME (sends actual messages)
+-- Network operations happen in setup/runtime, NOT during validation!
+--
 -- This handler implements RFC 3164 syslog protocol and supports:
 -- - Local syslog (localhost:514) and remote syslog servers
 -- - Configurable syslog facilities (e.g., LOCAL0-LOCAL7, USER, DAEMON, etc.)
@@ -78,6 +84,8 @@ local function map_level_to_severity(level_no)
 end
 
 --- Gets the local hostname.
+-- NETWORK I/O: This function performs network operations to detect hostname.
+-- Used during factory setup, NOT during validation. This separation is correct!
 -- @return string The hostname or "localhost" if detection fails.
 local function get_hostname()
     -- Try to get hostname via socket.dns
@@ -115,6 +123,8 @@ local function format_syslog_message(record, facility, hostname, tag)
 end
 
 --- Validates syslog configuration.
+-- PURE VALIDATION: Uses schemer for declarative validation, no network I/O!
+-- Port validation (1-65535) is handled declaratively by the schema.
 -- @param config (table) The configuration to validate.
 -- @return boolean, string True if valid, false and error message if invalid.
 local function validate_config(config)
