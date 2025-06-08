@@ -122,48 +122,13 @@ local function validate_config(config)
         return false, "syslog_factory requires a config table"
     end
 
-    -- Validate facility
-    if config.facility then
-        if type(config.facility) == "string" then
-            if not FACILITIES[config.facility:upper()] then
-                return false, string.format("Unknown syslog facility: %s", config.facility)
-            end
-        elseif type(config.facility) == "number" then
-            local valid_facility = false
-            for _, fac_num in pairs(FACILITIES) do
-                if fac_num == config.facility then
-                    valid_facility = true
-                    break
-                end
-            end
-            if not valid_facility then
-                return false, string.format("Invalid syslog facility number: %d", config.facility)
-            end
-        else
-            return false, "syslog facility must be a string or number"
-        end
-    end
+    -- Use schemer for validation (handles type checking, ranges, unknown keys)
+    local schemer = require("lual.utils.schemer")
+    local syslog_schema = require("lual.pipelines.outputs.syslog_schema")
 
-    -- Validate host if provided
-    if config.host and type(config.host) ~= "string" then
-        return false, "syslog host must be a string"
-    end
-
-    -- Validate port if provided
-    if config.port then
-        if type(config.port) ~= "number" or config.port < 1 or config.port > 65535 then
-            return false, "syslog port must be a number between 1 and 65535"
-        end
-    end
-
-    -- Validate tag if provided
-    if config.tag and type(config.tag) ~= "string" then
-        return false, "syslog tag must be a string"
-    end
-
-    -- Validate hostname if provided
-    if config.hostname and type(config.hostname) ~= "string" then
-        return false, "syslog hostname must be a string"
+    local errors = schemer.validate(config, syslog_schema.syslog_schema)
+    if errors then
+        return false, errors.error
     end
 
     return true

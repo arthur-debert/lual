@@ -163,8 +163,13 @@ end
 --   Must contain `path` (string) - the path to the main log file.
 -- @return function(record) The actual log writing function.
 local function file_factory(config)
-    if not config or not config.path or type(config.path) ~= "string" then
-        io.stderr:write("lual: file_factory requires config.path (string)\n")
+    -- Use schemer for validation
+    local schemer = require("lual.utils.schemer")
+    local file_schema = require("lual.pipelines.outputs.file_schema")
+
+    local errors = schemer.validate(config or {}, file_schema.file_schema)
+    if errors then
+        io.stderr:write(string.format("lual: file_factory validation error: %s\n", errors.error))
         return function() end -- Return a no-op function on error
     end
 
