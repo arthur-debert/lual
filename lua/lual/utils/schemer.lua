@@ -64,6 +64,14 @@ Example Usage:
                 unique_values = true -- All values must be unique
             },
 
+            -- Field with forbidden values (e.g., reserved values)
+            port = {
+                type = "number",
+                not_allowed_values = { 0, 22, 80, 443 }, -- Reserved ports
+                min = 1,
+                max = 65535
+            },
+
             -- Nested schema
             config = {
                 type = "table",
@@ -151,6 +159,7 @@ Field Schema Properties:
 
     For all types:
         values (table|enum_def): List of allowed values or enum definition
+        not_allowed_values (table): List of forbidden values
         case_insensitive (boolean): Enable case-insensitive string matching for values
 
     For strings:
@@ -185,6 +194,7 @@ Error Codes:
     INVALID_TYPE: Type mismatch
     REQUIRED_FIELD: Required field missing
     INVALID_VALUE: Value not in allowed set
+    FORBIDDEN_VALUE: Value in forbidden set
     STRING_TOO_SHORT: String below minimum length
     STRING_TOO_LONG: String exceeds maximum length
     PATTERN_MISMATCH: String doesn't match pattern
@@ -207,6 +217,7 @@ local ERROR_CODES = {
     INVALID_TYPE = "INVALID_TYPE",
     REQUIRED_FIELD = "REQUIRED_FIELD",
     INVALID_VALUE = "INVALID_VALUE",
+    FORBIDDEN_VALUE = "FORBIDDEN_VALUE",
     STRING_TOO_SHORT = "STRING_TOO_SHORT",
     STRING_TOO_LONG = "STRING_TOO_LONG",
     PATTERN_MISMATCH = "PATTERN_MISMATCH",
@@ -431,6 +442,25 @@ local function validate_field(value, field_schema, field_name, data)
             return errors, value -- Return early on value validation failure
         else
             value = final_value  -- Apply enum transformation if applicable
+        end
+    end
+
+    -- not_allowed_values validation (forbidden values)
+    if field_schema.not_allowed_values then
+        local is_forbidden = false
+        local case_insensitive = field_schema.case_insensitive
+
+        if case_insensitive then
+            local found, _ = has_value_case_insensitive(field_schema.not_allowed_values, value)
+            is_forbidden = found
+        else
+            is_forbidden = has_value(field_schema.not_allowed_values, value)
+        end
+
+        if is_forbidden then
+            table.insert(errors, { ERROR_CODES.FORBIDDEN_VALUE,
+                string.format("Field '%s' has forbidden value '%s'", field_name, tostring(value)) })
+            return errors, value -- Return early on forbidden value
         end
     end
 
