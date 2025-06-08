@@ -11,7 +11,8 @@ function M.get_level_schema()
     return {
         fields = {
             level = { type = "number", values = schemer.enum(core_levels.get_all_levels()) }
-        }
+        },
+        on_extra_keys = "error"
     }
 end
 

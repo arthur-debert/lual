@@ -47,7 +47,8 @@ function M.get_pipeline_schema()
                 count = { 1, "*" },
                 each = { custom_validator = validate_output_element }
             }
-        }
+        },
+        on_extra_keys = "error"
     }
 end
 

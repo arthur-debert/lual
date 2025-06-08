@@ -71,7 +71,8 @@ M.command_line_schema = {
             required = false,
             default = true
         }
-    }
+    },
+    on_extra_keys = "error"
 }
 
 return M

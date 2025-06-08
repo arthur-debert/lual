@@ -24,33 +24,26 @@ local function validate_logger_config_table(config_table, return_detailed)
         end
     end
 
-    -- Check for unknown keys first
-    local valid_keys = { "level", "pipelines", "propagate" }
-    for key, _ in pairs(config_table) do
-        local found = false
-        for _, valid_key in ipairs(valid_keys) do
-            if key == valid_key then
-                found = true
-                break
-            end
-        end
-        if not found then
-            if return_detailed then
-                return false, {
-                    error_code = "UNKNOWN_KEY",
-                    message = "Unknown configuration key '" .. key .. "'",
-                    field = key
-                }
-            else
-                return false, "Unknown configuration key '" .. key .. "'"
-            end
-        end
-    end
-
-    -- Use schemer for validation
+    -- Use schemer for validation (includes unknown key detection via on_extra_keys)
     local errors = schemer.validate(config_table, loggers_schema_module.logger_schema)
     if errors then
         if return_detailed then
+            -- Convert only UNKNOWN_KEY errors to legacy format for backward compatibility
+            if errors.fields then
+                for field_name, field_errors in pairs(errors.fields) do
+                    for _, error_info in ipairs(field_errors) do
+                        local error_code, error_message = error_info[1], error_info[2]
+                        if error_code == "UNKNOWN_KEY" then
+                            return false, {
+                                error_code = error_code,
+                                message = error_message,
+                                field = field_name
+                            }
+                        end
+                    end
+                end
+            end
+            -- Return schemer format for all other errors
             return false, errors
         else
             return false, errors.error

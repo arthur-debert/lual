@@ -22,7 +22,8 @@ M.logger_schema = {
             type = "boolean",
             required = false
         }
-    }
+    },
+    on_extra_keys = "error"
 }
 
 return M
