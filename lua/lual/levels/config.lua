@@ -48,11 +48,13 @@ end
 -- @param full_config table The full configuration context
 -- @return boolean, string True if valid, otherwise false and error message
 local function validate_custom_levels(custom_levels, full_config)
-    if type(custom_levels) ~= "table" then
-        return false, "custom_levels must be a table"
+    -- First use schemer for basic structure and uniqueness validation
+    local errors = schemer.validate(custom_levels, levels_schema_module.get_custom_levels_schema())
+    if errors then
+        return false, errors.error
     end
 
-    -- Validate each custom level
+    -- Then validate business rules that schemer doesn't handle
     for name, value in pairs(custom_levels) do
         local name_valid, name_error = core_levels.validate_custom_level_name(name)
         if not name_valid then
@@ -63,16 +65,6 @@ local function validate_custom_levels(custom_levels, full_config)
         if not value_valid then
             return false, "Invalid custom level value for '" .. name .. "': " .. value_error
         end
-    end
-
-    -- Check for duplicate values
-    local seen_values = {}
-    for name, value in pairs(custom_levels) do
-        if seen_values[value] then
-            return false,
-                "Duplicate level value " .. value .. " for levels '" .. seen_values[value] .. "' and '" .. name .. "'"
-        end
-        seen_values[value] = name
     end
 
     return true
