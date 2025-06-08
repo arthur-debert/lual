@@ -72,6 +72,18 @@ Example Usage:
                 max = 65535
             },
 
+            -- Union types - field can accept multiple types with different validation
+            timeout = {
+                union = {
+                    { type = "number", min = 1 },                        -- Timeout in seconds
+                    { type = "string", values = {"infinite", "never"} }, -- Special timeout values
+                    { type = "table", fields = {                         -- Custom timeout config
+                        min = { type = "number", min = 0 },
+                        max = { type = "number", min = 0 }
+                    }}
+                }
+            },
+
             -- Nested schema
             config = {
                 type = "table",
@@ -161,6 +173,7 @@ Field Schema Properties:
         values (table|enum_def): List of allowed values or enum definition
         not_allowed_values (table): List of forbidden values
         case_insensitive (boolean): Enable case-insensitive string matching for values
+        union (table): Array of alternative schemas - value must match at least one
 
     For strings:
         min_len (number): Minimum string length
@@ -202,6 +215,7 @@ Error Codes:
     NUMBER_TOO_LARGE: Number above maximum
     INVALID_COUNT: Table item count outside allowed range
     DUPLICATE_VALUE: Duplicate values found when uniqueness required
+    UNION_MISMATCH: Value doesn't match any union member
     ONE_OF_MISSING: None of the required fields present
     DEPENDENCY_MISSING: Required dependency field missing
     EXCLUSIVE_CONFLICT: Mutually exclusive fields both present
@@ -225,6 +239,7 @@ local ERROR_CODES = {
     NUMBER_TOO_LARGE = "NUMBER_TOO_LARGE",
     INVALID_COUNT = "INVALID_COUNT",
     DUPLICATE_VALUE = "DUPLICATE_VALUE",
+    UNION_MISMATCH = "UNION_MISMATCH",
     ONE_OF_MISSING = "ONE_OF_MISSING",
     DEPENDENCY_MISSING = "DEPENDENCY_MISSING",
     EXCLUSIVE_CONFLICT = "EXCLUSIVE_CONFLICT",
@@ -306,12 +321,72 @@ end
 local function validate_field(value, field_schema, field_name, data)
     local errors = {}
 
-    -- Handle required/optional fields
-    if value == nil then
+    -- Handle required/optional fields for non-union fields
+    if value == nil and not field_schema.union then
         if field_schema.required then
             table.insert(errors, { ERROR_CODES.REQUIRED_FIELD, string.format("Field '%s' is required", field_name) })
         end
         return errors, field_schema.default
+    end
+
+    -- Union type validation - if present, try each union member
+    if field_schema.union then
+        local union_attempts = {}
+
+        for i, union_member in ipairs(field_schema.union) do
+            -- For union members, if value is nil and member has no default, it should fail
+            local member_copy = {}
+            for k, v in pairs(union_member) do
+                member_copy[k] = v
+            end
+            if value == nil and member_copy.default == nil then
+                member_copy.required = true -- Force failure for nil without default
+            end
+
+            local member_errors, normalized_value = validate_field(value, member_copy, field_name, data)
+
+            -- Debug: Uncomment these lines to debug union validation
+            -- print(string.format("DEBUG: Union member %d for field '%s' with value %s", i, field_name, tostring(value)))
+            -- print(string.format("DEBUG: Member errors: %d, normalized_value: %s", #member_errors, tostring(normalized_value)))
+
+            if #member_errors == 0 then
+                -- Success! This union member matched
+                return {}, normalized_value
+            end
+
+            -- Store this attempt for error reporting
+            table.insert(union_attempts, {
+                member_index = i,
+                errors = member_errors,
+                normalized_value = normalized_value
+            })
+        end
+
+        -- All union members failed, but check if any provided a default
+        if value == nil then
+            for _, attempt in ipairs(union_attempts) do
+                if attempt.normalized_value ~= nil then
+                    -- Found a default value, use the first one
+                    return {}, attempt.normalized_value
+                end
+            end
+
+            -- No defaults found and field is required
+            if field_schema.required then
+                table.insert(errors, { ERROR_CODES.REQUIRED_FIELD, string.format("Field '%s' is required", field_name) })
+                return errors, value
+            end
+        end
+
+        -- All union members failed - generate helpful error message
+        local error_parts = {}
+        for _, attempt in ipairs(union_attempts) do
+            table.insert(error_parts, string.format("option %d failed", attempt.member_index))
+        end
+
+        table.insert(errors, { ERROR_CODES.UNION_MISMATCH,
+            string.format("Field '%s' doesn't match any union type (%s)", field_name, table.concat(error_parts, ", ")) })
+        return errors, value
     end
 
     -- Check if we have an enum with reverse lookup that can transform the value
