@@ -179,7 +179,7 @@ Monitor via `lual.async.get_stats()` for operational metrics.
 ## Complete Example
 
 ```lua
-local lual = require("lual.logger")
+local lual = require("lual")
 
 -- Configure with new async API
 lual.config({

@@ -1,4 +1,4 @@
-# lual - Powerful Logging Withough the Hassle
+# lual - Powerful Logging Without the Hassle
 
 lual is logging library for lua. Modeled after Python's standard lib, with a leaner API making good usage of Lua idioms, such as using functions over classes. The API is design to scale from a simple personal project to more complex deployments with hierarchical configurations and multiple pipelines.
 
@@ -20,8 +20,8 @@ logger:info("Init complete", {plugins_installed = plugins, os = os_name, version
 lual.config({
     level = lual.debug,
     pipelines = {
-        { level = lual.warn, outputs = { lual.console }, presenters = { lual.color } },
-        { level = lual.debug, outputs = { lual.file, path = "app.log" }, presenter = { lual.json() } }
+        { level = lual.warn, outputs = { lual.console }, presenter = lual.color },
+        { level = lual.debug, outputs = { lual.file, path = "app.log" }, presenter = lual.json() }
     }
 })
 ```

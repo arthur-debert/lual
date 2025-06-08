@@ -56,26 +56,39 @@ Bottleneck: I/O operations in output functions, not coroutine overhead.
 
 ```lua
 -- High throughput, low latency
-{
-    async_batch_size = 100,        -- Larger batches
-    async_flush_interval = 0.05,   -- 50ms intervals
-    max_queue_size = 50000,        -- More memory for bursts
-}
+lual.config({
+    async = {
+        enabled = true,
+        backend = lual.async.coroutines,
+        batch_size = 100,        -- Larger batches
+        flush_interval = 0.05,   -- 50ms intervals
+        max_queue_size = 50000,  -- More memory for bursts
+        overflow_strategy = lual.async.drop_oldest
+    }
+})
 
 -- Memory constrained
-{
-    async_batch_size = 10,         -- Smaller batches
-    async_flush_interval = 1.0,    -- Less frequent processing
-    max_queue_size = 1000,         -- Limit memory usage
-    overflow_strategy = "drop_oldest"
-}
+lual.config({
+    async = {
+        enabled = true,
+        backend = lual.async.coroutines,
+        batch_size = 10,         -- Smaller batches
+        flush_interval = 1.0,    -- Less frequent processing
+        max_queue_size = 1000,   -- Limit memory usage
+        overflow_strategy = lual.async.drop_oldest
+    }
+})
 
 -- Reliability focused
-{
-    async_batch_size = 1,          -- Process immediately
-    async_flush_interval = 0.1,    -- Frequent flushes
-    overflow_strategy = "block"     -- Never drop messages
-}
+lual.config({
+    async = {
+        enabled = true,
+        backend = lual.async.coroutines,
+        batch_size = 1,          -- Process immediately
+        flush_interval = 0.1,    -- Frequent flushes
+        overflow_strategy = lual.async.block -- Never drop messages
+    }
+})
 ```
 
 ## Failure Modes

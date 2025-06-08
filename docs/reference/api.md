@@ -398,6 +398,69 @@ Constant for UTC timezone in presenters.
 
 Constant for local timezone in presenters.
 
+## Async API
+
+### lual.async.coroutines
+
+Constant for the coroutines async backend.
+
+### lual.async.libuv
+
+Constant for the libuv async backend.
+
+### lual.async.drop_oldest
+
+Constant for the drop_oldest overflow strategy. Oldest messages are dropped when the queue is full.
+
+### lual.async.drop_newest
+
+Constant for the drop_newest overflow strategy. Newest messages are dropped when the queue is full.
+
+### lual.async.block
+
+Constant for the block overflow strategy. The application blocks until there's room in the queue.
+
+### lual.async.defaults
+
+Default configuration values for the async subsystem.
+
+### lual.async.get_stats()
+
+Returns statistics about the async subsystem.
+
+**Parameters:**
+- None
+
+**Returns:**
+- (table): Statistics including queue size, processed messages, and backend-specific metrics.
+
+**Examples:**
+```lua
+local stats = lual.async.get_stats()
+print("Queue size:", stats.queue_size)
+print("Messages processed:", stats.messages_processed)
+```
+
+### lual.flush()
+
+Flushes all queued async log events immediately.
+
+**Parameters:**
+- None
+
+**Returns:**
+- None
+
+**Examples:**
+```lua
+-- Log some messages
+logger:info("First message")
+logger:info("Second message")
+
+-- Force immediate processing of queued messages
+lual.flush()
+```
+
 ## Imperative Configuration Methods
 
 ### logger:set_level(level)
@@ -613,10 +676,6 @@ lual.set_live_level("LOG_LEVEL")
 -- Monitor APP_DEBUG environment variable, checking every 50 log entries
 lual.set_live_level("APP_DEBUG", 50)
 ```
-
-### lual.flush()
-
-Flushes all queued async log events immediately.
 
 ---
 
