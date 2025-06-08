@@ -52,4 +52,13 @@ function M.get_pipeline_schema()
     }
 end
 
+-- Pipelines array schema for declarative validation
+function M.get_pipelines_array_schema()
+    return {
+        type = "table",
+        count = { 1, "*" }, -- At least one pipeline required
+        each = M.get_pipeline_schema()
+    }
+end
+
 return M

@@ -9,15 +9,10 @@ local M = {}
 
 --- Validates pipelines configuration
 function M.validate(pipelines, full_config)
-    if type(pipelines) ~= "table" then
-        return false, "Invalid type for 'pipelines': expected table, got " .. type(pipelines)
-    end
-
-    for i, pipeline in ipairs(pipelines) do
-        local errors = schemer.validate(pipeline, pipelines_schema_module.get_pipeline_schema())
-        if errors then
-            return false, string.format("pipelines[%d]: %s", i, errors.error)
-        end
+    -- Use schemer's array validation with detailed error reporting
+    local errors = schemer.validate(pipelines, pipelines_schema_module.get_pipelines_array_schema())
+    if errors then
+        return false, errors.error
     end
 
     return true
