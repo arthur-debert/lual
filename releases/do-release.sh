@@ -336,9 +336,10 @@ if [ -z "$DRY_RUN_FLAG" ]; then
         print_success "Found ${PKG_NAME} ${FINAL_VERSION} on LuaRocks."
     else
         # Script exits 1 if version IS NOT found.
-        # To provide context, we can optionally run the search again and show its output.
-        SEARCH_OUTPUT_VERIFY=$(luarocks search "$PKG_NAME" "$FINAL_VERSION" 2>/dev/null)
-        print_warning "Could not verify ${PKG_NAME} ${FINAL_VERSION} on LuaRocks. Check manually. Search output:\n$SEARCH_OUTPUT_VERIFY"
+        # This could be because the package was just published and LuaRocks hasn't updated its search index yet
+        print_warning "Could not verify ${PKG_NAME} ${FINAL_VERSION} on LuaRocks immediately after publishing."
+        print_warning "This is normal as LuaRocks may take some time to update its search index."
+        print_warning "The package was likely published successfully, but please check manually later."
     fi
     echo
 fi

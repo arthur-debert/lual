@@ -26,9 +26,21 @@ fi
 # Assume rockspec revision is always "1" for published rocks we are checking against.
 VERSION_REVISION_TO_CHECK="${SEMANTIC_VERSION_ARG}-1"
 
-# Perform the search, suppressing luarocks' own stderr (like "falling back to wget")
-# Grep for the specific pattern. -q makes grep silent and exit with 0 on match, 1 on no match.
-if luarocks search "$PACKAGE_NAME_ARG" "$SEMANTIC_VERSION_ARG" 2>/dev/null | grep -qE "[[:space:]]${VERSION_REVISION_TO_CHECK}[[:space:]]+\(rockspec\)"; then
+# Perform the search and store the output
+SEARCH_OUTPUT=$(luarocks search "$PACKAGE_NAME_ARG" 2>/dev/null)
+
+# First verify we're looking at the right package section
+if ! echo "$SEARCH_OUTPUT" | grep -q "^$PACKAGE_NAME_ARG$"; then
+    # Package not found at all
+    exit 1
+fi
+
+# Look for the version pattern matching the exact format in LuaRocks output within the package section
+# We need to check that this version belongs to our package and not some other package with similar name
+PACKAGE_SECTION=$(echo "$SEARCH_OUTPUT" | sed -n "/^$PACKAGE_NAME_ARG$/,/^$/p")
+
+# Now check if the version exists in the package section
+if echo "$PACKAGE_SECTION" | grep -qE "^[[:space:]]+${VERSION_REVISION_TO_CHECK}[[:space:]]+\(rockspec\)"; then
     exit 0 # Found
 else
     exit 1 # Not found

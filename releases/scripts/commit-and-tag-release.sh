@@ -1,4 +1,4 @@
-sa!/usr/bin/env bash
+#!/usr/bin/env bash
 #
 # Script: commit-and-tag-release.sh
 # Purpose: Stages specified release artifact files, commits them with a release message,
