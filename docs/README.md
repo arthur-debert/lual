@@ -4,25 +4,15 @@ Welcome to the comprehensive documentation for lual v1.0, the hierarchical loggi
 
 ## Documentation Structure
 
-### 🚀 **[Getting Started](getting-started/)**
-
-Perfect for new users. Learn the basics in under 10 minutes.
-
-- [Installation](getting-started/installation.md) - Setup and requirements
-- [Quick Start](getting-started/quick-start.md) - 5-minute introduction
-- [Basic Concepts](getting-started/basic-concepts.md) - Core terminology
-
 ### 📖 **[User Guide](guide/)**
 
 Complete guide to using lual effectively.
 
+- [Pipeline System](guide/pipeline-system.md) - Core architecture and components
 - [Hierarchical Logging](guide/hierarchical-logging.md) - Logger trees and propagation
-
-### 🔬 **[Deep Dives](deep-dives/)**
-
-Advanced topics and internal architecture.
-
-- [Pipeline System](deep-dives/pipeline-system.md) - Components and processing
+- [Command Line Verbosity](guide/command-line-verbosity.md) - Control log levels via CLI arguments
+- [Live Level Changes](guide/live-level-changes.md) - Dynamically change log levels at runtime
+- [Asynchronous I/O](guide/async/async-io.md) - Non-blocking logging options
 
 ### 📚 **[Reference](reference/)**
 
@@ -31,18 +21,21 @@ Complete API and configuration documentation.
 - [API Documentation](reference/api.md) - All functions and methods
 - [Glossary](reference/glossary.md) - Terminology and definitions
 
+### 🚀 **[Quick Start](getting-started/quick-start.md)**
+
+Get up and running in 5 minutes with our quick start guide.
+
 ## Quick Navigation
 
-**New to lual?** → Start with [Installation](getting-started/installation.md)
 **Want to try it quickly?** → See [Quick Start](getting-started/quick-start.md)
-**Need advanced features?** → Check [Deep Dives](deep-dives/)
+**Need help with configuration?** → See [Hierarchical Logging](guide/hierarchical-logging.md)
 **Looking for specific info?** → Try [API Reference](reference/api.md)
 
 ## Learning Path
 
-1. **Beginner**: [Installation](getting-started/installation.md) → [Quick Start](getting-started/quick-start.md) → [Basic Concepts](getting-started/basic-concepts.md)
-2. **Intermediate**: [Hierarchical Logging](guide/hierarchical-logging.md) → [Pipeline System](deep-dives/pipeline-system.md)
-3. **Advanced**: [API Reference](reference/api.md) → Custom Components
+1. **Beginner**: Start with the [Quick Start](getting-started/quick-start.md)
+2. **Intermediate**: [Hierarchical Logging](guide/hierarchical-logging.md) → [Command Line Verbosity](guide/command-line-verbosity.md)
+3. **Advanced**: [Asynchronous I/O](guide/async/async-io.md) → [API Reference](reference/api.md)
 
 ## What's New in v1.0
 
@@ -54,4 +47,4 @@ Complete API and configuration documentation.
 
 ---
 
-*This documentation covers lual v1.0. For migration from earlier versions, see the [Changelog](../../CHANGELOG.md).*
+*This documentation covers lual v1.0. For migration from earlier versions, see the [Changelog](../CHANGELOG.md).*

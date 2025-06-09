@@ -69,7 +69,7 @@ Bottleneck: Output function complexity, not event loop overhead.
 ### Basic Usage
 
 ```lua
-local lual = require("lual.logger")
+local lual = require("lual")
 
 lual.config({
     async = {
@@ -289,7 +289,7 @@ luarocks install luv
 **Messages being dropped**
 - Increase `max_queue_size`
 - Optimize output functions for speed
-- Consider `overflow_strategy = "block"` for critical logs
+- Consider `overflow_strategy = lual.async.block` for critical logs
 
 ### Debug Mode
 
