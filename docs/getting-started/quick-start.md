@@ -144,9 +144,8 @@ db_logger:error("Connection timeout")  -- Goes to database.log AND console
 
 You now know the basics! Here's where to go next:
 
-- **Learn core concepts** → [Basic Concepts](basic-concepts.md)
 - **Understand hierarchy** → [Hierarchical Logging](../guide/hierarchical-logging.md)
-- **Explore advanced features** → [Deep Dives](../deep-dives/)
+- **Learn about pipelines** → [Pipeline System](../guide/pipeline-system.md)
 - **Find specific functions** → [API Reference](../reference/api.md)
 
 ## Common Questions
@@ -165,4 +164,4 @@ A: Use `presenter = lual.json()` in your output configuration.
 
 ---
 
-**Ready for more?** Continue with [Basic Concepts](basic-concepts.md) or explore [Deep Dives](../deep-dives/).
+**Ready for more?** Continue with [Hierarchical Logging](../guide/hierarchical-logging.md) or explore [Pipeline System](../guide/pipeline-system.md).
