@@ -57,7 +57,7 @@ _get_or_create_logger_internal = function(requested_name_or_nil, config_data, lo
     end
 
     local new_logger = {}
-    for k, v in pairs(logger_prototype) do new_logger[k] = v end
+    -- Don't copy methods from logger_prototype - let metatable handle method inheritance
     new_logger.name = final_name
 
     -- Set the metatable to enable custom level method dispatch
