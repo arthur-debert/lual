@@ -5,7 +5,7 @@
 #          rockspec generation, Git tagging, LuaRocks publishing, and GitHub release creation.
 #
 # High-Level Execution Flow:
-#   1. Setup: Defines paths, exports key variables (PKG_NAME, PROJECT_ROOT_ABS, SCRIPTS_DIR, FINAL_VERSION).
+#   1. Setup: Defines paths, exports key variables (PKG_NAME, PROJECT_ROOT, SCRIPTS_DIR, FINAL_VERSION).
 #             PKG_NAME must be set in the environment before running.
 #   2. Argument Parsing: Handles command-line flags for dry runs, versioning, upload options, and GitHub releases.
 #   3. GitHub CLI Check: If GitHub release creation is enabled, verifies 'gh' CLI is available.
@@ -61,7 +61,7 @@
 #
 # Environment Variables Set (and exported for use by sub-scripts):
 #   - SCRIPTS_DIR (path)          : Absolute path to the ./releases/scripts/ directory.
-#   - PROJECT_ROOT_ABS (path)     : Absolute path to the project root.
+#   - PROJECT_ROOT (path)     : Absolute path to the project root.
 #   - DEFAULT_SPEC_TEMPLATE_ABS (path): Absolute path to releases/spec.template.
 #   - FINAL_VERSION (string)      : The determined semantic version (e.g., "0.9.0") for the release.
 #   - PKG_NAME (string)           : (Re-exported from initial environment variable).
@@ -76,10 +76,13 @@ set -e
 # --- Path and Variable Definitions ---
 RELEASES_ROOT=$(dirname "$(readlink -f "$0")")
 export SCRIPTS_DIR="$RELEASES_ROOT/scripts"
-export PROJECT_ROOT_ABS=$(readlink -f "$RELEASES_ROOT/..")
 export DEFAULT_SPEC_TEMPLATE_ABS="$RELEASES_ROOT/spec.template" # Renamed from SPEC_TEMPLATE_ABS for clarity
 
-cd "$PROJECT_ROOT_ABS"
+if [ -z "$PROJECT_ROOT" ]; then
+    print_error "PROJECT_ROOT environment variable not set. This is required."
+    exit 1
+fi
+cd "$PROJECT_ROOT"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -196,12 +199,10 @@ print_success "Final version decided: $FINAL_VERSION for $PKG_NAME"
 # --- Step 1b: Update spec.template if it was the source and version was bumped ---
 # This ensures the template carries the next version for subsequent default runs.
 # User-provided rockspecs are NOT modified.
-SPEC_TEMPLATE_WAS_MODIFIED=false
 if [ -z "$USER_PROVIDED_ROCKSPEC_PATH" ] && [ "$INITIAL_SEMANTIC_VERSION" != "$FINAL_VERSION" ]; then
     print_status "Updating version in default spec template ($DEFAULT_SPEC_TEMPLATE_ABS) to $FINAL_VERSION..."
     # update-spec-version.sh modifies the file in place.
     "$SCRIPTS_DIR/update-spec-version.sh" "$DEFAULT_SPEC_TEMPLATE_ABS" "$FINAL_VERSION"
-    SPEC_TEMPLATE_WAS_MODIFIED=true
     print_success "Default spec template updated."
 fi
 echo
@@ -218,8 +219,8 @@ if [ -n "$USER_PROVIDED_ROCKSPEC_PATH" ]; then
     # The final generated rockspec will have the PKG_NAME (from env) and FINAL_VERSION.
     SOURCE_FOR_GENSPECS="$USER_PROVIDED_ROCKSPEC_PATH"
     # We commit the original user-provided rockspec (it was not modified).
-    if [[ "$USER_PROVIDED_ROCKSPEC_PATH" == "$PROJECT_ROOT_ABS"* ]]; then
-        SPEC_TO_COMMIT_PRIMARY="${USER_PROVIDED_ROCKSPEC_PATH#$PROJECT_ROOT_ABS/}"
+    if [[ "$USER_PROVIDED_ROCKSPEC_PATH" == "$PROJECT_ROOT"* ]]; then
+        SPEC_TO_COMMIT_PRIMARY="${USER_PROVIDED_ROCKSPEC_PATH#$PROJECT_ROOT/}"
     else
         SPEC_TO_COMMIT_PRIMARY="$USER_PROVIDED_ROCKSPEC_PATH"
     fi
