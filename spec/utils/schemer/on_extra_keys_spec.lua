@@ -1,5 +1,5 @@
 describe("schemer on_extra_keys", function()
-    local schemer = require("lua.lual.utils.schemer")
+    local schemer = require("lual.utils.schemer")
 
     describe("default behavior (error)", function()
         it("should error on unknown keys by default", function()

@@ -1,9 +1,9 @@
 -- Live Log Level Changes
 -- This module allows changing log levels through environment variables at runtime
 
--- Note: For direct execution with 'lua', use require("lua.lual.*")
+-- Note: For direct execution with 'lua', use require("lual.*")
 -- For LuaRocks installed modules or busted tests, use require("lual.*")
-local core_levels = require("lua.lual.levels")
+local core_levels = require("lual.levels")
 local schemer = require("lual.utils.schemer")
 local live_level_schema_module = require("lual.config.live_level_schema")
 
