@@ -13,7 +13,7 @@
 # Environment Variables Expected (set by caller, e.g., do-release.sh):
 #   - PKG_NAME          : The definitive package name (e.g., "lual"). Used to predict the output .src.rock filename.
 #   - FINAL_VERSION     : The definitive semantic version (X.Y.Z, e.g., "0.9.0"). Used to predict output filename.
-#   - CWD should be PROJECT_ROOT_ABS, where rockspec files are located and .rock files will be created.
+#   - CWD should be PROJECT_ROOT, where rockspec files are located and .rock files will be created.
 #
 # Called by: releases/do-release.sh
 # Assumptions:

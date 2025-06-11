@@ -15,13 +15,13 @@
 #                                   or a user-provided path/to/some.rockspec) to use as a base.
 #
 # Environment Variables Expected (set by caller, e.g., do-release.sh):
-#   - PROJECT_ROOT_ABS    : Absolute path to the project root. The new rockspec file will be created here (CWD).
+#   - PROJECT_ROOT    : Absolute path to the project root. The new rockspec file will be created here (CWD).
 #   - PKG_NAME            : The definitive package name for the output rockspec (e.g., "lual").
 #   - FINAL_VERSION       : The definitive semantic version (X.Y.Z, e.g., "0.9.0") for the output rockspec.
 #
 # Called by: releases/do-release.sh
 # Assumptions:
-#   - Current Working Directory (CWD) is PROJECT_ROOT_ABS.
+#   - Current Working Directory (CWD) is PROJECT_ROOT.
 #   - The <source_spec_file_abs_path> exists and is readable.
 #   - The source spec file contains standard 'package = "..."' and 'version = "..."' lines that
 #     can be reliably updated by the script's `sed` commands.
@@ -42,8 +42,8 @@ if [ ! -f "$SOURCE_SPEC_FILE_ARG" ]; then
 fi
 
 # Check for necessary environment variables
-if [ -z "$PROJECT_ROOT_ABS" ]; then
-    echo "Error: PROJECT_ROOT_ABS env var not set." >&2
+if [ -z "$PROJECT_ROOT" ]; then
+    echo "Error: PROJECT_ROOT env var not set." >&2
     exit 1
 fi
 if [ -z "$PKG_NAME" ]; then
@@ -58,7 +58,7 @@ fi
 # --- Configuration ---
 ROCK_REVISION="1"
 
-# Output rockspec file will be in PROJECT_ROOT_ABS (current CWD)
+# Output rockspec file will be in PROJECT_ROOT (current CWD)
 # This is the canonical name for the rockspec to be built/published.
 FINAL_ROCKSPEC_FILENAME="${PKG_NAME}-${FINAL_VERSION}-${ROCK_REVISION}.rockspec"
 

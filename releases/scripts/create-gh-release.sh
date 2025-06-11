@@ -12,7 +12,7 @@
 #   <asset_file_N>     : Path(s) to asset file(s) to upload with the release (e.g., .rockspec, .src.rock).
 #
 # Environment Variables Expected:
-#   - CWD is PROJECT_ROOT_ABS : Assumes the script is run from the project root, which is a Git repository
+#   - CWD is PROJECT_ROOT : Assumes the script is run from the project root, which is a Git repository
 #                             correctly configured for 'gh' to identify the target repository.
 #   - GH_TOKEN (optional)     : GitHub token, if needed by 'gh' CLI and not already configured.
 #                             (Usually 'gh auth login' handles authentication).

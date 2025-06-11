@@ -15,7 +15,7 @@
 # Environment Variables Expected (set by caller, e.g., do-release.sh):
 #   - FINAL_VERSION          : The semantic version string for the release (e.g., "0.9.0").
 #                            Used for the commit message ("Release vX.Y.Z") and tag name ("vX.Y.Z").
-#   - CWD is PROJECT_ROOT_ABS: Assumes script is run from the project root, which is a Git repository.
+#   - CWD is PROJECT_ROOT: Assumes script is run from the project root, which is a Git repository.
 #
 # Called by: releases/do-release.sh
 # Assumptions:

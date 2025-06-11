@@ -21,7 +21,7 @@
 # Environment Variables Expected:
 #   - LUAROCKS_API_KEY (optional): If set, this API key is used for authentication with LuaRocks,
 #                                  bypassing the interactive prompt.
-#   - CWD is PROJECT_ROOT_ABS : Assumes script is run from the project root where files to upload are located.
+#   - CWD is PROJECT_ROOT : Assumes script is run from the project root where files to upload are located.
 #
 # Called by: releases/do-release.sh
 # Assumptions:
