@@ -2,18 +2,9 @@
 -- Schema definition for command-line driven logging level configuration
 
 local core_levels = require("lual.levels")
+local schemer = require("lual.utils.schemer")
 
 local M = {}
-
--- Helper function to get level names for validation
-local function get_level_names()
-    local all_levels = core_levels.get_all_levels()
-    local names = {}
-    for name, _ in pairs(all_levels) do
-        table.insert(names, name)
-    end
-    return names
-end
 
 -- Default mapping of command line flags to log levels
 M.DEFAULT_MAPPING = {
@@ -25,33 +16,38 @@ M.DEFAULT_MAPPING = {
     silent = "critical"
 }
 
--- Custom validator for mapping that uses case insensitive level validation
+-- Custom validator for mapping that accepts both string level names and numeric level values
 local function validate_mapping(mapping)
     if type(mapping) ~= "table" then
         return false, "mapping must be a table"
     end
 
-    for flag, level_name in pairs(mapping) do
+    -- Create enum with reverse lookup for level validation
+    local level_enum = schemer.enum(core_levels.get_all_levels(), {
+        reverse = true,
+        case_insensitive = true
+    })
+
+    for flag, level_value in pairs(mapping) do
         if type(flag) ~= "string" then
             return false, "mapping keys must be strings"
         end
-        if type(level_name) ~= "string" then
-            return false, "level names in mapping must be strings"
+
+        -- Validate the level value using schemer's enum validation
+        local field_schema = {
+            values = level_enum
+        }
+
+        local errors, normalized_value = schemer.validate({ level = level_value }, {
+            fields = { level = field_schema }
+        })
+
+        if errors then
+            return false, "invalid level value '" .. tostring(level_value) .. "' for flag '" .. flag .. "'"
         end
 
-        -- Use case insensitive level validation
-        local level_names = get_level_names()
-        local found = false
-        for _, valid_name in ipairs(level_names) do
-            if string.lower(valid_name) == string.lower(level_name) then
-                found = true
-                break
-            end
-        end
-
-        if not found then
-            return false, "unknown level name in mapping: " .. level_name
-        end
+        -- Update the mapping with the normalized value (string -> number conversion)
+        mapping[flag] = normalized_value.level
     end
 
     return true
