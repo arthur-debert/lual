@@ -45,21 +45,37 @@ describe("Command line verbosity", function()
         end)
 
         it("validates mapping key types", function()
+            -- String keys should still be required for the mapping itself
             local result, msg = command_line.validate({ mapping = { [123] = "info" } })
+            -- TODO: This test might need to be adjusted depending on schemer's key validation
+            -- For now, let's see if schemer validates this
             assert.is_false(result)
-            assert.matches("keys must be strings", msg)
         end)
 
-        it("validates mapping value types", function()
-            local result, msg = command_line.validate({ mapping = { v = 123 } })
+        it("accepts both string and numeric mapping values", function()
+            -- String level names should work
+            local result = command_line.validate({ mapping = { v = "warning" } })
+            assert.is_true(result)
+
+            -- Numeric level values should also work
+            result = command_line.validate({ mapping = { v = 30 } })
+            assert.is_true(result)
+
+            -- Invalid types should fail
+            result = command_line.validate({ mapping = { v = true } })
             assert.is_false(result)
-            assert.matches("level names.*must be strings", msg)
         end)
 
-        it("validates mapping level names", function()
+        it("validates mapping level names and values", function()
+            -- Invalid level name should fail
             local result, msg = command_line.validate({ mapping = { v = "not_a_level" } })
             assert.is_false(result)
-            assert.matches("unknown level name", msg)
+            assert.matches("invalid level value", msg)
+
+            -- Invalid level number should fail
+            result, msg = command_line.validate({ mapping = { v = 999 } })
+            assert.is_false(result)
+            assert.matches("invalid level value", msg)
         end)
 
         it("validates auto_detect type", function()

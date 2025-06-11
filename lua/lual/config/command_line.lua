@@ -90,11 +90,17 @@ function M.detect_verbosity_from_cli(mapping)
                 end
             else
                 -- Check if flag matches a mapping
-                local level_name = mapping[flag]
-                if level_name then
-                    local _, level_value = core_levels.get_level_by_name(level_name:upper())
-                    if level_value then
-                        detected_level = level_value
+                local level_value_or_name = mapping[flag]
+                if level_value_or_name then
+                    -- Handle both numeric values (from schemer normalization) and string names
+                    if type(level_value_or_name) == "number" then
+                        detected_level = level_value_or_name
+                    else
+                        -- String level name - convert to number
+                        local _, level_value = core_levels.get_level_by_name(level_value_or_name:upper())
+                        if level_value then
+                            detected_level = level_value
+                        end
                     end
                 end
             end
@@ -104,20 +110,32 @@ function M.detect_verbosity_from_cli(mapping)
 
             -- Check for concatenated flags (e.g., -vvv)
             if flag:match("^(v+)$") then
-                local level_name = mapping[flag]
-                if level_name then
-                    local _, level_value = core_levels.get_level_by_name(level_name:upper())
-                    if level_value then
-                        detected_level = level_value
+                local level_value_or_name = mapping[flag]
+                if level_value_or_name then
+                    -- Handle both numeric values (from schemer normalization) and string names
+                    if type(level_value_or_name) == "number" then
+                        detected_level = level_value_or_name
+                    else
+                        -- String level name - convert to number
+                        local _, level_value = core_levels.get_level_by_name(level_value_or_name:upper())
+                        if level_value then
+                            detected_level = level_value
+                        end
                     end
                 end
             else
                 -- Check for other single flags
-                local level_name = mapping[flag]
-                if level_name then
-                    local _, level_value = core_levels.get_level_by_name(level_name:upper())
-                    if level_value then
-                        detected_level = level_value
+                local level_value_or_name = mapping[flag]
+                if level_value_or_name then
+                    -- Handle both numeric values (from schemer normalization) and string names
+                    if type(level_value_or_name) == "number" then
+                        detected_level = level_value_or_name
+                    else
+                        -- String level name - convert to number
+                        local _, level_value = core_levels.get_level_by_name(level_value_or_name:upper())
+                        if level_value then
+                            detected_level = level_value
+                        end
                     end
                 end
             end
