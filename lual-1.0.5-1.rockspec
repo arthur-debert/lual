@@ -1,6 +1,6 @@
 rockspec_format = "3.0"
 package = "lual"
-version = "1.0.3-1"
+version = "1.0.5-1"
 source = {
    url = "git+https://github.com/arthur-debert/lual.git"
 }
