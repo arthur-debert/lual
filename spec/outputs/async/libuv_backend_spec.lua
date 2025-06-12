@@ -1,10 +1,10 @@
-package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
+local lual = require("lual")
 
 -- Test suite for libuv backend - optimized for performance
-describe("libuv Backend", function()
+describe("Libuv Backend", function()
     local libuv_backend
-    local queue_module
-    local queue, stats
+    local queue
+    local stats
     local uv_available = false
 
     -- Check if luv is available
@@ -12,7 +12,6 @@ describe("libuv Backend", function()
     if ok then
         uv_available = true
         libuv_backend = require("lual.async.backends.libuv")
-        queue_module = require("lual.utils.queue")
     end
 
     -- Skip all tests if luv is not available
@@ -21,14 +20,20 @@ describe("libuv Backend", function()
         return
     end
 
-    before_each(function()
-        -- Setup backend instance
-        queue = queue_module.new({ max_size = 100 })
+    setup(function()
+        -- Initialize a new queue for each test
+        queue = require("lual.utils.queue").new({ max_size = 100 })
         stats = {
             messages_processed = 0,
             backend_errors = 0,
             messages_dropped = 0
         }
+    end)
+
+    teardown(function()
+        if libuv_backend then
+            libuv_backend:stop()
+        end
     end)
 
     -- Helper function to wait for async operations with timeout

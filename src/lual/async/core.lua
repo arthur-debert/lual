@@ -5,7 +5,8 @@
 local M = {}
 
 -- Import shared utilities
-local queue_module = require("lual.utils.queue")
+local queue = require("lual.utils.queue")
+local uv = require("luv")
 
 -- Available backends
 local BACKENDS = {
@@ -17,6 +18,7 @@ local BACKENDS = {
 -- @param config table Configuration options including backend selection
 -- @return table Async writer instance
 function M.new(config)
+    local lual = require("lual")
     config = config or {}
 
     -- Extract async configuration with defaults
@@ -55,7 +57,7 @@ function M.new(config)
         backend = nil,
 
         -- Shared queue for all backends
-        queue = queue_module.new({
+        queue = queue.new({
             max_size = max_queue_size,
             overflow_strategy = overflow_strategy,
             error_callback = function(msg)

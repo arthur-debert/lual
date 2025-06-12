@@ -19,7 +19,7 @@ build = {
    type = "builtin",
    install = {
       lua = {
-         ["lual"]  = "lua/lual"
+         ["lual"]  = "src/lual"
        }
    },
 }

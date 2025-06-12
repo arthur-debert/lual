@@ -1,6 +1,3 @@
-#!/usr/bin/env lua
-package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
-
 local schemer = require("lual.utils.schemer")
 
 describe("schemer values and enum validation", function()

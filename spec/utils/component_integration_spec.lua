@@ -1,8 +1,6 @@
 #!/usr/bin/env lua
-package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
-
+local lual = require("lual")
 local component_utils = require("lual.utils.component")
-local lual = require("lual.constants")
 local all_outputs = lual.outputs
 local all_presenters = lual.presenters
 local all_transformers = lual.transformers

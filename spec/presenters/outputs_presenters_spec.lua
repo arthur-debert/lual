@@ -1,9 +1,8 @@
-package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
+local lual = require("lual")
 
 -- Compatibility for Lua 5.1 if running in a context where table.unpack is not defined
 local unpack = unpack or table.unpack
 local lualog = require("lual.logger")
-local lual = require("lual.constants")
 
 describe("text presenter", function()
 	it("should format a basic log record", function()

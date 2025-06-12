@@ -17,7 +17,7 @@ function M.new(config)
         _end = 0,
 
         -- Configuration
-        _max_size = config.max_size or 10000,
+        _max_size = config.max_size or 1024,
         _overflow_strategy = config.overflow_strategy or "drop_oldest",
         _error_callback = config.error_callback,
 
@@ -27,25 +27,33 @@ function M.new(config)
 
     --- Gets the current queue size
     -- @return number Current number of items in queue
-    function queue:size()
+    function queue.size(self)
         return self._end - self._start + 1
     end
 
     --- Checks if the queue is empty
     -- @return boolean True if queue is empty
-    function queue:is_empty()
+    function queue.is_empty(self)
         return self._start > self._end
+    end
+
+    function queue.is_full(self)
+        return self:size() >= self._max_size
+    end
+
+    function queue.capacity(self)
+        return self._max_size
     end
 
     --- Gets the overflow count
     -- @return number Number of overflow events that have occurred
-    function queue:overflow_count()
+    function queue.overflow_count(self)
         return self._overflows
     end
 
     --- Gets queue statistics
     -- @return table Statistics about the queue
-    function queue:stats()
+    function queue.stats(self)
         return {
             size = self:size(),
             max_size = self._max_size,
@@ -80,6 +88,8 @@ function M.new(config)
                 self._error_callback("Queue overflow: blocking not implemented in queue module")
             end
             return false -- Don't add the new item
+        elseif self._overflow_strategy == "error" then
+            error("Queue: Queue overflow")
         end
 
         return true
@@ -88,7 +98,7 @@ function M.new(config)
     --- Adds an item to the queue
     -- @param item any The item to add
     -- @return boolean True if item was added, false if dropped due to overflow
-    function queue:enqueue(item)
+    function queue.enqueue(self, item)
         -- Check size limit
         if self:size() >= self._max_size then
             if not handle_overflow(self) then
@@ -105,7 +115,7 @@ function M.new(config)
 
     --- Removes and returns an item from the front of the queue
     -- @return any The item from the front of the queue, or nil if empty
-    function queue:dequeue()
+    function queue.dequeue(self)
         if self:is_empty() then
             return nil
         end
@@ -123,10 +133,14 @@ function M.new(config)
         return item
     end
 
+    -- Alias for backwards compatibility or stylistic preference
+    queue.push = queue.enqueue
+    queue.pop = queue.dequeue
+
     --- Extracts a batch of items from the queue efficiently
     -- @param batch_size number Maximum number of items to extract
     -- @return table Array of items
-    function queue:extract_batch(batch_size)
+    function queue.extract_batch(self, batch_size)
         local available = self:size()
         local actual_batch_size = math.min(available, batch_size)
         local batch = {}
@@ -148,7 +162,7 @@ function M.new(config)
 
     --- Peeks at the front item without removing it
     -- @return any The front item, or nil if empty
-    function queue:peek()
+    function queue.peek(self)
         if self:is_empty() then
             return nil
         end
@@ -156,14 +170,14 @@ function M.new(config)
     end
 
     --- Clears all items from the queue
-    function queue:clear()
+    function queue.clear(self)
         self._items = {}
         self._start = 1
         self._end = 0
     end
 
     --- Resets the queue to initial state
-    function queue:reset()
+    function queue.reset(self)
         self:clear()
         self._overflows = 0
     end

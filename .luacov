@@ -1,7 +1,7 @@
 return {
   -- Modules to include in coverage analysis
   include = {
-    "lua/lual/",
+    "src/lual/",
     "lual",
   },
   -- Modules to exclude from coverage analysis

@@ -1,8 +1,7 @@
 #!/usr/bin/env lua
-package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 local unpack = unpack or table.unpack
 
-local lual = require("lual.constants")
+local lual = require("lual")
 local text_presenter = lual.text
 local color_presenter = lual.color
 local json_presenter = lual.json

@@ -19,12 +19,14 @@ build = {
    type = "builtin",
    install = {
       lua = {
-         ["lual"]  = "lua/lual"
+         ["lual"]  = "src/lual"
        }
    },
 }
 test_dependencies = {
-   "busted >= 2.0.0"
+   "busted >= 2.0.0",
+   "luasocket",
+   "luv"
 }
 test = {
    type = "busted"

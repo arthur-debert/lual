@@ -1,8 +1,7 @@
 #!/usr/bin/env lua
-package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
 
 -- Test suite for output-specific levels
-local lual = require("lual.logger")
+local lual = require("lual")
 local core_levels = require("lual.levels")
 local test_helpers = require("spec.utils.test_helpers")
 

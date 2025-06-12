@@ -1,6 +1,5 @@
-package.path = package.path .. ";./lua/?.lua;./lua/?/init.lua;../lua/?.lua;../lua/?/init.lua"
+local lual = require("lual")
 local unpack = unpack or table.unpack
-local lual = require("lual.constants")
 local color_factory = lual.color
 
 describe("lual.presenters.color", function()

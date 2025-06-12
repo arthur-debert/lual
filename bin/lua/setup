@@ -17,6 +17,8 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     fi
 fi
 
+# make sure we don't have conflicting luarocks installations
+luarocks purge && luarocks purge --local
 # if macos, make sure we have the necessary packages via homebrew
 if [[ "$OSTYPE" == "darwin"* ]]; then
     echo "macOS detected"
