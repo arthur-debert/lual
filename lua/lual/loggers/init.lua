@@ -130,7 +130,13 @@ end
 -- @param propagate boolean Whether to propagate
 function logger_prototype:set_propagate(propagate)
     if type(propagate) ~= "boolean" then
-        error("Propagate must be a boolean, got " .. type(propagate))
+        -- Check if user used dot notation instead of colon notation
+        if propagate == nil then
+            error(
+                "Propagate must be a boolean, got nil. Did you use dot notation instead of colon? Try logger:set_propagate(flag) instead of logger.set_propagate(flag)")
+        else
+            error("Propagate must be a boolean, got " .. type(propagate))
+        end
     end
 
     self.propagate = propagate
@@ -272,17 +278,42 @@ for method_name, method_func in pairs(logging_methods) do
     logger_prototype[method_name] = method_func
 end
 
--- Set up metamethod for custom level method dispatch
+-- Set up metamethod for custom level method dispatch and universal dot notation support
 logger_prototype.__index = function(self, key)
     -- First check if it's a regular method
     if logger_prototype[key] then
-        return logger_prototype[key]
+        -- If it's a function, return a bound version that works with both dot and colon notation
+        if type(logger_prototype[key]) == "function" then
+            return function(first_arg, ...)
+                -- Check if called with colon notation (self already passed) or dot notation (need to add self)
+                if first_arg == self then
+                    -- Colon notation: logger:method() - self is already the first argument
+                    return logger_prototype[key](self, ...)
+                else
+                    -- Dot notation: logger.method() - need to prepend self
+                    return logger_prototype[key](self, first_arg, ...)
+                end
+            end
+        else
+            -- For non-function properties, return as-is
+            return logger_prototype[key]
+        end
     end
 
     -- Then check if it's a level name (built-in or custom)
     local level_name, level_no = core_levels.get_level_by_name(key)
     if level_name and level_no then
-        return function(self_inner, ...)
+        return function(first_arg, ...)
+            -- Check if called with colon notation (self already passed) or dot notation (need to add self)
+            local actual_args
+            if first_arg == self then
+                -- Colon notation: logger:debug() - self is already passed
+                actual_args = { ... }
+            else
+                -- Dot notation: logger.debug() - need to include the first argument
+                actual_args = { first_arg, ... }
+            end
+
             -- Check for environment variable level changes
             local live_level = require("lual.config.live_level")
             local current_config = config_module.get_config()
@@ -292,19 +323,19 @@ logger_prototype.__index = function(self, key)
             end
 
             -- Check if logging is enabled for this level
-            local effective_level = self_inner:_get_effective_level()
+            local effective_level = self:_get_effective_level()
             if level_no < effective_level then
                 return -- Early exit if level not enabled
             end
 
             -- Parse arguments
-            local msg_fmt, args, context = log_module.parse_log_args(...)
+            local msg_fmt, args, context = log_module.parse_log_args(unpack(actual_args))
 
             -- Create log record
-            local log_record = log_module.create_log_record(self_inner, level_no, level_name, msg_fmt, args, context)
+            local log_record = log_module.create_log_record(self, level_no, level_name, msg_fmt, args, context)
 
             -- Dispatch the log event
-            dispatch_log_event(self_inner, log_record)
+            dispatch_log_event(self, log_record)
         end
     end
 

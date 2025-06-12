@@ -44,6 +44,16 @@ describe("lual Logger - Basic Usage (Regression Protection)", function()
             end, "Basic logger:info() call should work without any configuration")
         end)
 
+        it("should work with user's original failing code using dot notation", function()
+            -- This is the EXACT user code that was originally failing with dot notation
+            assert.has_no_error(function()
+                local lual = require("lual")
+                local logger = lual.logger()
+                logger.set_level(lual.debug) -- This was failing before!
+                logger.info("Logging setup complete at %Y-%m-%d %H:%M:%S")
+            end, "User's original dot notation code should now work")
+        end)
+
         it("should support all logging levels without configuration", function()
             local logger = lual.logger()
             logger.level = lual.debug
@@ -180,6 +190,49 @@ describe("lual Logger - Basic Usage (Regression Protection)", function()
                 local config = logger:get_config()
                 assert.is_table(config, "get_config should return a table")
             end, "get_config should work through inheritance")
+        end)
+
+        it("should support both dot and colon notation for method calls", function()
+            -- This verifies universal dot notation support for all methods
+            local logger1 = lual.logger("test.colon")
+            local logger2 = lual.logger("test.dot")
+
+            -- Colon notation (traditional way)
+            assert.has_no_error(function()
+                logger1:set_level(lual.debug)
+                logger1:info("Colon notation test")
+            end, "Colon notation should work")
+
+            -- Dot notation (now supported universally!)
+            assert.has_no_error(function()
+                logger2.set_level(lual.debug) -- No need for explicit self anymore!
+                logger2.info("Dot notation test")
+            end, "Dot notation should work for all methods")
+
+            -- Test all major methods with dot notation
+            local logger3 = lual.logger("test.comprehensive")
+            assert.has_no_error(function()
+                logger3.set_level(lual.debug)
+                logger3.set_propagate(false)
+                logger3.add_pipeline({
+                    outputs = { lual.console },
+                    presenter = lual.text()
+                })
+
+                -- Test all logging methods with dot notation
+                logger3.debug("Debug with dot")
+                logger3.info("Info with dot")
+                logger3.warn("Warning with dot")
+                logger3.error("Error with dot")
+                logger3.critical("Critical with dot")
+
+                -- Test utility methods
+                local config = logger3.get_config()
+                assert.is_table(config, "get_config should return table")
+
+                local level = logger3._get_effective_level()
+                assert.is_number(level, "_get_effective_level should return number")
+            end, "All methods should work with dot notation")
         end)
     end)
 

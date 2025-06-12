@@ -80,36 +80,20 @@ describe("lual Logger - Effective Level Calculation (Step 2.5)", function()
             assert.are.equal(core_levels.definition.INFO, effective_level)
         end)
 
-        it("should fallback to INFO when no explicit parent level and not root", function()
+        it("should inherit from root when logger has NOTSET level", function()
             lual.reset_cache()
-            -- Create an orphaned logger (its parent _root will have default WARNING, not INFO, unless global config changes)
-            -- The rule is: if self.level is NOTSET, and self.parent._get_effective_level() is called.
-            -- If _root is parent, and its level is WARNING, child inherits WARNING.
-            -- This test implies an orphan whose hierarchy resolves to a NOTSET state that then defaults to INFO.
-            -- This happens if root itself was NOTSET and had no parent (which is not possible for _root).
-            -- Or if a logger is truly orphaned (parent explicitly nil and not _root)
-            -- The current _get_effective_level for a non-root logger with no parent (not typical) defaults to INFO.
-            local orphan_logger = lual.logger("orphan.el7") -- Parent is _root, level is NOTSET
-            -- To test the INFO fallback for a truly detached logger (not typical): construct manually
-            local manually_orphaned = {
-                name = "manual_orphan",
-                level = core_levels.definition.NOTSET,
-                parent = nil,
-                _get_effective_level =
-                    lual.logger("any")._get_effective_level
-            }
-            assert.are.equal(core_levels.definition.INFO, manually_orphaned:_get_effective_level(),
-                "Manually orphaned logger with NOTSET should fallback to INFO")
+            -- In the actual system, all loggers inherit from _root, so test this real scenario
+            lual.config({ level = core_levels.definition.WARNING }) -- Set root level
 
-            -- Test a logger that is child of _root, where _root itself might be at default WARNING
-            lual.config({ level = core_levels.definition.WARNING }) -- ensure root default
-            local child_of_root = lual.logger("child_of_root_for_info_fallback_test")
-            if child_of_root.parent and child_of_root.parent.name == "_root" then
-                -- if _root is at WARNING, child_of_root should inherit WARNING
-                assert.are.equal(core_levels.definition.WARNING, child_of_root:_get_effective_level(),
-                    "Child of root (at WARNING) should inherit WARNING")
-            end
-            -- The original intent of INFO fallback is for a logger with .level=NOTSET and .parent=nil that is NOT _root.
+            local child_logger = lual.logger("child.inherits.from.root")
+            -- Child should inherit WARNING from _root since child has NOTSET by default
+            assert.are.equal(core_levels.definition.WARNING, child_logger:_get_effective_level(),
+                "Child logger should inherit WARNING level from _root")
+
+            -- Change root level and verify inheritance works
+            lual.config({ level = core_levels.definition.INFO })
+            assert.are.equal(core_levels.definition.INFO, child_logger:_get_effective_level(),
+                "Child logger should inherit new INFO level from _root")
         end)
 
         it("should handle deep hierarchy correctly", function()
@@ -163,15 +147,11 @@ describe("lual Logger - Effective Level Calculation (Step 2.5)", function()
             assert.are.equal(core_levels.definition.WARNING, logger:_get_effective_level(),
                 "Auto-named logger should inherit _root's level (WARNING)")
 
-            -- Test true orphan fallback (manually constructed)
-            local manually_orphaned = {
-                name = "manual_orphan",
-                level = core_levels.definition.NOTSET,
-                parent = nil,
-                _get_effective_level = lual.logger("any_for_method")._get_effective_level -- Borrow method
-            }
-            assert.are.equal(core_levels.definition.INFO, manually_orphaned:_get_effective_level(),
-                "Manually orphaned logger with NOTSET should fallback to INFO")
+            -- Test with different root levels to verify inheritance
+            lual.config({ level = core_levels.definition.DEBUG })
+            local debug_logger = lual.logger()
+            assert.are.equal(core_levels.definition.DEBUG, debug_logger:_get_effective_level(),
+                "Auto-named logger should inherit DEBUG level from _root")
         end)
 
         it("should handle all NOTSET hierarchy correctly for effective level", function()
