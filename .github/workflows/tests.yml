@@ -59,7 +59,17 @@ jobs:
       - name: Install Lua dependencies
         if: steps.cache-lua-deps.outputs.cache-hit != 'true'
         run: |
-          luarocks install  --tree .luarocks --only-deps ${{ steps.get-rockspec.outputs.rockspec_file }}
+          luarocks install --tree .luarocks --only-deps ${{ steps.get-rockspec.outputs.rockspec_file }}
+      
+      - name: Set Lua paths
+        id: set-lua-paths
+        run: |
+          echo "Setting Lua paths..."
+          eval $(luarocks path --tree .luarocks)
+          echo "LUA_PATH=$LUA_PATH" >> $GITHUB_ENV
+          echo "LUA_CPATH=$LUA_CPATH" >> $GITHUB_ENV
+          echo "PATH=$PATH" >> $GITHUB_ENV
+
       # on macos, busted comes with luarocks, but not on ubuntu:
       # Busted should now be installed via apt from .github/apt-packages.txt
       - name: Run tests
