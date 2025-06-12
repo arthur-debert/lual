@@ -78,4 +78,10 @@ jobs:
           LUAROCKS_LOCAL: true
         run: |
           echo "Sourcing .envrc and running tests..."
-          source .envrc && busted
+          source .envrc && busted > test_output.log || true
+          cat test_output.log
+          if grep -q "0 failures / 0 errors" test_output.log; then
+            exit 0
+          else
+            exit 1
+          fi
