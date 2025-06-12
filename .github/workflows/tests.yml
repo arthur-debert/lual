@@ -73,14 +73,9 @@ jobs:
       # on macos, busted comes with luarocks, but not on ubuntu:
       # Busted should now be installed via apt from .github/apt-packages.txt
       - name: Run tests
+        shell: bash
         env:
           LUAROCKS_LOCAL: true
         run: |
-          echo "Sourcing .envrc..."
-          source .envrc
-          echo "PATH after sourcing .envrc: $PATH"
-          echo "LUA_PATH after sourcing .envrc: $LUA_PATH"
-          echo "LUA_CPATH after sourcing .envrc: $LUA_CPATH"
-          echo "Which busted: $(which busted)"
-          echo "Attempting to run busted..."
-          busted
+          echo "Sourcing .envrc and running tests..."
+          source .envrc && busted
