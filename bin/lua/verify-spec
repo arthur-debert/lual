@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+set -e
+
+# LuaRocks performs no validation of packages, and it's just too easy to miss it.
+# This script will install from a rockspec file, install its dependencies and test that the main import
+# is working. It will also WIPE system wide and local rocks, to make sure we're not shadowing versions
+
+rockspec="$1"
+
+# Function to cleanup temporary directory
+cleanup() {
+    if [ -n "$tmpdir" ] && [ -d "$tmpdir" ]; then
+        echo "Cleaning up temporary directory: $tmpdir"
+        rm -rf "$tmpdir"
+    fi
+}
+
+# Set up cleanup trap
+trap cleanup EXIT
+
+# Make sure that $PKG_NAME is set
+if [ -z "$PKG_NAME" ]; then
+    echo "Error: PKG_NAME environment variable is not set"
+    exit 1
+fi
+
+# First verify the rockspec file exists
+if [ -z "$rockspec" ]; then
+    echo "Usage: $0 <rockspec>"
+    echo "  Verifies a rockspec by installing it in isolation and testing the main import"
+    exit 1
+fi
+
+if [ ! -f "$rockspec" ]; then
+    echo "Error: Rockspec file '$rockspec' does not exist"
+    exit 1
+fi
+
+# Convert to absolute path before changing directories
+rockspec_abs=$(realpath "$rockspec")
+
+echo "Verifying rockspec: $rockspec"
+echo "Package name: $PKG_NAME"
+
+# Verify that it's valid (lint)
+echo "Linting rockspec..."
+if ! luarocks lint "$rockspec_abs"; then
+    echo "Error: Rockspec failed validation"
+    exit 1
+fi
+
+echo "Purging existing rocks to ensure clean environment..."
+luarocks purge --force 2>/dev/null || true
+luarocks purge --local --force 2>/dev/null || true
+
+echo "Creating temporary directory for isolated installation..."
+tmpdir=$(mktemp -d)
+cd "$tmpdir"
+
+echo "Installing rockspec with local rock tree..."
+# Install the rockspec with a local rock tree
+luarocks install --tree .luarocks "$rockspec_abs"
+
+echo "Testing package import..."
+# Test that the package can be imported successfully
+if ! lua -e "assert(require('$PKG_NAME'))"; then
+    echo "Error: Failed to import package '$PKG_NAME'"
+    exit 1
+fi
+
+echo "✓ Rockspec verification completed successfully"
+echo "  - Rockspec is valid"
+echo "  - Package installs without errors"
+echo "  - Main module '$PKG_NAME' imports successfully"
