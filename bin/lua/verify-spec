@@ -1,9 +1,117 @@
 #!/usr/bin/env bash
 set -e
 
-# LuaRocks performs no validation of packages, and it's just too easy to miss it.
-# This script will install from a rockspec file, install its dependencies and test that the main import
-# is working. It will also WIPE system wide and local rocks, to make sure we're not shadowing versions
+#===============================================================================
+# verify-spec - LuaRocks Rockspec Verification Tool
+#===============================================================================
+#
+# DESCRIPTION:
+#   Comprehensively validates a rockspec file by installing it in an isolated
+#   environment and testing module imports. This catches packaging issues that
+#   luarocks lint alone cannot detect, such as missing module mappings or
+#   broken installation configurations.
+#
+# USAGE:
+#   PKG_NAME=<package> verify-spec <rockspec_file>
+#   verify-spec --help
+#
+# ARGUMENTS:
+#   <rockspec_file>    Path to the rockspec file to verify
+#
+# ENVIRONMENT VARIABLES:
+#   PKG_NAME          Required. Name of the main package/module to test
+#
+# EXAMPLES:
+#   PKG_NAME=lual ./bin/lua/verify-spec lual-1.0.11-1.rockspec
+#   PKG_NAME=mylib verify-spec mylib-2.1.0-1.rockspec
+#
+# WHAT IT DOES:
+#   1. Validates rockspec syntax using 'luarocks lint'
+#   2. PURGES all system-wide and local LuaRocks installations (WARNING!)
+#   3. Installs the rockspec in an isolated local tree
+#   4. Tests that the main module can be imported
+#   5. Tests that critical internal modules can be imported
+#   6. Cleans up the test environment
+#
+# WARNING:
+#   This script will PURGE ALL LUAROCKS INSTALLATIONS (system and local)
+#   to ensure a clean testing environment. Make sure you can reinstall
+#   any rocks you need before running this script.
+#
+# EXIT CODES:
+#   0    Success - rockspec is valid and installs correctly
+#   1    Failure - validation failed, installation failed, or import failed
+#
+# REQUIREMENTS:
+#   - luarocks command available
+#   - lua command available
+#   - git (for cloning repositories)
+#   - PKG_NAME environment variable set
+#
+# AUTHOR:
+#   Auto-generated verification script for LuaRocks packages
+#
+#===============================================================================
+
+# Parse command line arguments
+case "${1:-}" in
+--help | -h | help)
+    cat <<'EOF'
+verify-spec - LuaRocks Rockspec Verification Tool
+
+USAGE:
+    PKG_NAME=<package> verify-spec <rockspec_file>
+    verify-spec --help
+
+DESCRIPTION:
+    Comprehensively validates a rockspec file by installing it in an isolated
+    environment and testing module imports. This catches packaging issues that
+    luarocks lint alone cannot detect.
+
+ARGUMENTS:
+    <rockspec_file>    Path to the rockspec file to verify
+
+ENVIRONMENT:
+    PKG_NAME          Required. Name of the main package/module to test
+
+EXAMPLES:
+    PKG_NAME=lual ./bin/lua/verify-spec lual-1.0.11-1.rockspec
+    PKG_NAME=mylib verify-spec mylib-2.1.0-1.rockspec
+
+VERIFICATION STEPS:
+    1. Validates rockspec syntax using 'luarocks lint'
+    2. PURGES all system-wide and local LuaRocks installations
+    3. Installs the rockspec in an isolated local tree
+    4. Tests main module import: require('<PKG_NAME>')
+    5. Tests critical internal module imports
+    6. Cleans up the test environment
+
+⚠️  WARNING:
+    This script will PURGE ALL LUAROCKS INSTALLATIONS (system and local)
+    to ensure a clean testing environment. Make sure you can reinstall
+    any rocks you need before running this script.
+
+EXIT CODES:
+    0    Success - rockspec is valid and installs correctly
+    1    Failure - validation, installation, or import failed
+
+For more information, see the script header documentation.
+EOF
+    exit 0
+    ;;
+"")
+    echo "❌ Error: No rockspec file specified"
+    echo ""
+    echo "Usage: PKG_NAME=<package> $(basename "$0") <rockspec_file>"
+    echo "       $(basename "$0") --help"
+    echo ""
+    echo "Example: PKG_NAME=lual $(basename "$0") lual-1.0.11-1.rockspec"
+    echo ""
+    echo "⚠️  WARNING: This script will PURGE ALL LUAROCKS INSTALLATIONS"
+    echo "   Use --help for full documentation"
+    exit 1
+    ;;
+esac
 
 rockspec="$1"
 test_tree=".test-verify-luarocks"
@@ -25,10 +133,10 @@ if [ -z "$PKG_NAME" ]; then
     exit 1
 fi
 
-# First verify the rockspec file exists
+# This case should not be reached due to argument parsing above, but keeping as safety net
 if [ -z "$rockspec" ]; then
-    echo "Usage: $0 <rockspec>"
-    echo "  Verifies a rockspec by installing it in isolation and testing the main import"
+    echo "❌ Error: No rockspec file specified"
+    echo "Use --help for usage information"
     exit 1
 fi
 
@@ -50,7 +158,8 @@ if ! luarocks lint "$rockspec_abs"; then
     exit 1
 fi
 
-echo "Purging existing rocks to ensure clean environment..."
+echo "⚠️  Purging ALL existing LuaRocks installations to ensure clean environment..."
+echo "   This will remove all system-wide and local rocks!"
 luarocks purge --force 2>/dev/null || true
 luarocks purge --local --force 2>/dev/null || true
 
@@ -59,11 +168,11 @@ echo "Installing rockspec with local rock tree..."
 luarocks install --tree "$test_tree" "$rockspec_abs"
 
 echo "Testing package import..."
-# Test that the package can be imported successfully with proper path setup
-if ! lua -e "
-package.path = '$test_tree/share/lua/5.4/?.lua;$test_tree/share/lua/5.4/?/init.lua;' .. package.path;
-package.cpath = '$test_tree/lib/lua/5.4/?.so;' .. package.cpath;
+# Use LuaRocks' own path management for cleaner, more reliable setup
+eval "$(luarocks --tree "$test_tree" path)"
 
+# Test that the package can be imported successfully
+if ! lua -e "
 -- Test main module
 assert(require('$PKG_NAME'))
 print('✓ Main module $PKG_NAME imported successfully')
