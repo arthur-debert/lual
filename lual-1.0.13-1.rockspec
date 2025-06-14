@@ -78,7 +78,9 @@ build = {
    }
 }
 test_dependencies = {
-   "busted >= 2.0.0"
+   "busted >= 2.0.0",
+   "luasocket",
+   "dkjson",
 }
 test = {
    type = "busted"
