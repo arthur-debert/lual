@@ -2,19 +2,11 @@
 # this script sets up the environment for the project
 # it works on both linux and macos.
 set -e
-
-SCRIPTS_DIR="$(dirname "$0")"
 SPEC_PATH=$1
 
-# If no spec is provided, use the latest spec
 if [ -z "$SPEC_PATH" ]; then
-    echo "No spec provided, using latest spec..."
-    SPEC_PATH=$("${SCRIPTS_DIR}"/get-latest-spec)
-    if [ $? -ne 0 ] || [ -z "$SPEC_PATH" ]; then
-        echo "Error: Could not determine latest spec"
-        exit 1
-    fi
-    echo "Using spec: $SPEC_PATH"
+    echo "Usage: $0 <rockspec-file>"
+    exit 1
 fi
 
 # if linux, make sure we have the apt packages installed from .github/apt-packages.txt

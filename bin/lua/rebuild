@@ -1,5 +1,4 @@
 #! /usr/bin/env bash
-SPEC_PATH=$1
 LUAROCK_NAME=".luarocks"
 LUAROCK_DIR="${PROJECT_ROOT}/${LUAROCK_NAME}"
 
@@ -8,10 +7,4 @@ if [[ -d ${LUAROCK_DIR} ]]; then
 fi
 
 SCRIPTS_DIR="$(dirname "$0")"
-
-# If a spec is provided, pass it to setup; otherwise let setup use the default
-if [ -n "$SPEC_PATH" ]; then
-    "${SCRIPTS_DIR}"/setup "$SPEC_PATH"
-else
-    "${SCRIPTS_DIR}"/setup
-fi
+"${SCRIPTS_DIR}"/setup "${SCRIPTS_DIR}"/get-latest-spec
