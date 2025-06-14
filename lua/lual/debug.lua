@@ -41,7 +41,10 @@ function M._debug_print(message, ...)
 
     -- Print directly to stderr with prefix to distinguish from regular output
     io.stderr:write("[LUAL_DEBUG] " .. formatted_message .. "\n")
-    io.stderr:flush()
+    -- Flush if available (not all Lua environments support it)
+    if io.stderr.flush then
+        io.stderr:flush()
+    end
 end
 
 -- Function to enable/disable internal debug at runtime (for testing)
