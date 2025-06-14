@@ -1,12 +1,21 @@
 -- Log Record Creation and Processing
 -- This module handles the creation and processing of log records
 
+-- Lua 5.1 compatibility
+local unpack = unpack or table.unpack
+local pack = table.pack or function(...)
+    return { n = select('#', ...), ... }
+end
+
 -- Note: For direct execution with 'lua', use require("lual.*")
 -- For LuaRocks installed modules or busted tests, use require("lual.*")
 local core_levels = require("lual.levels")
 local get_logger_tree = require("lual.log.get_logger_tree")
 local get_pipelines = require("lual.log.get_pipelines")
 local process = require("lual.log.process")
+
+-- Import the standalone debug module to avoid circular dependencies
+local debug_module = require("lual.debug")
 
 local M = {}
 
@@ -26,7 +35,7 @@ function M.create_log_record(logger, level_no, level_name, message_fmt, args, co
         for i = 1, args.n do
             format_args[i] = args[i]
         end
-        local ok, result = pcall(string.format, message_fmt, table.unpack(format_args))
+        local ok, result = pcall(string.format, message_fmt, unpack(format_args))
         if ok then
             formatted_message = result
         else
@@ -54,29 +63,40 @@ end
 -- @param source_logger table The logger that originated the log event
 -- @param log_record table The log record to process
 function M.process_log_record(source_logger, log_record)
+    debug_module._debug_print("Log record processing: START - source_logger='%s', level=%s (%d), message='%s'",
+        source_logger.name, log_record.level_name, log_record.level_no, log_record.message)
+
     -- Step 1: Get the logger tree (all loggers that should process this record)
+    debug_module._debug_print("Log record processing: Step 1 - building logger tree")
     local logger_tree = get_logger_tree.get_logger_tree(source_logger)
+    debug_module._debug_print("Log record processing: got %d loggers in tree", #logger_tree)
 
     -- Step 2: Get all eligible pipelines from all loggers
+    debug_module._debug_print("Log record processing: Step 2 - collecting eligible pipelines")
     local all_eligible_pipelines = {}
     for _, logger in ipairs(logger_tree) do
         local eligible_pipelines = get_pipelines.get_eligible_pipelines(logger, log_record)
+        debug_module._debug_print("Log record processing: logger '%s' contributed %d eligible pipelines",
+            logger.name, #eligible_pipelines)
         for _, pipeline_entry in ipairs(eligible_pipelines) do
             table.insert(all_eligible_pipelines, pipeline_entry)
         end
     end
+    debug_module._debug_print("Log record processing: collected %d total eligible pipelines", #all_eligible_pipelines)
 
     -- Step 3: Process all eligible pipelines
+    debug_module._debug_print("Log record processing: Step 3 - processing all eligible pipelines")
     process.process_pipelines(all_eligible_pipelines, log_record)
+    debug_module._debug_print("Log record processing: COMPLETE")
 end
 
 --- Parses log method arguments (similar to v1 system but simplified)
 -- @param ... The variadic arguments passed to a log method
 -- @return string, table, table The message format, args table, and context table
 function M.parse_log_args(...)
-    local packed_varargs = table.pack(...)
+    local packed_varargs = pack(...)
     local msg_fmt_val
-    local args_val = table.pack() -- Empty args by default
+    local args_val = pack() -- Empty args by default
     local context_val = nil
 
     if packed_varargs.n == 0 then
@@ -88,7 +108,7 @@ function M.parse_log_args(...)
         if packed_varargs.n >= 2 and type(packed_varargs[2]) == "string" then
             msg_fmt_val = packed_varargs[2]
             if packed_varargs.n >= 3 then
-                args_val = table.pack(select(3, ...))
+                args_val = pack(select(3, ...))
             end
         else
             -- Context only, try to extract message from context.msg
@@ -99,7 +119,7 @@ function M.parse_log_args(...)
         if type(packed_varargs[1]) == "string" then
             msg_fmt_val = packed_varargs[1]
             if packed_varargs.n >= 2 then
-                args_val = table.pack(select(2, ...))
+                args_val = pack(select(2, ...))
             end
         else
             -- Single non-string value, convert to string
@@ -126,7 +146,7 @@ function M.format_message(message_fmt, args)
             format_args[i] = args[i]
         end
 
-        local ok, result = pcall(string.format, message_fmt, table.unpack(format_args))
+        local ok, result = pcall(string.format, message_fmt, unpack(format_args))
         if ok then
             return result
         else

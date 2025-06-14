@@ -15,6 +15,9 @@ local tree_module = require("lual.loggers.tree")
 local factory_module = require("lual.loggers.factory")
 local async_writer = require("lual.async")
 
+-- Import the standalone debug module to avoid circular dependencies
+local debug_module = require("lual.debug")
+
 ------------------------------------------
 -- LOGGER PROTOTYPE AND CORE FUNCTIONALITY
 ------------------------------------------
@@ -165,15 +168,22 @@ end
 -- @param source_logger table The logger that originated the log event
 -- @param log_record table The log record to process
 local function dispatch_log_event(source_logger, log_record)
+    debug_module._debug_print("Dispatch: ENTRY - logger='%s', level=%s (%d), message='%s'",
+        source_logger.name, log_record.level_name, log_record.level_no, log_record.message)
+
     -- Check if async mode is enabled
     if async_writer.is_enabled() then
+        debug_module._debug_print("Dispatch: using ASYNC processing")
         -- Queue the event for async processing
         async_writer.queue_log_event(source_logger, log_record)
+        debug_module._debug_print("Dispatch: event queued for async processing")
         return
     end
 
     -- Synchronous processing using the log module
+    debug_module._debug_print("Dispatch: using SYNCHRONOUS processing")
     log_module.process_log_record(source_logger, log_record)
+    debug_module._debug_print("Dispatch: synchronous processing completed")
 end
 
 -- Define logging methods directly

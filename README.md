@@ -87,6 +87,18 @@ lual is probably not for you if you need:
 
 
 
+## Debugging and Troubleshooting
+
+If you're experiencing issues with lual or need to understand its internal behavior, you can enable internal debug output:
+
+```bash
+LUAL_INTERNAL_DEBUG=true lua your_app.lua
+```
+
+This enables lual's internal debug system that prints diagnostic information to stderr without interfering with your application's logging. The debug messages are prefixed with `[LUAL_DEBUG]` and show internal operations like configuration processing, logger creation, and pipeline setup.
+
+**Note**: This debug system completely bypasses lual's main logging pipeline to avoid circular dependencies when debugging logging issues.
+
 ## Contributing
 
 Contributions welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.

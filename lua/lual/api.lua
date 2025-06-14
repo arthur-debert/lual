@@ -10,6 +10,9 @@ local core_levels = require("lual.levels")
 local async_writer = require("lual.async")
 local logger_config = require("lual.loggers.config")
 
+-- Import the standalone debug module
+local debug_module = require("lual.debug")
+
 local M = {}
 
 -- Main public API to get or create a logger.
@@ -137,6 +140,12 @@ end
 
 -- Expose internal functions for testing
 M.create_root_logger = loggers_module.create_root_logger
+
+-- Internal debug functionality (not part of public API)
+-- Delegate to the standalone debug module
+M._INTERNAL_DEBUG = debug_module._INTERNAL_DEBUG
+M._debug_print = debug_module._debug_print
+M._set_internal_debug = debug_module._set_internal_debug
 
 -- Copy all constants from constants module to public API
 for key, value in pairs(constants) do

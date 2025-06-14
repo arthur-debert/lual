@@ -6,6 +6,9 @@
 local component_utils = require("lual.utils.component")
 local core_levels = require("lual.levels")
 
+-- Import the standalone debug module to avoid circular dependencies
+local debug_module = require("lual.debug")
+
 local M = {}
 
 --- Processes a single transformer
@@ -104,6 +107,8 @@ function M.process_pipeline(log_record, pipeline_entry)
     local pipeline = pipeline_entry.pipeline
     local logger = pipeline_entry.logger
 
+    debug_module._debug_print("Pipeline step: processing pipeline for logger '%s'", logger.name)
+
     -- Create a copy of the log record for this pipeline
     local pipeline_record = {}
     for k, v in pairs(log_record) do
@@ -113,49 +118,82 @@ function M.process_pipeline(log_record, pipeline_entry)
     -- Add pipeline level to the record for informational purposes
     if pipeline.level then
         pipeline_record.pipeline_level = pipeline.level
+        debug_module._debug_print("Pipeline step: pipeline has level=%d", pipeline.level)
     else
         pipeline_record.pipeline_level = core_levels.definition.NOTSET
+        debug_module._debug_print("Pipeline step: pipeline has no level (using NOTSET)")
     end
 
     -- Apply transformers if configured
     if pipeline.transformers then
-        for _, transformer in ipairs(pipeline.transformers) do
+        debug_module._debug_print("Pipeline step: applying %d transformers", #pipeline.transformers)
+        for i, transformer in ipairs(pipeline.transformers) do
+            debug_module._debug_print("Pipeline step: processing transformer %d/%d", i, #pipeline.transformers)
             local transformed_record, error_msg = process_transformer(pipeline_record, transformer)
             if transformed_record then
                 pipeline_record = transformed_record
+                debug_module._debug_print("Pipeline step: transformer %d succeeded", i)
             else
                 pipeline_record.transformer_error = error_msg
+                debug_module._debug_print("Pipeline step: transformer %d FAILED: %s", i, error_msg)
                 break -- Stop processing transformers if one fails
             end
         end
+    else
+        debug_module._debug_print("Pipeline step: no transformers configured")
     end
 
     -- Apply presenter if configured
     if pipeline.presenter and not pipeline_record.transformer_error then
+        debug_module._debug_print("Pipeline step: applying presenter")
         local presented_message, error_msg = process_presenter(pipeline_record, pipeline.presenter)
         if presented_message then
             pipeline_record.presented_message = presented_message
             pipeline_record.message = presented_message -- Overwrite message with presented message
+            debug_module._debug_print("Pipeline step: presenter succeeded")
         else
             pipeline_record.presenter_error = error_msg
+            debug_module._debug_print("Pipeline step: presenter FAILED: %s", error_msg)
         end
+    elseif pipeline.presenter then
+        debug_module._debug_print("Pipeline step: skipping presenter due to transformer error")
+    else
+        debug_module._debug_print("Pipeline step: no presenter configured")
     end
 
     -- Process each output in the pipeline
     if pipeline.outputs and not pipeline_record.transformer_error and not pipeline_record.presenter_error then
-        for _, output in ipairs(pipeline.outputs) do
+        debug_module._debug_print("Pipeline step: processing %d outputs", #pipeline.outputs)
+        for i, output in ipairs(pipeline.outputs) do
+            debug_module._debug_print("Pipeline step: processing output %d/%d", i, #pipeline.outputs)
             process_output(pipeline_record, output, logger)
         end
+        debug_module._debug_print("Pipeline step: completed all outputs")
+    elseif not pipeline.outputs then
+        debug_module._debug_print("Pipeline step: no outputs configured")
+    else
+        debug_module._debug_print(
+        "Pipeline step: skipping outputs due to errors (transformer_error=%s, presenter_error=%s)",
+            tostring(pipeline_record.transformer_error ~= nil),
+            tostring(pipeline_record.presenter_error ~= nil))
     end
+
+    debug_module._debug_print("Pipeline step: completed pipeline for logger '%s'", logger.name)
 end
 
 --- Process all eligible pipelines for a log record
 -- @param eligible_pipelines table Array of eligible pipelines to process
 -- @param log_record table The log record to process
 function M.process_pipelines(eligible_pipelines, log_record)
-    for _, pipeline_entry in ipairs(eligible_pipelines) do
+    debug_module._debug_print("Pipeline processing: processing %d eligible pipelines", #eligible_pipelines)
+
+    for i, pipeline_entry in ipairs(eligible_pipelines) do
+        debug_module._debug_print("Pipeline processing: processing pipeline %d/%d (logger='%s')",
+            i, #eligible_pipelines, pipeline_entry.logger.name)
         M.process_pipeline(log_record, pipeline_entry)
     end
+
+    debug_module._debug_print("Pipeline processing: completed all %d pipelines", #eligible_pipelines)
 end
 
 -- Expose internal functions that are needed by other modules
